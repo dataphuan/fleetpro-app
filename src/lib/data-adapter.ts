@@ -5,7 +5,7 @@
 
 import { db, auth, firebaseConfig } from './firebase';
 import { collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, addDoc, writeBatch } from 'firebase/firestore';
-import { signInWithEmailAndPassword, signOut as firebaseSignOut, getAuth, createUserWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, signOut as firebaseSignOut, getAuth, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { initializeApp, deleteApp } from 'firebase/app';
 import { normalizeUserRole } from './rbac';
 import { validateAdapterData } from './schemas';
@@ -445,41 +445,80 @@ const webDataAdapters: Record<string, any> = {
     accountingPeriods: createFirestoreAdapter('accountingPeriods'),
     alerts: alertsFirestoreAdapter,
     auth: {
-        login: async (credentials: any) => {
+        login: async (payload: { email: string; password: string }) => {
             try {
-                const userCredential = await signInWithEmailAndPassword(auth, credentials.email, credentials.password);
+                const userCredential = await signInWithEmailAndPassword(auth, payload.email, payload.password);
                 const user = userCredential.user;
                 
-                // Fetch user document from Firestore to get Tenant ID and Role
+                // Fetch user document from Firestore to get tenant_id and role
                 const userDoc = await getDoc(doc(db, 'users', user.uid));
-                let tenantId = '';
-                let role = 'viewer';
-                let fullName = user.email || user.uid;
-                
-                if (userDoc.exists()) {
-                    tenantId = userDoc.data().tenant_id || '';
-                    role = normalizeUserRole(userDoc.data().role);
-                    fullName = userDoc.data().full_name || fullName;
+                if (!userDoc.exists()) {
+                    throw new Error('User record not found in system (collection users). Contact support.');
                 }
+                
+                const userData = userDoc.data();
+                const tenantId = userData.tenant_id;
+                const role = normalizeUserRole(userData.role);
+                const fullName = userData.full_name || user.email;
 
                 if (!tenantId) {
-                    return { success: false, error: 'Tài khoản chưa được gán tenant_id trong collection users' };
+                    throw new Error('User account is missing a tenant_id association.');
                 }
                 
                 return {
                     success: true,
                     data: {
-                        token: await user.getIdToken(),
                         user: {
                             id: user.uid,
                             email: user.email,
                             role: role,
                             full_name: fullName,
-                            tenantId: tenantId,
-                            permissions: []
+                            tenantId: tenantId
                         }
                     }
                 };
+            } catch (error: any) {
+                return { success: false, error: error.message };
+            }
+        },
+        register: async (payload: { email: string; password: string; full_name: string; company_name: string }) => {
+            try {
+                // 1. Create Firebase Auth user
+                const userCredential = await createUserWithEmailAndPassword(auth, payload.email, payload.password);
+                const uid = userCredential.user.uid;
+
+                // 2. Generate a unique tenant_id (standard SaaS provisioning)
+                const shortId = Math.random().toString(36).substring(2, 10);
+                const tenantId = `tenant-${shortId}`;
+
+                // 3. Create Firestore user document (Admin for the new tenant)
+                await setDoc(doc(db, 'users', uid), {
+                    email: payload.email,
+                    full_name: payload.full_name,
+                    company_name: payload.company_name,
+                    role: 'admin',
+                    tenant_id: tenantId,
+                    status: 'active',
+                    created_at: new Date().toISOString()
+                });
+
+                // 4. Initialize company settings
+                await setDoc(doc(db, 'company_settings', tenantId), {
+                    company_name: payload.company_name,
+                    admin_id: uid,
+                    created_at: new Date().toISOString(),
+                    subscription: { plan: 'trial', status: 'active' }
+                });
+
+                return { success: true, data: { uid, tenantId } };
+            } catch (error: any) {
+                return { success: false, error: error.message };
+            }
+        },
+        resetPassword: async (email: string) => {
+            try {
+                await sendPasswordResetEmail(auth, email);
+                return { success: true };
             } catch (error: any) {
                 return { success: false, error: error.message };
             }

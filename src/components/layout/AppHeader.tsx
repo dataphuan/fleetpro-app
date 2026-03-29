@@ -12,11 +12,15 @@ import {
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAlertsSummary } from "@/hooks/useAlerts";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
+import { Badge } from "@/components/ui/badge";
+import { Crown, Building } from "lucide-react";
 
 export function AppHeader() {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { data: alertsSummary } = useAlertsSummary();
+  const { data: companySettings } = useCompanySettings();
 
   const handleLogout = () => {
     // Fire and forget logout to avoid hanging if server is unreachable
@@ -31,9 +35,21 @@ export function AppHeader() {
 
   return (
     <header className="flex items-center justify-between h-16 px-6 border-b bg-card">
-      {/* Logo/Title placeholder */}
-      <div className="w-80">
-        {/* Reserved for branding/logo */}
+      {/* Branding */}
+      <div className="flex items-center gap-3 w-80">
+        <div className="p-1.5 bg-primary/5 rounded-lg">
+          <Building className="w-5 h-5 text-primary/70" />
+        </div>
+        <div className="flex flex-col">
+          <span className="text-sm font-bold text-slate-800 truncate max-w-[180px]">
+            {companySettings?.company_name || "Hệ thống quản lý"}
+          </span>
+          <div className="flex items-center gap-1.5 mt-0.5">
+             <Badge variant="outline" className="text-[9px] h-4 px-1 bg-blue-50/50 text-blue-600 border-blue-200 uppercase font-black tracking-tighter">
+                {companySettings?.subscription?.plan || 'trial'}
+             </Badge>
+          </div>
+        </div>
       </div>
 
       {/* Right actions */}

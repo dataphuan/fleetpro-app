@@ -13,6 +13,35 @@ export default function Pricing() {
     const { toast } = useToast();
     const [isProcessing, setIsProcessing] = useState(false);
     const [isMomoLoading, setIsMomoLoading] = useState(false);
+
+    const handleDemoUpgrade = async (plan: 'basic' | 'pro') => {
+        setIsProcessing(true);
+        try {
+            const next30Days = new Date();
+            next30Days.setDate(next30Days.getDate() + 30);
+            
+            await companySettingsAdapter.upsert({
+                id: tenantId || 'default',
+                subscription: {
+                    plan: plan,
+                    status: 'active',
+                    trial_ends_at: new Date().toISOString(),
+                    next_billing_date: next30Days.toISOString()
+                }
+            });
+
+            toast({
+                title: "Nâng cấp Demo thành công!",
+                description: `Hệ thống đã chuyển sang gói ${plan.toUpperCase()}. Các giới hạn Quota đã được mở rộng.`,
+            });
+
+            setTimeout(() => window.location.reload(), 2000);
+        } catch (error: any) {
+             toast({ title: "Lỗi", description: error.message, variant: "destructive" });
+        } finally {
+            setIsProcessing(false);
+        }
+    };
     
     // Default bank info for payments
     const bankInfo = {
@@ -225,6 +254,15 @@ export default function Pricing() {
                             onClick={() => handleMomoClick('basic')}
                         >
                             {isMomoLoading ? "Đang tạo mã QR..." : "Thanh toán bằng ví MoMo"}
+                        </Button>
+
+                        <Button 
+                            variant="ghost" 
+                            className="w-full text-[10px] text-slate-400 hover:text-primary"
+                            onClick={() => handleDemoUpgrade('basic')}
+                            disabled={isProcessing}
+                        >
+                            [ DEV ONLY: Kích hoạt gói Basic ngay ]
                         </Button>
                     </CardFooter>
                 </Card>
