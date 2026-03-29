@@ -1,0 +1,57 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAuthed() {
+      return request.auth != null;
+    }
+
+    function userDocExists() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function tenantId() {
+      return userDoc().data.tenant_id;
+    }
+
+    function userRole() {
+      return userDoc().data.role;
+    }
+
+    function canAccessTenantData() {
+      return isAuthed() && userDocExists();
+    }
+
+    function sameTenantOnCreate() {
+      return request.resource.data.tenant_id == tenantId();
+    }
+
+    function sameTenantOnReadUpdateDelete() {
+      return resource.data.tenant_id == tenantId();
+    }
+
+    function isTenantAdmin() {
+      return userRole() in ['admin', 'admin_tenant'];
+    }
+
+    // Users collection: users can read self, tenant admins manage users in their own tenant.
+    match /users/{uid} {
+      allow read: if canAccessTenantData() && (
+        uid == request.auth.uid ||
+        (sameTenantOnReadUpdateDelete() && isTenantAdmin())
+      );
+
+      allow create: if canAccessTenantData() && sameTenantOnCreate() && isTenantAdmin();
+      allow update, delete: if canAccessTenantData() && sameTenantOnReadUpdateDelete() && isTenantAdmin();
+    }
+
+    // Tenant-scoped resources: all documents must carry tenant_id.
+    match /{collection}/{docId} {
+      allow create: if canAccessTenantData() && sameTenantOnCreate();
+      allow read, update, delete: if canAccessTenantData() && sameTenantOnReadUpdateDelete();
+    }
+  }
+}

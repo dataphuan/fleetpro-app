@@ -1,0 +1,45 @@
+name: Deploy Apps Script
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+      - name: Install clasp
+        run: npm install -g @google/clasp
+      - name: Authenticate clasp
+        env:
+          CLASP_CREDENTIALS: ${{ secrets.CLASP_CREDENTIALS }}
+        run: |
+          echo "$CLASP_CREDENTIALS" > credentials.json
+          clasp login --creds credentials.json
+      - name: Push and Deploy
+        run: |
+          cd 1-ONLINE
+          clasp push
+          clasp deploy --description "CI deploy" --versionNumber 1
+
+      - name: Run online release gate (optional)
+        if: ${{ secrets.WEBAPP_URL != '' && secrets.TENANT_A != '' }}
+        env:
+          WEBAPP_URL: ${{ secrets.WEBAPP_URL }}
+          TENANT_A: ${{ secrets.TENANT_A }}
+          TENANT_B: ${{ secrets.TENANT_B }}
+          TENANT_USER_TOKEN: ${{ secrets.TENANT_USER_TOKEN }}
+          TENANT_EDITOR_TOKEN: ${{ secrets.TENANT_EDITOR_TOKEN }}
+        run: |
+          node 1-ONLINE/scripts/online-release-gate.js \
+            --webapp "$WEBAPP_URL" \
+            --tenant-a "$TENANT_A" \
+            ${TENANT_B:+--tenant-b "$TENANT_B"} \
+            ${TENANT_USER_TOKEN:+--user-token "$TENANT_USER_TOKEN"} \
+            ${TENANT_EDITOR_TOKEN:+--editor-token "$TENANT_EDITOR_TOKEN"}

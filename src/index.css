@@ -1,0 +1,351 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Fleet Management System Design System
+   Professional, data-focused design for Vietnamese trucking businesses
+   Colors in HSL format */
+
+@layer base {
+  :root {
+    /* Core palette - Deep navy professional theme */
+    --background: 210 20% 98%;
+    --foreground: 215 25% 15%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 215 25% 15%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 25% 15%;
+
+    /* Primary - Deep navy blue (trust, professionalism) */
+    --primary: 215 60% 25%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Secondary - Slate gray */
+    --secondary: 215 15% 92%;
+    --secondary-foreground: 215 25% 25%;
+
+    /* Muted - Soft gray for backgrounds */
+    --muted: 215 15% 95%;
+    --muted-foreground: 215 15% 45%;
+
+    /* Accent - Teal for highlights */
+    --accent: 175 60% 40%;
+    --accent-foreground: 0 0% 100%;
+
+    /* Semantic colors for business status */
+    --success: 145 65% 40%;
+    --success-foreground: 0 0% 100%;
+    
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 100%;
+
+    --info: 205 85% 50%;
+    --info-foreground: 0 0% 100%;
+
+    /* Status colors for workflow */
+    --status-draft: 215 15% 65%;
+    --status-confirmed: 205 85% 50%;
+    --status-in-progress: 38 92% 50%;
+    --status-completed: 145 65% 40%;
+    --status-cancelled: 0 72% 51%;
+
+    /* Financial colors */
+    --profit: 145 65% 40%;
+    --loss: 0 72% 51%;
+
+    --border: 215 20% 88%;
+    --input: 215 20% 88%;
+    --ring: 215 60% 25%;
+
+    --radius: 0.5rem;
+
+    /* Sidebar */
+    --sidebar-background: 215 60% 20%;
+    --sidebar-foreground: 215 20% 95%;
+    --sidebar-primary: 175 60% 45%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 215 50% 30%;
+    --sidebar-accent-foreground: 215 20% 95%;
+    --sidebar-border: 215 40% 25%;
+    --sidebar-ring: 175 60% 45%;
+    --sidebar-muted: 215 30% 35%;
+
+    /* Data table */
+    --table-header: 215 20% 96%;
+    --table-row-hover: 215 20% 97%;
+    --table-row-selected: 175 50% 95%;
+    --table-border: 215 20% 90%;
+
+    /* Chart colors */
+    --chart-1: 215 60% 45%;
+    --chart-2: 175 60% 45%;
+    --chart-3: 38 92% 55%;
+    --chart-4: 145 65% 45%;
+    --chart-5: 280 60% 50%;
+  }
+
+  .dark {
+    --background: 215 30% 10%;
+    --foreground: 215 15% 95%;
+
+    --card: 215 30% 12%;
+    --card-foreground: 215 15% 95%;
+
+    --popover: 215 30% 12%;
+    --popover-foreground: 215 15% 95%;
+
+    --primary: 175 60% 45%;
+    --primary-foreground: 215 30% 10%;
+
+    --secondary: 215 25% 20%;
+    --secondary-foreground: 215 15% 90%;
+
+    --muted: 215 25% 18%;
+    --muted-foreground: 215 15% 60%;
+
+    --accent: 175 60% 40%;
+    --accent-foreground: 0 0% 100%;
+
+    --success: 145 60% 45%;
+    --success-foreground: 0 0% 100%;
+    
+    --warning: 38 90% 55%;
+    --warning-foreground: 0 0% 0%;
+    
+    --destructive: 0 65% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --info: 205 80% 55%;
+    --info-foreground: 0 0% 100%;
+
+    --status-draft: 215 15% 50%;
+    --status-confirmed: 205 80% 55%;
+    --status-in-progress: 38 90% 55%;
+    --status-completed: 145 60% 45%;
+    --status-cancelled: 0 65% 55%;
+
+    --profit: 145 60% 45%;
+    --loss: 0 65% 55%;
+
+    --border: 215 25% 20%;
+    --input: 215 25% 20%;
+    --ring: 175 60% 45%;
+
+    --sidebar-background: 215 35% 8%;
+    --sidebar-foreground: 215 15% 90%;
+    --sidebar-primary: 175 60% 45%;
+    --sidebar-primary-foreground: 0 0% 0%;
+    --sidebar-accent: 215 30% 15%;
+    --sidebar-accent-foreground: 215 15% 95%;
+    --sidebar-border: 215 30% 15%;
+    --sidebar-ring: 175 60% 45%;
+    --sidebar-muted: 215 20% 25%;
+
+    --table-header: 215 25% 15%;
+    --table-row-hover: 215 25% 14%;
+    --table-row-selected: 175 40% 15%;
+    --table-border: 215 25% 18%;
+
+    --chart-1: 175 60% 50%;
+    --chart-2: 215 60% 55%;
+    --chart-3: 38 90% 60%;
+    --chart-4: 145 60% 50%;
+    --chart-5: 280 55% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  /* Monospace for codes and numbers */
+  .font-mono {
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* Custom scrollbar for data tables */
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: hsl(var(--muted));
+    border-radius: 3px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: hsl(var(--muted-foreground) / 0.3);
+    border-radius: 3px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground) / 0.5);
+  }
+}
+
+@layer components {
+  /* Status badge variants */
+  .status-badge {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium;
+  }
+
+  .status-draft {
+    @apply bg-[hsl(var(--status-draft)/0.15)] text-[hsl(var(--status-draft))];
+  }
+
+  .status-confirmed {
+    @apply bg-[hsl(var(--status-confirmed)/0.15)] text-[hsl(var(--status-confirmed))];
+  }
+
+  .status-in-progress {
+    @apply bg-[hsl(var(--status-in-progress)/0.15)] text-[hsl(var(--status-in-progress))];
+  }
+
+  .status-completed {
+    @apply bg-[hsl(var(--status-completed)/0.15)] text-[hsl(var(--status-completed))];
+  }
+
+  .status-cancelled {
+    @apply bg-[hsl(var(--status-cancelled)/0.15)] text-[hsl(var(--status-cancelled))];
+  }
+
+  /* Data grid styles */
+  .data-grid {
+    @apply w-full border-collapse;
+  }
+
+  .data-grid th {
+    @apply bg-[hsl(var(--table-header))] px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-muted-foreground border-b border-[hsl(var(--table-border))];
+  }
+
+  .data-grid td {
+    @apply px-4 py-3 text-sm border-b border-[hsl(var(--table-border))];
+  }
+
+  .data-grid tr:hover td {
+    @apply bg-[hsl(var(--table-row-hover))];
+  }
+
+  .data-grid tr.selected td {
+    @apply bg-[hsl(var(--table-row-selected))];
+  }
+
+  /* Card stats */
+  .stat-card {
+    @apply rounded-xl border bg-card p-6 shadow-sm transition-all hover:shadow-md;
+  }
+
+  .stat-value {
+    @apply text-2xl font-bold tracking-tight;
+  }
+
+  .stat-label {
+    @apply text-sm text-muted-foreground;
+  }
+
+  /* Financial indicators */
+  .profit-indicator {
+    @apply text-[hsl(var(--profit))] font-semibold;
+  }
+
+  .loss-indicator {
+    @apply text-[hsl(var(--loss))] font-semibold;
+  }
+
+  /* Sidebar navigation item */
+  .nav-item {
+    @apply flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all;
+  }
+
+  .nav-item-active {
+    @apply bg-sidebar-accent text-sidebar-accent-foreground;
+  }
+
+  .nav-item-inactive {
+    @apply text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground;
+  }
+}
+
+@layer utilities {
+  /* Animation utilities */
+  .animate-fade-in {
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .animate-slide-in {
+    animation: slideIn 0.3s ease-out;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-8px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  /* Number formatting */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Print styles for dispatch order */
+@media print {
+  /* Hide everything except print template */
+  body * {
+    visibility: hidden;
+  }
+  
+  .print-template,
+  .print-template * {
+    visibility: visible;
+  }
+  
+  .print-template {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+  
+  /* Optimize for A4 printing */
+  @page {
+    size: A4;
+    margin: 10mm;
+  }
+  
+  /* Ensure proper page breaks */
+  .print-template {
+    page-break-after: avoid;
+  }
+  
+  /* Force black text for printing */
+  .print-template * {
+    color: #000 !important;
+    background: #fff !important;
+  }
+  
+  /* Keep borders visible */
+  .print-template .border,
+  .print-template .border-b,
+  .print-template .border-t,
+  .print-template .border-2 {
+    border-color: #000 !important;
+  }
+}

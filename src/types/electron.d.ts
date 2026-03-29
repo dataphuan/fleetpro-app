@@ -1,0 +1,10 @@
+// Global type definitions for Electron API
+import type { ElectronAPI } from '../electron/preload';
+
+declare global {
+    interface Window {
+        electronAPI: ElectronAPI;
+    }
+}
+
+export { };
