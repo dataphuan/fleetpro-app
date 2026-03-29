@@ -1,5 +1,9 @@
 import { createContext, useContext, useEffect, useState, useCallback } from "react";
 import type { User } from "@/shared/types/domain";
+import { auth, db } from "@/lib/firebase";
+import { onAuthStateChanged, signOut as firebaseSignOut } from "firebase/auth";
+import { doc, getDoc } from "firebase/firestore";
+import { setRuntimeTenantId } from "@/lib/data-adapter";
 
 import { UserRole } from "@/shared/types/domain";
 import { normalizeUserRole } from "@/lib/rbac";
@@ -10,7 +14,7 @@ interface AuthContextType {
     role: UserRole;
     userId: string | null;
     tenantId: string | null;
-    signOut: () => void;
+    signOut: () => Promise<void>;
     refreshAuth: () => Promise<void>;
     loading: boolean;
 }
@@ -20,7 +24,7 @@ const AuthContext = createContext<AuthContextType>({
     role: 'viewer',
     userId: null,
     tenantId: null,
-    signOut: () => { },
+    signOut: async () => { },
     refreshAuth: async () => { },
     loading: true,
 });
@@ -32,91 +36,109 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [role, setRole] = useState<UserRole>('viewer'); // SECURE DEFAULT
     const [loading, setLoading] = useState(true);
 
-    const initAuth = useCallback(async () => {
-        setLoading(true);
+    const fetchUserMetadata = useCallback(async (firebaseUser: any) => {
+        if (!firebaseUser) {
+            setUser(null);
+            setUserId(null);
+            setTenantId(null);
+            setRole('viewer');
+            return;
+        }
+
         try {
-            // Dev mode auto-login
-            if (import.meta.env.MODE === 'development' && import.meta.env.VITE_DEV_AUTO_LOGIN === 'true') {
-                setUserId('dev-admin');
-                setRole('admin');
-                setTenantId('dev-tenant');
-                setUser({
-                    id: 'dev-admin',
-                    email: 'admin@dev.local',
-                    password_hash: '',
-                    full_name: 'Quản trị viên phát triển',
-                    role: 'admin',
-                    status: 'active',
-                    created_at: new Date().toISOString(),
-                    updated_at: new Date().toISOString(),
-                });
-                setLoading(false);
-                return;
+            // Fetch user document from Firestore to get Tenant ID and Role
+            const userDocRef = doc(db, 'users', firebaseUser.uid);
+            const userDocSnap = await getDoc(userDocRef);
+            
+            let currentTenantId = '';
+            let currentRole: UserRole = 'viewer';
+            let fullName = firebaseUser.displayName || firebaseUser.email || firebaseUser.uid;
+            
+            if (userDocSnap.exists()) {
+                const data = userDocSnap.data();
+                currentTenantId = data.tenant_id || '';
+                currentRole = normalizeUserRole(data.role);
+                fullName = data.full_name || fullName;
             }
 
-            // Online Session Management
-            const sessionStr = localStorage.getItem('_fleetpro_session');
-            if (sessionStr) {
-                try {
-                    const session = JSON.parse(sessionStr);
+            setUserId(firebaseUser.uid);
+            setRole(currentRole);
+            setTenantId(currentTenantId);
+            setRuntimeTenantId(currentTenantId);
+            
+            setUser({
+                id: firebaseUser.uid,
+                email: firebaseUser.email || '',
+                password_hash: '',
+                full_name: fullName,
+                role: currentRole,
+                status: 'active',
+                created_at: firebaseUser.metadata.creationTime || new Date().toISOString(),
+                updated_at: firebaseUser.metadata.lastSignInTime || new Date().toISOString(),
+                tenant_id: currentTenantId
+            });
+        } catch (error) {
+            console.error('[Auth] Error fetching user metadata:', error);
+            // Fallback for failed metadata fetch
+            setUserId(firebaseUser.uid);
+            setRole('viewer');
+        }
+    }, []);
 
-                    // SESSION TTL CHECK: 8 hours limit
-                    const SESSION_MAX_AGE_MS = 8 * 60 * 60 * 1000;
-                    const loginAt = session.loginAt || 0;
-                    if (Date.now() - loginAt > SESSION_MAX_AGE_MS) {
-                        console.log('[Auth] Online session expired.');
-                        localStorage.removeItem('_fleetpro_session');
-                        setUser(null);
-                        setUserId(null);
-                        setTenantId(null);
-                        setRole('viewer');
-                        setLoading(false);
-                        return;
-                    }
+    useEffect(() => {
+        // Dev mode auto-login
+        if (import.meta.env.MODE === 'development' && import.meta.env.VITE_DEV_AUTO_LOGIN === 'true') {
+            const devTenant = 'dev-tenant';
+            setUserId('dev-admin');
+            setRole('admin');
+            setTenantId(devTenant);
+            setRuntimeTenantId(devTenant);
+            setUser({
+                id: 'dev-admin',
+                email: 'admin@dev.local',
+                password_hash: '',
+                full_name: 'Quản trị viên phát triển',
+                role: 'admin',
+                status: 'active',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                tenant_id: devTenant
+            });
+            setLoading(false);
+            return;
+        }
 
-                    setUserId(session.userId);
-                    const normalizedRole = normalizeUserRole(session.role);
-                    setRole(normalizedRole);
-                    setTenantId(session.tenantId || null);
-                    
-                    // Note: We don't fetch full user details from GAS here to keep boot fast.
-                    // The _fleetpro_session has what we need to route.
-                    setUser({
-                        id: session.userId,
-                        email: session.email || session.userId,
-                        password_hash: '',
-                        full_name: session.full_name || session.userId,
-                        role: normalizedRole,
-                        status: 'active',
-                        created_at: new Date(loginAt).toISOString(),
-                        updated_at: new Date(loginAt).toISOString(),
-                    });
-                } catch (error) {
-                    console.error('[Auth] Failed to restore online session:', error);
-                }
+        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+            setLoading(true);
+            if (firebaseUser) {
+                await fetchUserMetadata(firebaseUser);
             } else {
                 setUser(null);
                 setUserId(null);
                 setTenantId(null);
                 setRole('viewer');
             }
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, [fetchUserMetadata]);
+
+    const signOut = async () => {
+        try {
+            await firebaseSignOut(auth);
+            localStorage.removeItem('_fleetpro_session'); // Clean up old sessions just in case
         } catch (error) {
-            console.error('[Auth] Error initializing auth:', error);
-        } finally {
+            console.error('[Auth] Logout error:', error);
+        }
+    };
+
+    const refreshAuth = async () => {
+        if (auth.currentUser) {
+            setLoading(true);
+            await fetchUserMetadata(auth.currentUser);
             setLoading(false);
         }
-    }, []);
-
-    useEffect(() => {
-        initAuth();
-    }, [initAuth]);
-
-    const signOut = () => {
-        localStorage.removeItem('_fleetpro_session');
-        setUser(null);
-        setUserId(null);
-        setTenantId(null);
-        setRole('viewer');
     };
 
     const value: AuthContextType = {
@@ -125,7 +147,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         role,
         tenantId,
         signOut,
-        refreshAuth: initAuth,
+        refreshAuth,
         loading,
     };
 
@@ -143,3 +165,4 @@ export const useAuth = () => {
     }
     return context;
 };
+

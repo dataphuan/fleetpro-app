@@ -20,19 +20,21 @@ export const isWeb = () => {
     return !isElectron();
 };
 
+let runtimeTenantId: string | null = null;
+
+export const setRuntimeTenantId = (id: string | null) => {
+    runtimeTenantId = id;
+};
+
 const getTenantId = () => {
-    // Attempt local storage session
-    const sessionStr = localStorage.getItem('_fleetpro_session');
-    if (sessionStr) {
-        try {
-            const session = JSON.parse(sessionStr);
-            if (session.tenantId) return session.tenantId;
-        } catch (e) {
-            // Ignore malformed local session and fallback to env/default tenant.
-        }
+    if (runtimeTenantId) return runtimeTenantId;
+    
+    // Fallback dev tenant for local testing ONLY
+    if (import.meta.env.MODE === 'development') {
+        return import.meta.env.VITE_TENANT_ID || 'dev-tenant';
     }
-    // Fallback dev tenant for local testing
-    return import.meta.env.VITE_TENANT_ID || 'dev-tenant';
+    
+    return ''; // No tenant = No data for security
 };
 
 const createFirestoreAdapter = (collectionName: string) => ({

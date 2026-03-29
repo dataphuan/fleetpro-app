@@ -17,13 +17,8 @@ export default function Auth() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
 
-    // Redirect if already logged in
-    useEffect(() => {
-        const session = localStorage.getItem('_fleetpro_session');
-        if (session) {
-            navigate("/");
-        }
-    }, [navigate]);
+    // Redirect if already logged in handled by Router/Protected Routes usually, 
+    // but we can check AuthContext state here if needed.
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -48,15 +43,8 @@ export default function Auth() {
                 throw new Error(result?.error || 'Đăng nhập thất bại (sai email hoặc mật khẩu)');
             }
 
-            // Save session to localStorage with TTL
-            localStorage.setItem('_fleetpro_session', JSON.stringify({
-                userId: result.data.user.id,
-                email: result.data.user.email,
-                full_name: result.data.user.full_name,
-                role: result.data.user.role,
-                tenantId: result.data.user.tenantId,
-                loginAt: Date.now(),
-            }));
+            // No longer saving to localStorage.
+            // Rely on onAuthStateChanged in AuthContext.
 
             // Refresh AuthContext
             await refreshAuth();

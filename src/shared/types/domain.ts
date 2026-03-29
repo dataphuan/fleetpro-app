@@ -12,6 +12,7 @@ export interface User {
   full_name: string;
   role: UserRole;
   status: UserStatus;
+  tenant_id?: string;
   created_at: string;
   updated_at: string;
 }

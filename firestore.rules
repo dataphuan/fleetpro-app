@@ -48,7 +48,32 @@ service cloud.firestore {
       allow update, delete: if canAccessTenantData() && sameTenantOnReadUpdateDelete() && isTenantAdmin();
     }
 
-    // Tenant-scoped resources: all documents must carry tenant_id.
+    // Schema validation helpers
+    function isPositive(val) {
+      return (val is number || val is int) && val >= 0;
+    }
+
+    function isValidTripStatus(status) {
+      return status in ['draft', 'pending', 'confirmed', 'dispatched', 'in_progress', 'completed', 'closed', 'cancelled'];
+    }
+
+    // Tenant-scoped resources with basic field validation
+    match /trips/{tripId} {
+      allow create: if canAccessTenantData() && sameTenantOnCreate() && 
+                    isValidTripStatus(request.resource.data.status);
+      allow update: if canAccessTenantData() && sameTenantOnReadUpdateDelete() && 
+                    isValidTripStatus(request.resource.data.status);
+      allow read, delete: if canAccessTenantData() && sameTenantOnReadUpdateDelete();
+    }
+
+    match /expenses/{expenseId} {
+      allow create: if canAccessTenantData() && sameTenantOnCreate() && 
+                    isPositive(request.resource.data.amount);
+      allow update: if canAccessTenantData() && sameTenantOnReadUpdateDelete() && 
+                    isPositive(request.resource.data.amount);
+      allow read, delete: if canAccessTenantData() && sameTenantOnReadUpdateDelete();
+    }
+
     match /{collection}/{docId} {
       allow create: if canAccessTenantData() && sameTenantOnCreate();
       allow read, update, delete: if canAccessTenantData() && sameTenantOnReadUpdateDelete();
