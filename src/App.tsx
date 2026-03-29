@@ -32,6 +32,7 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const UserProfilePage = lazy(() => import("./pages/UserProfilePage"));
 const Pricing = lazy(() => import("./pages/Pricing"));
 const Members = lazy(() => import("./pages/Members"));
+const Logs = lazy(() => import("./pages/Logs"));
 
 // Driver PWA Routes
 const DriverDashboard = lazy(() => import("./pages/driver/DriverDashboard"));
@@ -93,7 +94,8 @@ const App = () => {
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/profile" element={<UserProfilePage />} />
                   <Route path="/pricing" element={<Pricing />} />
-                  <Route path="/members" element={<Members />} />
+                  <Route path="members" element={<Members />} />
+                  <Route path="logs" element={<Logs />} />
                   <Route path="*" element={<NotFound />} />
                 </Route>
 

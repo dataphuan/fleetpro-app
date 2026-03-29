@@ -45,6 +45,7 @@ const roleAccessMap: Record<string, UserRole[]> = {
   "/alerts": ["admin", "manager", "dispatcher"],
   "/settings": ["admin"], // Only admin
   "/members": ["admin", "manager"], // Admin and Manager
+  "/logs": ["admin"], // Admin only audit trail
   "/profile": ["admin", "manager", "dispatcher", "accountant", "driver", "viewer"], // All users
 };
 
@@ -65,6 +66,7 @@ const navItems = [
   { path: "/profile", label: "Hồ Sơ Cá Nhân", icon: UserCircle },
   { path: "/settings", label: "Cài Đặt Hệ Thống", icon: Settings },
   { path: "/members", label: "Quản Lý Thành Viên", icon: Users },
+  { path: "/logs", label: "Nhật Ký Hoạt Động", icon: Lock },
 ];
 
 export function AppSidebar() {

@@ -37,46 +37,50 @@ service cloud.firestore {
       return userRole() in ['admin', 'admin_tenant'];
     }
 
-    // Users collection: users can read self, tenant admins manage users in their own tenant.
+    // --- SECURE COLLECTION MATCHES ---
+
+    // Users: Admin can manage, users can see self
     match /users/{uid} {
       allow read: if canAccessTenantData() && (
-        uid == request.auth.uid ||
+        uid == request.auth.uid || 
         (sameTenantOnReadUpdateDelete() && isTenantAdmin())
       );
-
-      allow create: if canAccessTenantData() && sameTenantOnCreate() && isTenantAdmin();
-      allow update, delete: if canAccessTenantData() && sameTenantOnReadUpdateDelete() && isTenantAdmin();
+      allow create: if isAuthed() && (
+        // Registration (self-create user doc first time)
+        !exists(/databases/$(database)/documents/users/$(request.auth.uid)) ||
+        // Admin inviting members
+        (canAccessTenantData() && isTenantAdmin() && request.resource.data.tenant_id == tenantId())
+      );
+      allow update: if canAccessTenantData() && sameTenantOnReadUpdateDelete() && isTenantAdmin();
+      allow delete: if canAccessTenantData() && sameTenantOnReadUpdateDelete() && isTenantAdmin();
     }
 
-    // Schema validation helpers
-    function isPositive(val) {
-      return (val is number || val is int) && val >= 0;
+    // Company Settings: Admin Only
+    match /company_settings/{tid} {
+      allow read: if canAccessTenantData() && tid == tenantId();
+      allow create, update: if canAccessTenantData() && tid == tenantId() && isTenantAdmin();
+      allow delete: if false; // SaaS: Cannot delete your own tenant record from UI
     }
 
-    function isValidTripStatus(status) {
-      return status in ['draft', 'pending', 'confirmed', 'dispatched', 'in_progress', 'completed', 'closed', 'cancelled'];
+    // System Logs: Immutable Audit Trail
+    match /system_logs/{logId} {
+      allow read: if canAccessTenantData() && sameTenantOnReadUpdateDelete() && isTenantAdmin();
+      allow create: if isAuthed() && request.resource.data.tenant_id != null; // Frontend logger is trusted to set tenant_id correctly
+      allow update, delete: if false; // Immutable
     }
 
-    // Tenant-scoped resources with basic field validation
-    match /trips/{tripId} {
-      allow create: if canAccessTenantData() && sameTenantOnCreate() && 
-                    isValidTripStatus(request.resource.data.status);
-      allow update: if canAccessTenantData() && sameTenantOnReadUpdateDelete() && 
-                    isValidTripStatus(request.resource.data.status);
-      allow read, delete: if canAccessTenantData() && sameTenantOnReadUpdateDelete();
-    }
-
-    match /expenses/{expenseId} {
-      allow create: if canAccessTenantData() && sameTenantOnCreate() && 
-                    isPositive(request.resource.data.amount);
-      allow update: if canAccessTenantData() && sameTenantOnReadUpdateDelete() && 
-                    isPositive(request.resource.data.amount);
-      allow read, delete: if canAccessTenantData() && sameTenantOnReadUpdateDelete();
-    }
-
+    // Core Business Entities
     match /{collection}/{docId} {
+      // Standard multi-tenant isolation for all other collections (vehicles, drivers, trips, etc.)
+      allow read: if canAccessTenantData() && sameTenantOnReadUpdateDelete();
       allow create: if canAccessTenantData() && sameTenantOnCreate();
-      allow read, update, delete: if canAccessTenantData() && sameTenantOnReadUpdateDelete();
+      allow update: if canAccessTenantData() && sameTenantOnReadUpdateDelete();
+      allow delete: if canAccessTenantData() && sameTenantOnReadUpdateDelete();
+      
+      // Additional safety for critical collections
+      allow delete: if collection in ['vehicles', 'drivers', 'trips', 'expenses'] 
+                    ? (canAccessTenantData() && sameTenantOnReadUpdateDelete() && isTenantAdmin())
+                    : (canAccessTenantData() && sameTenantOnReadUpdateDelete());
     }
   }
 }

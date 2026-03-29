@@ -37,6 +37,30 @@ const getTenantId = () => {
     return ''; // No tenant = No data for security
 };
 
+/**
+ * Log administrative and data mutation activities for audit readiness
+ */
+const logActivity = async (action: 'CREATE' | 'UPDATE' | 'DELETE' | 'RESTORE' | 'LOGIN' | 'ROLE_CHANGE', collectionName: string, entityId: string, metadata?: any) => {
+    try {
+        const user = auth.currentUser;
+        const tenantId = getTenantId();
+        if (!user || !tenantId || collectionName === 'system_logs') return;
+
+        await addDoc(collection(db, 'system_logs'), {
+            timestamp: new Date().toISOString(),
+            user_id: user.uid,
+            user_email: user.email,
+            tenant_id: tenantId,
+            action,
+            collection_name: collectionName,
+            entity_id: entityId,
+            metadata: metadata || {}
+        });
+    } catch (e) {
+        console.error("Audit Log Failure:", e);
+    }
+};
+
 const createFirestoreAdapter = (collectionName: string) => ({
     list: async (limitCount?: number, offsetCount?: number) => {
         const tenantId = getTenantId();
@@ -73,13 +97,23 @@ const createFirestoreAdapter = (collectionName: string) => ({
         
         if (documentId) {
             await setDoc(doc(db, collectionName, documentId), payload);
+            await logActivity('CREATE', collectionName, documentId, { payload });
             return { id: documentId, ...payload };
         } else {
             const docRef = await addDoc(collection(db, collectionName), payload);
+            await logActivity('CREATE', collectionName, docRef.id, { payload });
             return { id: docRef.id, ...payload };
         }
     },
     update: async (id: string, data: any) => {
+        // ---- SECURITY HARDENING: PRE-CHECK TENANT ----
+        const docRef = doc(db, collectionName, id);
+        const existingDoc = await getDoc(docRef);
+        if (!existingDoc.exists() || existingDoc.data()?.tenant_id !== getTenantId()) {
+            throw new Error(`Unauthorized: Document ${id} does not belong to this tenant.`);
+        }
+        // ----------------------------------------------
+
         let validatedData = data;
         try {
             validatedData = validateAdapterData(collectionName, { id, ...data });
@@ -87,12 +121,22 @@ const createFirestoreAdapter = (collectionName: string) => ({
         } catch (error: any) {
             throw new Error(`[${collectionName}] ${error.message}`);
         }
-        const docRef = doc(db, collectionName, id);
+        
         await updateDoc(docRef, { ...validatedData, updated_at: new Date().toISOString() });
+        await logActivity('UPDATE', collectionName, id, { changes: validatedData });
         return true;
     },
     delete: async (id: string) => {
-        await deleteDoc(doc(db, collectionName, id));
+        // ---- SECURITY HARDENING: PRE-CHECK TENANT ----
+        const docRef = doc(db, collectionName, id);
+        const existingDoc = await getDoc(docRef);
+        if (!existingDoc.exists() || existingDoc.data()?.tenant_id !== getTenantId()) {
+            throw new Error(`Unauthorized: Cannot delete document ${id}.`);
+        }
+        // ----------------------------------------------
+
+        await deleteDoc(docRef);
+        await logActivity('DELETE', collectionName, id);
         return true;
     },
     getById: async (id: string) => {
@@ -105,11 +149,21 @@ const createFirestoreAdapter = (collectionName: string) => ({
     },
     softDelete: async (id: string) => {
         const nowIso = new Date().toISOString();
-        await updateDoc(doc(db, collectionName, id), {
+        const docRef = doc(db, collectionName, id);
+        
+        // Security check
+        const existingDoc = await getDoc(docRef);
+        if (!existingDoc.exists() || existingDoc.data()?.tenant_id !== getTenantId()) {
+            throw new Error("Unauthorized soft delete");
+        }
+
+        await updateDoc(docRef, {
             is_deleted: 1,
             deleted_at: nowIso,
             updated_at: nowIso,
         } as any);
+        
+        await logActivity('DELETE', collectionName, id, { type: 'soft' });
         return true;
     },
     listByStatus: async (status: string) => {
@@ -465,6 +519,8 @@ const webDataAdapters: Record<string, any> = {
                     throw new Error('User account is missing a tenant_id association.');
                 }
                 
+                await logActivity('LOGIN', 'users', user.uid);
+
                 return {
                     success: true,
                     data: {
@@ -509,6 +565,8 @@ const webDataAdapters: Record<string, any> = {
                     created_at: new Date().toISOString(),
                     subscription: { plan: 'trial', status: 'active' }
                 });
+                
+                await logActivity('CREATE', 'users', uid, { type: 'registration', company: payload.company_name });
 
                 return { success: true, data: { uid, tenantId } };
             } catch (error: any) {
@@ -564,6 +622,8 @@ const webDataAdapters: Record<string, any> = {
                     created_at: new Date().toISOString()
                 });
                 
+                await logActivity('CREATE', 'users', newUid, { type: 'invitation', role: payload.role });
+
                 return { success: true, data: { id: newUid } };
             } catch (error: any) {
                 if (secondaryApp) {
@@ -580,6 +640,7 @@ const webDataAdapters: Record<string, any> = {
         updateUserRole: async (userId: string, targetRole: string) => {
             try {
                 await updateDoc(doc(db, 'users', userId), { role: targetRole });
+                await logActivity('ROLE_CHANGE', 'users', userId, { newRole: targetRole });
                 return { success: true };
             } catch (error: any) {
                 return { success: false, error: error.message };
@@ -590,6 +651,7 @@ const webDataAdapters: Record<string, any> = {
                 // Soft delete by removing from tenant. User can't access tenant data anymore.
                 // Complete auth deletion requires Firebase Admin SDK, but this is sufficient for SaaS multi-tenancy.
                 await deleteDoc(doc(db, 'users', userId));
+                await logActivity('DELETE', 'users', userId, { type: 'member_removal' });
                 return { success: true };
             } catch (error: any) {
                 return { success: false, error: error.message };
