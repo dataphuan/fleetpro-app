@@ -8,18 +8,36 @@ import { DashboardFleetPerformanceTab } from "./dashboard/fleet/DashboardFleetPe
 import { DashboardAlertsTab } from "./dashboard/alerts/DashboardAlertsTab";
 import { useSearchParams } from "react-router-dom";
 import { useEffect } from "react";
+import { OnboardingFlow } from "@/components/onboarding/OnboardingFlow";
+import { useOnboarding } from "@/hooks/useOnboarding";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function Dashboard() {
   const now = new Date();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "overview";
+  const { user, userTenant } = useAuth();
+  const { showOnboarding, markCompleted } = useOnboarding({ 
+    tenantId: userTenant?.id || 'default',
+    forceShow: false
+  });
 
   const handleTabChange = (value: string) => {
     setSearchParams({ tab: value });
   };
 
+  const handleOnboardingComplete = () => {
+    markCompleted();
+  };
+
   return (
     <div className="space-y-6 animate-fade-in p-2">
+      {showOnboarding && (
+        <OnboardingFlow 
+          tenantId={userTenant?.id || 'demo-company'} 
+          onComplete={handleOnboardingComplete}
+        />
+      )}
       <PageHeader
         title="Bảng Điều Khiển PRO"
         description={`Tổng quan hoạt động vận tải - Tháng ${now.getMonth() + 1}/${now.getFullYear()}`}

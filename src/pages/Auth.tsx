@@ -250,12 +250,15 @@ export default function Auth() {
                         {showDemo && (
                             <Alert className="bg-white/80 border-primary/20 animate-in fade-in slide-in-from-top-1 duration-300">
                                 <Key className="h-4 w-4 text-primary" />
-                                <AlertTitle className="text-xs font-bold text-primary">Danh sách tài khoản test:</AlertTitle>
+                                <AlertTitle className="text-xs font-bold text-primary">Danh sách tài khoản Demo (Enterprise Mode):</AlertTitle>
                                 <AlertDescription className="grid grid-cols-2 gap-3 text-[10px] text-slate-600 mt-2">
-                                    <div><span className="font-bold text-red-500">CEO:</span> gdkd.3t@gmail.com / Tnc@1980</div>
-                                    <div><span className="font-bold text-orange-500">MGR:</span> Coach.chuyen@gmail.com / Tnc@1980</div>
-                                    <div><span className="font-bold text-blue-500">DRV:</span> Victorchuyen68@gmail.com / Tnc@1980</div>
-                                    <div><span className="font-bold text-purple-500">DEV:</span> dataphuan@gmail.com / Phuancr@2026</div>
+                                    <div><span className="font-bold text-red-500">👨‍💼 CEO:</span> CEO@demo.tnc.io.vn / Demo@1234</div>
+                                    <div><span className="font-bold text-orange-500">👔 MGR:</span> Manager@demo.tnc.io.vn / Demo@1234</div>
+                                    <div><span className="font-bold text-blue-500">👨‍✈️ DRV:</span> Driver@demo.tnc.io.vn / Demo@1234</div>
+                                    <div><span className="font-bold text-purple-500">👨‍💻 DEV:</span> Developer@demo.tnc.io.vn / Demo@1234</div>
+                                    <div className="col-span-2 text-center text-[9px] text-slate-400 mt-2 p-1 bg-slate-100 rounded">
+                                        ✨ <span className="italic">Mật khẩu chung:</span> <span className="font-mono font-bold text-slate-700">Demo@1234</span>
+                                    </div>
                                 </AlertDescription>
                             </Alert>
                         )}
