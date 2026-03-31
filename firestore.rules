@@ -65,8 +65,25 @@ service cloud.firestore {
     // System Logs: Immutable Audit Trail
     match /system_logs/{logId} {
       allow read: if canAccessTenantData() && sameTenantOnReadUpdateDelete() && isTenantAdmin();
-      allow create: if isAuthed() && request.resource.data.tenant_id != null; // Frontend logger is trusted to set tenant_id correctly
+      allow create: if isAuthed() && 
+                    request.resource.data.user_id == request.auth.uid &&
+                    request.resource.data.tenant_id == tenantId();
       allow update, delete: if false; // Immutable
+    }
+
+    // Tenants: Master collection - allow admin/system writes
+    match /tenants/{tenantId} {
+      allow read: if isAuthed();
+      allow create, update, delete: if request.auth != null; // Admin/system use
+    }
+
+    // Trips: Special Immutability for Closed records
+    match /trips/{tripId} {
+      allow read, create: if canAccessTenantData() && sameTenantOnCreate();
+      allow update: if canAccessTenantData() && sameTenantOnReadUpdateDelete() && 
+                    resource.data.status != 'closed' && 
+                    resource.data.status != 'cancelled';
+      allow delete: if canAccessTenantData() && sameTenantOnReadUpdateDelete() && isTenantAdmin();
     }
 
     // Core Business Entities

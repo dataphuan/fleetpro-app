@@ -9,7 +9,9 @@ import { useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { storage } from "@/lib/firebase";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { ref, uploadBytes, getDownloadURL, uploadString } from "firebase/storage";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { SignaturePad } from "@/components/shared/SignaturePad";
 
 export default function DriverDashboard() {
     const { user, tenantId } = useAuth();
@@ -18,6 +20,10 @@ export default function DriverDashboard() {
     const { toast } = useToast();
     const [isUpdating, setIsUpdating] = useState(false);
     
+    // e-POD states
+    const [signatureDialogOpen, setSignatureDialogOpen] = useState(false);
+    const [activeTripForSignature, setActiveTripForSignature] = useState<any>(null);
+
     // Store input per trip: { [tripId]: { odo: string, receiptUrl: string, isUploading: boolean } }
     const [tripInputs, setTripInputs] = useState<Record<string, { odo: string, receiptUrl: string, isUploading: boolean }>>({});
 
@@ -70,30 +76,50 @@ export default function DriverDashboard() {
         }
     };
 
-    const handleFinishTrip = async (trip: any) => {
+    const handleFinishTripWithSignature = (trip: any) => {
         const inputs = tripInputs[trip.id];
         if (!inputs?.odo) {
             toast({ title: "Thiếu thông tin", description: "Vui lòng nhập số KM kết thúc chuyến.", variant: "destructive" });
             return;
         }
+        
+        setActiveTripForSignature(trip);
+        setSignatureDialogOpen(true);
+    };
+
+    const processFinalizeTrip = async (signatureDataUrl: string) => {
+        if (!activeTripForSignature) return;
+        const trip = activeTripForSignature;
+        const inputs = tripInputs[trip.id];
 
         setIsUpdating(true);
+        setSignatureDialogOpen(false);
+
         try {
+            // 1. Upload Signature to Firebase Storage
+            toast({ title: "Đang lưu e-POD...", description: "Đang tải chữ ký khách hàng lên hệ thống." });
+            const signatureRef = ref(storage, `signatures/${tenantId}/${trip.id}/${Date.now()}_signature.png`);
+            await uploadString(signatureRef, signatureDataUrl, 'data_url');
+            const signatureUrl = await getDownloadURL(signatureRef);
+
+            // 2. Finalize Trip
             await updateTrip({
                 id: trip.id,
                 updates: {
                     status: 'completed',
                     end_odometer: Number(inputs.odo),
                     actual_arrival_time: new Date().toISOString(),
-                    // Optionally save the receipt URL to a new field or append to notes
-                    notes: trip.notes ? `${trip.notes}\nBill: ${inputs.receiptUrl}` : (inputs.receiptUrl ? `Bill: ${inputs.receiptUrl}` : null)
+                    // Format notes: Original + Receipt + Signature
+                    notes: `${trip.notes || ''}\n[e-POD] Signature: ${signatureUrl}\n[e-POD] Receipt: ${inputs.receiptUrl || 'N/A'}`
                 }
             });
-            toast({ title: "Đã hoàn thành chuyến đi", description: "Cảm ơn bạn đã làm việc vất vả!" });
+
+            toast({ title: "HOÀN TẤT CHUYẾN ĐI", description: "Đã ký nhận và hoàn thành chuyến hàng thành công!" });
+            setActiveTripForSignature(null);
         } catch (error) {
-            toast({ title: "Lỗi", description: "Không thể chốt chuyến lúc này.", variant: "destructive" });
+            toast({ title: "Lỗi chốt chuyến", description: "Không thể lưu e-POD. Vui lòng thử lại.", variant: "destructive" });
         } finally {
-             setIsUpdating(false);
+            setIsUpdating(false);
         }
     };
 
@@ -185,8 +211,8 @@ export default function DriverDashboard() {
                     <CardFooter className="pt-2">
                         {trip.status === 'in_progress' ? (
                             <div className="flex gap-2 w-full">
-                                <Button className="w-full bg-green-600 hover:bg-green-700" disabled={isUpdating || tripInputs[trip.id]?.isUploading} onClick={() => handleFinishTrip(trip)}>
-                                    <CheckCircle2 className="w-4 h-4 mr-2" /> XONG CHUYẾN
+                                <Button className="w-full bg-green-600 hover:bg-green-700 font-bold py-6 text-lg" disabled={isUpdating || tripInputs[trip.id]?.isUploading} onClick={() => handleFinishTripWithSignature(trip)}>
+                                    <CheckCircle2 className="w-5 h-5 mr-3" /> CHỐT CHUYẾN & KÝ NHẬN
                                 </Button>
                                 <Button variant="destructive" size="icon" disabled={isUpdating} onClick={() => alert('Chức năng báo sự cố')}>
                                     <AlertTriangle className="w-4 h-4" />
@@ -204,6 +230,29 @@ export default function DriverDashboard() {
                     </CardFooter>
                 </Card>
             ))}
+
+            {/* Signature Dialog */}
+            <Dialog open={signatureDialogOpen} onOpenChange={setSignatureDialogOpen}>
+                <DialogContent className="max-w-[95%] sm:max-w-md bg-slate-50">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <Navigation className="w-5 h-5 text-green-600" />
+                            Xác nhận Giao hàng (e-POD)
+                        </DialogTitle>
+                        <DialogDescription>
+                            Vui lòng yêu cầu khách hàng ký xác nhận đã nhận đủ hàng hóa cho chuyến: <strong>{activeTripForSignature?.trip_code}</strong>
+                        </DialogDescription>
+                    </DialogHeader>
+                    
+                    <SignaturePad 
+                        onSave={processFinalizeTrip} 
+                        onCancel={() => {
+                            setSignatureDialogOpen(false);
+                            setActiveTripForSignature(null);
+                        }} 
+                    />
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

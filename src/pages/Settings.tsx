@@ -40,6 +40,8 @@ import {
   Bot,
   CheckCircle,
   AlertCircle,
+  Palette,
+  Truck,
 } from "lucide-react";
 import { ChangePasswordForm } from "@/components/settings/ChangePasswordForm";
 import { AISettingsForm } from "@/components/settings/AISettingsForm";
@@ -90,7 +92,8 @@ export default function Settings() {
   const [purging, setPurging] = useState(false);
 
   const [companyForm, setCompanyForm] = useState({
-    company_name: '', tax_code: '', address: '', phone: '', email: '', website: ''
+    company_name: '', tax_code: '', address: '', phone: '', email: '', website: '',
+    logo_url: '', primary_color: '#3b82f6'
   });
 
   const [secForm, setSecForm] = useState({
@@ -112,7 +115,9 @@ export default function Settings() {
         address: companySettings.address || '',
         phone: companySettings.phone || '',
         email: companySettings.email || '',
-        website: companySettings.website || ''
+        website: companySettings.website || '',
+        logo_url: companySettings.logo_url || '',
+        primary_color: companySettings.primary_color || '#3b82f6'
       });
     }
   }, [companySettings]);
@@ -173,6 +178,10 @@ export default function Settings() {
           <TabsTrigger value="ai" className="gap-2 flex-1 lg:flex-none">
             <Bot className="w-4 h-4" />
             <span className="hidden sm:inline">Trợ lý AI</span>
+          </TabsTrigger>
+          <TabsTrigger value="branding" className="gap-2 flex-1 lg:flex-none">
+            <Palette className="w-4 h-4" />
+            <span className="hidden sm:inline">Thương hiệu</span>
           </TabsTrigger>
 
           <div className="hidden lg:block w-px h-6 bg-border mx-1 self-center"></div>
@@ -437,6 +446,89 @@ export default function Settings() {
           <div className="mt-6">
             <ChangePasswordForm userId={userId || ''} />
           </div>
+        </TabsContent>
+
+        <TabsContent value="branding">
+           <Card>
+            <CardHeader>
+              <CardTitle>Tùy chỉnh thương hiệu (White-label)</CardTitle>
+              <CardDescription>
+                Thiết lập nhận diện thương hiệu riêng cho doanh nghiệp của bạn
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="logo_url">URL Logo Công ty</Label>
+                    <div className="flex gap-2">
+                      <Input 
+                        id="logo_url" 
+                        placeholder="https://your-domain.com/logo.png" 
+                        value={companyForm.logo_url} 
+                        onChange={(e) => setCompanyForm(s => ({ ...s, logo_url: e.target.value }))}
+                      />
+                      <Button variant="outline" size="icon" onClick={() => window.open(companyForm.logo_url, '_blank')}>
+                        <CheckCircle className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground italic">* Khuyên dùng ảnh PNG trong suốt, kích thước 200x200px</p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="primary_color">Màu chủ đạo (Theme)</Label>
+                    <div className="flex items-center gap-3">
+                      <Input 
+                        id="primary_color" 
+                        type="color" 
+                        className="w-12 h-10 p-1"
+                        value={companyForm.primary_color} 
+                        onChange={(e) => setCompanyForm(s => ({ ...s, primary_color: e.target.value }))}
+                      />
+                      <Input 
+                        value={companyForm.primary_color} 
+                        onChange={(e) => setCompanyForm(s => ({ ...s, primary_color: e.target.value }))}
+                        className="flex-1 font-mono"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border rounded-xl p-6 bg-slate-50 dark:bg-slate-900 flex flex-col items-center justify-center space-y-4">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-widest">Xem trước (Preview)</p>
+                  <div className="w-20 h-20 rounded-2xl bg-white dark:bg-black shadow-xl flex items-center justify-center overflow-hidden border">
+                    {companyForm.logo_url ? (
+                      <img src={companyForm.logo_url} alt="Preview" className="w-full h-full object-contain p-2" />
+                    ) : (
+                      <Truck className="w-10 h-10 text-slate-400" />
+                    )}
+                  </div>
+                  <div className="text-center">
+                    <p className="font-bold text-lg" style={{ color: companyForm.primary_color }}>
+                      {companyForm.company_name || "Tên Công Ty"}
+                    </p>
+                    <div 
+                      className="px-4 py-1 rounded-full text-[10px] text-white font-bold inline-block"
+                      style={{ backgroundColor: companyForm.primary_color }}
+                    >
+                      PREMIUM SaaS
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex justify-end pt-4 border-t">
+                <Button 
+                  onClick={() => companySave.mutate(companyForm)} 
+                  disabled={companySave.isLoading}
+                  className="bg-primary hover:opacity-90 transition-opacity"
+                >
+                  <RefreshCw className={`w-4 h-4 mr-2 ${companySave.isLoading ? 'animate-spin' : ''}`} />
+                  Áp dụng Thương hiệu
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="data">

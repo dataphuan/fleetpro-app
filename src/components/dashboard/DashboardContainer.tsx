@@ -10,6 +10,7 @@ import { DashboardBalanced } from './DashboardBalanced';
 import { DashboardProfessional } from './DashboardProfessional';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
 
 type DashboardMode = 'simple' | 'balanced' | 'professional';
 
@@ -46,8 +47,11 @@ const DASHBOARD_OPTIONS: DashboardOption[] = [
 ];
 
 export function DashboardContainer() {
+  const { role } = useAuth();
   const [mode, setMode] = useState<DashboardMode>(() => {
     const saved = localStorage.getItem('dashboardMode') as DashboardMode;
+    // Fallback to simple for dispatchers/drivers if they somehow had professional saved
+    if (saved === 'professional' && (role === 'dispatcher' || role === 'driver')) return 'balanced';
     return saved || 'simple';
   });
 
@@ -95,7 +99,11 @@ export function DashboardContainer() {
         <div className="rounded-lg border border-border bg-muted/50 p-4">
           <p className="mb-4 text-sm font-semibold text-foreground">Chọn Chế Độ Xem Dashboard:</p>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            {DASHBOARD_OPTIONS.map(option => (
+            {DASHBOARD_OPTIONS.filter(opt => {
+              if (opt.id === 'professional') return ['admin', 'manager', 'accountant'].includes(role);
+              if (opt.id === 'balanced') return role !== 'driver';
+              return true;
+            }).map(option => (
               <button
                 key={option.id}
                 onClick={() => {

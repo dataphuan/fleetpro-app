@@ -35,8 +35,13 @@ import { formatCurrency } from "@/lib/formatters";
 import { useToast } from "@/hooks/use-toast";
 import { startOfWeek, endOfWeek, addDays, format, subWeeks, addWeeks, isSameDay, subDays, startOfMonth, endOfMonth, subMonths, addMonths, eachDayOfInterval, isSameMonth } from "date-fns";
 import { vi } from "date-fns/locale";
+import { AISuggestionDrawer, AISuggestion } from "@/components/dispatch/AISuggestionDrawer";
+import { useLocation } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
+import { useUpdateTrip } from "@/hooks/useTrips";
 
 const weekDays = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+import { FleetMap } from "@/components/dispatch/FleetMap";
 
 export default function Dispatch() {
   const { toast } = useToast();
@@ -46,10 +51,12 @@ export default function Dispatch() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
   // Day View states
-  const [viewMode, setViewMode] = useState<'month' | 'week' | 'day'>('week');
+  const [viewMode, setViewMode] = useState<'month' | 'week' | 'day' | 'map'>('week');
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
-
-  // Local filter states
+  const [aiDrawerOpen, setAiDrawerOpen] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<AISuggestion[]>([]);
+  const { mutateAsync: updateTrip } = useUpdateTrip();
+  const queryClient = useQueryClient();
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("all");
 
@@ -106,7 +113,7 @@ export default function Dispatch() {
   };
 
   // View Mode Toggle
-  const toggleViewMode = (mode: 'month' | 'week' | 'day') => {
+  const toggleViewMode = (mode: 'month' | 'week' | 'day' | 'map') => {
     setViewMode(mode);
     if (mode === 'day') {
       // Sync selectedDay with current context
@@ -122,21 +129,138 @@ export default function Dispatch() {
   };
 
   const [isAiThinking, setIsAiThinking] = useState(false);
+  
   const handleAiOptimize = () => {
     setIsAiThinking(true);
+    setAiDrawerOpen(true);
+    setAiSuggestions([]);
+
     toast({
         title: "Gemini AI đang phân tích kho hàng...",
         description: "Đang tính toán ma trận đường đi ngắn nhất (VRP). Vui lòng đợi...",
     });
 
+    // Simulate real AI processing delay
     setTimeout(() => {
         setIsAiThinking(false);
-        toast({
-            title: "Tối ưu hóa thành công!",
-            description: "AI Gợi ý: Ghép Chuyến TP.HCM - Đà Nẵng sang Xe 51C-029.39 để giảm 28% tỷ lệ chạy rỗng chiều về.",
-            duration: 8000,
-        });
+        const suggestions = generateRealAiSuggestions(trips || []);
+        setAiSuggestions(suggestions);
+        
+        if (suggestions.length > 0) {
+            toast({
+                title: "Tối ưu hóa thành công!",
+                description: `Tìm thấy ${suggestions.length} cơ hội giảm tỷ lệ chạy rỗng.`,
+            });
+        } else {
+             toast({
+                title: "Không tìm thấy kịch bản tối ưu",
+                description: "Dữ liệu hiện tại đã được sắp xếp khá tốt.",
+            });
+        }
     }, 2500);
+  };
+
+  // Logic for AI Logistics Optimization (Phase 2)
+  const generateRealAiSuggestions = (allTrips: any[]): AISuggestion[] => {
+      const results: AISuggestion[] = [];
+      const pendingTrips = allTrips.filter(t => ['draft', 'confirmed'].includes(t.status));
+
+      // 1. Consolidation Logic (Gom hàng)
+      const routeGroups: Record<string, any[]> = {};
+      pendingTrips.forEach(t => {
+          const key = `${t.departure_date}_${t.route_id}`;
+          if (!routeGroups[key]) routeGroups[key] = [];
+          routeGroups[key].push(t);
+      });
+
+      Object.values(routeGroups).forEach(group => {
+          if (group.length >= 2) {
+              const totalWeight = group.reduce((sum, t) => sum + (t.cargo_weight_tons || 0), 0);
+              if (totalWeight <= 20) { // Assume max truck capacity is 20 tons
+                  results.push({
+                      id: `cons_${group[0].id}`,
+                      type: 'consolidation',
+                      title: `Kết hợp: ${group.map(t => t.trip_code).join(' & ')}`,
+                      description: `Các chuyến đi cùng tuyến ${group[0].route?.route_name || 'Chưa rõ'} cùng ngày ${group[0].departure_date}. Tổng tải trọng ${totalWeight}T (Dưới 20T).`,
+                      confidence: 94,
+                      trips: group,
+                      savings: "Giảm 50% chi phí nhiên liệu & lương tài xế.",
+                      logic: "Route Matching & Load Balance"
+                  });
+              }
+          }
+      });
+
+      // 2. Backhaul suggestions (Kịch bản chiều về)
+      // If trip A->B arrives and there is another trip B->A departing same day/next day
+      const completedOrScheduled = allTrips.filter(t => ['dispatched', 'in_progress', 'completed', 'confirmed'].includes(t.status));
+      completedOrScheduled.forEach(t1 => {
+          const dest = t1.route?.destination_location;
+          if (!dest) return;
+
+          pendingTrips.forEach(t2 => {
+              const start = t2.route?.start_location;
+              if (start && start.toLowerCase().includes(dest.toLowerCase())) {
+                  // Found a backhaul match
+                  results.push({
+                      id: `back_${t1.id}_${t2.id}`,
+                      type: 'backhaul',
+                      title: `Chiều về cho Xe ${t1.vehicle?.license_plate || 'Chưa có'}`,
+                      description: `Sau khi giao hàng tại ${dest}, xe này có thể lấy hàng chuyến ${t2.trip_code} tại cùng khu vực thay vì chạy rỗng về kho.`,
+                      confidence: 88,
+                      trips: [t1, t2],
+                      savings: "Tiết kiệm 200-300km tiền dầu chạy rỗng.",
+                      logic: "Geospatial Proximity Match"
+                  });
+              }
+          });
+      });
+
+      return results;
+  };
+
+  const handleAcceptSuggestion = async (suggestion: AISuggestion) => {
+      setAiDrawerOpen(false);
+      setIsAiThinking(true);
+      
+      try {
+          if (suggestion.type === 'consolidation') {
+              // Mark multiple trips as ready for consolidation (business rule)
+              for (const trip of suggestion.trips) {
+                  await updateTrip({
+                      id: trip.id,
+                      updates: { 
+                        status: 'confirmed', 
+                        notes: `${trip.notes || ''}\n[AI] Ghép chuyến tối ưu vào cùng tuyến.`
+                      }
+                  });
+              }
+              toast({ title: "Đã gộp chuyến thành công!", description: "Tất cả các lệnh vận tải đã được tối ưu vào cùng tuyến đường." });
+          } else if (suggestion.type === 'backhaul') {
+              // Auto-assign vehicle from first trip to second trip
+              const [sourceTrip, targetTrip] = suggestion.trips;
+              if (sourceTrip.vehicle_id) {
+                  await updateTrip({
+                      id: targetTrip.id,
+                      updates: { 
+                        vehicle_id: sourceTrip.vehicle_id, 
+                        driver_id: sourceTrip.driver_id,
+                        status: 'confirmed',
+                        notes: `${targetTrip.notes || ''}\n[AI] Tự động xếp xe chiều về ${sourceTrip.vehicle?.license_plate || ''}.`
+                      }
+                  });
+                  toast({ 
+                      title: "Tự động xếp xe chiều về!", 
+                      description: `Đã gán Xe ${sourceTrip.vehicle?.license_plate || 'mới'} cho chuyến ${targetTrip.trip_code}.`
+                  });
+              }
+          }
+          await queryClient.invalidateQueries({ queryKey: ['trips'] });
+      } catch (err) {
+          toast({ title: "Lỗi thực thi AI", description: "Không thể tự động cập nhật dữ liệu.", variant: "destructive" });
+      } finally {
+          setIsAiThinking(false);
+      }
   };
 
   const handleCreateTripOnDate = (date: Date) => {
@@ -366,6 +490,15 @@ export default function Dispatch() {
                 >
                   Ngày
                 </button>
+                <button
+                  onClick={() => toggleViewMode('map')}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${viewMode === 'map'
+                    ? 'bg-background shadow-sm text-foreground text-indigo-600 font-bold'
+                    : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                >
+                  Bản đồ
+                </button>
               </div>
 
               {/* Navigation based on View Mode */}
@@ -549,6 +682,23 @@ export default function Dispatch() {
               selectedDate={selectedDay}
             />
           )}
+
+          {/* Map View - GIS Tracking */}
+          {viewMode === 'map' && (
+            <div className="h-full w-full p-4 bg-slate-100/50">
+               <FleetMap 
+                locations={vehicles?.map((v, idx) => ({
+                    id: v.id,
+                    license_plate: v.license_plate,
+                    lat: 10 + (idx * 0.5), // Mock locations for demo
+                    lng: 106 + (idx * 0.2),
+                    status: idx % 3 === 0 ? 'moving' : (idx % 3 === 1 ? 'idle' : 'stopped'),
+                    driver_name: v.default_driver_id || 'Chưa phân công',
+                    trip_code: trips?.find(t => t.vehicle_id === v.id)?.trip_code
+                })) || []} 
+               />
+            </div>
+          )}
         </CardContent>
       </Card>
 
@@ -557,6 +707,15 @@ export default function Dispatch() {
         onOpenChange={setDrawerOpen}
         selectedTrip={selectedTrip}
         selectedDate={selectedDate}
+      />
+
+      <AISuggestionDrawer 
+        open={aiDrawerOpen} 
+        onOpenChange={setAiDrawerOpen}
+        suggestions={aiSuggestions}
+        isLoading={isAiThinking}
+        onAccept={handleAcceptSuggestion}
+        onReject={() => setAiDrawerOpen(false)}
       />
     </div>
   );

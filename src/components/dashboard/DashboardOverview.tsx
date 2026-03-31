@@ -43,6 +43,7 @@ import {
     useMaintenanceAlerts,
     useDriverPerformance,
 } from "@/hooks/useDashboard";
+import { useAuth } from "@/contexts/AuthContext";
 import { StatCard } from "@/components/shared/StatCard";
 import { StatusBadge } from "@/components/shared/StatusBadge";
 import { Button } from "@/components/ui/button";
@@ -59,6 +60,8 @@ import { vi } from "date-fns/locale";
 
 export function DashboardOverview() {
     const navigate = useNavigate();
+    const { role } = useAuth();
+    const isFinancialRole = ['admin', 'manager', 'accountant'].includes(role || '');
     const [datePreset, setDatePreset] = useState("this_year");
     const [customDate, setCustomDate] = useState<DateRange | undefined>();
     const [activeIndex, setActiveIndex] = useState(0);
@@ -325,47 +328,51 @@ export function DashboardOverview() {
                 </div>
             </div>
 
-            {/* KPI Cards - 6 cards in 3x2 grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div onClick={() => navigate('/reports', { state: { filter: { status: 'closed' } } })} className="cursor-pointer">
+            {/* KPI Cards - Visibility based on Role */}
+            <div className={`grid grid-cols-1 md:grid-cols-2 ${isFinancialRole ? 'lg:grid-cols-3' : 'lg:grid-cols-2'} gap-4`}>
+                {isFinancialRole && (
+                  <>
+                    <div onClick={() => navigate('/reports', { state: { filter: { status: 'closed' } } })} className="cursor-pointer">
+                        <StatCard
+                            title="Tổng doanh thu"
+                            value={statsLoading ? "..." : formatCurrency((stats?.official.revenue || 0) + (stats?.pending.revenue || 0))}
+                            subtitle={stats?.pending.revenue ? `(Gồm ${formatCurrency(stats.pending.revenue)} chưa chốt)` : undefined}
+                            trend={{ value: revenueTrend, label: label }}
+                            icon={<Wallet className="w-6 h-6" />}
+                            className={statsLoading ? "opacity-50" : ""}
+                        />
+                    </div>
+
                     <StatCard
-                        title="Tổng doanh thu"
-                        value={statsLoading ? "..." : formatCurrency((stats?.official.revenue || 0) + (stats?.pending.revenue || 0))}
-                        subtitle={stats?.pending.revenue ? `(Gồm ${formatCurrency(stats.pending.revenue)} chưa chốt)` : undefined}
-                        trend={{ value: revenueTrend, label: label }}
-                        icon={<Wallet className="w-6 h-6" />}
+                        title="Tổng chi phí"
+                        value={statsLoading ? "..." : formatCurrency((stats?.official.expense || 0) + (stats?.pending.expense || 0))}
+                        subtitle={stats?.pending.expense ? `(Gồm ${formatCurrency(stats.pending.expense)} tạm tính)` : undefined}
+                        icon={<TrendingDown className="w-6 h-6" />}
+                        variant="loss"
                         className={statsLoading ? "opacity-50" : ""}
                     />
-                </div>
 
-                <StatCard
-                    title="Tổng chi phí"
-                    value={statsLoading ? "..." : formatCurrency((stats?.official.expense || 0) + (stats?.pending.expense || 0))}
-                    subtitle={stats?.pending.expense ? `(Gồm ${formatCurrency(stats.pending.expense)} tạm tính)` : undefined}
-                    icon={<TrendingDown className="w-6 h-6" />}
-                    variant="loss"
-                    className={statsLoading ? "opacity-50" : ""}
-                />
+                    <div onClick={() => navigate('/reports', { state: { filter: { showProfit: true } } })} className="cursor-pointer">
+                        <StatCard
+                            title="Lợi nhuận"
+                            value={statsLoading ? "..." : formatCurrency(totalProfit)}
+                            variant="profit"
+                            subtitle={stats?.pending.profit ? `(Gồm ${formatCurrency(stats.pending.profit)} tạm tính)` : undefined}
+                            trend={{ value: profitTrend, label: label }}
+                            icon={<TrendingUp className="w-6 h-6" />}
+                            className={statsLoading ? "opacity-50" : ""}
+                        />
+                    </div>
 
-                <div onClick={() => navigate('/reports', { state: { filter: { showProfit: true } } })} className="cursor-pointer">
                     <StatCard
-                        title="Lợi nhuận"
-                        value={statsLoading ? "..." : formatCurrency(totalProfit)}
-                        variant="profit"
-                        subtitle={stats?.pending.profit ? `(Gồm ${formatCurrency(stats.pending.profit)} tạm tính)` : undefined}
-                        trend={{ value: profitTrend, label: label }}
-                        icon={<TrendingUp className="w-6 h-6" />}
+                        title="Biên lợi nhuận"
+                        value={statsLoading ? "..." : `${profitMargin.toFixed(1)}%`}
+                        subtitle={profitMargin >= 20 ? "Tốt" : profitMargin >= 10 ? "Trung bình" : "Thấp"}
+                        icon={<BarChart3 className="w-6 h-6" />}
                         className={statsLoading ? "opacity-50" : ""}
                     />
-                </div>
-
-                <StatCard
-                    title="Biên lợi nhuận"
-                    value={statsLoading ? "..." : `${profitMargin.toFixed(1)}%`}
-                    subtitle={profitMargin >= 20 ? "Tốt" : profitMargin >= 10 ? "Trung bình" : "Thấp"}
-                    icon={<BarChart3 className="w-6 h-6" />}
-                    className={statsLoading ? "opacity-50" : ""}
-                />
+                  </>
+                )}
 
                 <StatCard
                     title="Chuyến hàng"
@@ -385,142 +392,146 @@ export function DashboardOverview() {
             </div>
 
             {/* Charts Row */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className={`grid grid-cols-1 ${isFinancialRole ? 'lg:grid-cols-3' : 'lg:grid-cols-1'} gap-6`}>
                 {/* Revenue Chart */}
-                <Card className="lg:col-span-2">
-                    <CardHeader>
-                        <CardTitle>Doanh thu & Lợi nhuận</CardTitle>
-                        <CardDescription>Biểu đồ xu hướng</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="h-[300px] flex items-center justify-center">
-                            {trendLoading ? (
-                                <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-                            ) : trendError ? (
-                                <p className="text-destructive text-sm">Lỗi tải biểu đồ</p>
-                            ) : (
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <AreaChart data={trendData || []}>
-                                        <defs>
-                                            <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.3} />
-                                                <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0} />
-                                            </linearGradient>
-                                            <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="hsl(var(--chart-4))" stopOpacity={0.3} />
-                                                <stop offset="95%" stopColor="hsl(var(--chart-4))" stopOpacity={0} />
-                                            </linearGradient>
-                                        </defs>
-                                        <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                                        <XAxis dataKey="month" className="text-xs" />
-                                        <YAxis
-                                            tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`}
-                                            className="text-xs"
-                                        />
-                                        <Tooltip
-                                            formatter={(value: number) => formatCurrency(value)}
-                                            labelStyle={{ color: 'hsl(var(--foreground))' }}
-                                            contentStyle={{
-                                                backgroundColor: 'hsl(var(--card))',
-                                                border: '1px solid hsl(var(--border))',
-                                                borderRadius: '8px',
-                                            }}
-                                        />
-                                        <Area
-                                            type="monotone"
-                                            dataKey="revenue"
-                                            stroke="hsl(var(--chart-1))"
-                                            fillOpacity={1}
-                                            fill="url(#colorRevenue)"
-                                            name="Doanh thu"
-                                        />
-                                        <Area
-                                            type="monotone"
-                                            dataKey="profit"
-                                            stroke="hsl(var(--chart-4))"
-                                            fillOpacity={1}
-                                            fill="url(#colorProfit)"
-                                            name="Lợi nhuận"
-                                        />
-                                    </AreaChart>
-                                </ResponsiveContainer>
-                            )}
-                        </div>
-                    </CardContent>
-                </Card>
+                {isFinancialRole && (
+                    <Card className="lg:col-span-2">
+                        <CardHeader>
+                            <CardTitle>Doanh thu & Lợi nhuận</CardTitle>
+                            <CardDescription>Biểu đồ xu hướng</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="h-[300px] flex items-center justify-center">
+                                {trendLoading ? (
+                                    <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
+                                ) : trendError ? (
+                                    <p className="text-destructive text-sm">Lỗi tải biểu đồ</p>
+                                ) : (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <AreaChart data={trendData || []}>
+                                            <defs>
+                                                <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="hsl(var(--chart-1))" stopOpacity={0.3} />
+                                                    <stop offset="95%" stopColor="hsl(var(--chart-1))" stopOpacity={0} />
+                                                </linearGradient>
+                                                <linearGradient id="colorProfit" x1="0" y1="0" x2="0" y2="1">
+                                                    <stop offset="5%" stopColor="hsl(var(--chart-4))" stopOpacity={0.3} />
+                                                    <stop offset="95%" stopColor="hsl(var(--chart-4))" stopOpacity={0} />
+                                                </linearGradient>
+                                            </defs>
+                                            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                                            <XAxis dataKey="month" className="text-xs" />
+                                            <YAxis
+                                                tickFormatter={(value) => `${(value / 1000000).toFixed(0)}M`}
+                                                className="text-xs"
+                                            />
+                                            <Tooltip
+                                                formatter={(value: number) => formatCurrency(value)}
+                                                labelStyle={{ color: 'hsl(var(--foreground))' }}
+                                                contentStyle={{
+                                                    backgroundColor: 'hsl(var(--card))',
+                                                    border: '1px solid hsl(var(--border))',
+                                                    borderRadius: '8px',
+                                                }}
+                                            />
+                                            <Area
+                                                type="monotone"
+                                                dataKey="revenue"
+                                                stroke="hsl(var(--chart-1))"
+                                                fillOpacity={1}
+                                                fill="url(#colorRevenue)"
+                                                name="Doanh thu"
+                                            />
+                                            <Area
+                                                type="monotone"
+                                                dataKey="profit"
+                                                stroke="hsl(var(--chart-4))"
+                                                fillOpacity={1}
+                                                fill="url(#colorProfit)"
+                                                name="Lợi nhuận"
+                                            />
+                                        </AreaChart>
+                                    </ResponsiveContainer>
+                                )}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
 
                 {/* Expense Breakdown */}
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Cơ cấu chi phí</CardTitle>
-                        <CardDescription>Phân bổ theo loại</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="h-[250px] w-full relative">
-                            {expenseLoading ? (
-                                <div className="flex justify-center items-center h-full">
-                                    <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
-                                </div>
-                            ) : expenseError ? (
-                                <div className="flex justify-center items-center h-full">
-                                    <p className="text-destructive text-sm">Lỗi tải chi phí</p>
-                                </div>
-                            ) : (
-                                <ResponsiveContainer width="100%" height="100%">
-                                    <PieChart>
-                                        <Pie
-                                            activeIndex={activeIndex}
-                                            activeShape={renderActiveShape}
-                                            data={withColor}
-                                            cx="50%"
-                                            cy="50%"
-                                            innerRadius={60}
-                                            outerRadius={80}
-                                            paddingAngle={2}
-                                            dataKey="value"
-                                            onMouseEnter={onPieEnter}
-                                            onClick={(data) => {
-                                                navigate('/expenses?search=' + encodeURIComponent(data.name));
-                                            }}
-                                            className="cursor-pointer outline-none"
-                                        >
-                                            {withColor.map((entry, index) => (
-                                                <Cell key={`cell-${index}`} fill={entry.color} strokeWidth={0} />
-                                            ))}
-                                        </Pie>
-                                        <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle">
-                                            <tspan x="50%" dy="-0.5em" fontSize="12" fill="#888">Tổng chi phí</tspan>
-                                            <tspan x="50%" dy="1.2em" fontSize="16" fontWeight="bold" fill="#333">
-                                                {formatNumber((expenseData || []).reduce((sum, item) => sum + item.value, 0) / 1000000, 1)}M
-                                            </tspan>
-                                        </text>
-                                        <Tooltip content={<CustomTooltip />} />
-                                    </PieChart>
-                                </ResponsiveContainer>
-                            )}
-                        </div>
-                        <div className="grid grid-cols-1 gap-2 mt-4 max-h-[150px] overflow-y-auto pr-2 custom-scrollbar">
-                            {!expenseLoading && (expenseData || []).map((item, idx) => (
-                                <div
-                                    key={item.name}
-                                    className={`flex items-center gap-2 text-sm p-1.5 rounded-md transition-colors cursor-pointer ${activeIndex === idx ? 'bg-muted' : 'hover:bg-muted/50'}`}
-                                    onMouseEnter={() => setActiveIndex(idx)}
-                                    onMouseLeave={() => setActiveIndex(-1)}
-                                >
-                                    <div
-                                        className="w-3 h-3 rounded-full flex-shrink-0"
-                                        style={{ backgroundColor: chartColors[idx % chartColors.length] }}
-                                    />
-                                    <span className="text-muted-foreground truncate flex-1" title={item.name}>{item.name}</span>
-                                    <div className="text-right">
-                                        <span className="font-medium block">{formatCurrency(item.value)}</span>
-                                        <span className="text-xs text-muted-foreground">{item.percentage.toFixed(1)}%</span>
+                {isFinancialRole && (
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Cơ cấu chi phí</CardTitle>
+                            <CardDescription>Phân bổ theo loại</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="h-[250px] w-full relative">
+                                {expenseLoading ? (
+                                    <div className="flex justify-center items-center h-full">
+                                        <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
                                     </div>
-                                </div>
-                            ))}
-                        </div>
-                    </CardContent>
-                </Card>
+                                ) : expenseError ? (
+                                    <div className="flex justify-center items-center h-full">
+                                        <p className="text-destructive text-sm">Lỗi tải chi phí</p>
+                                    </div>
+                                ) : (
+                                    <ResponsiveContainer width="100%" height="100%">
+                                        <PieChart>
+                                            <Pie
+                                                activeIndex={activeIndex}
+                                                activeShape={renderActiveShape}
+                                                data={withColor}
+                                                cx="50%"
+                                                cy="50%"
+                                                innerRadius={60}
+                                                outerRadius={80}
+                                                paddingAngle={2}
+                                                dataKey="value"
+                                                onMouseEnter={onPieEnter}
+                                                onClick={(data) => {
+                                                    navigate('/expenses?search=' + encodeURIComponent(data.name));
+                                                }}
+                                                className="cursor-pointer outline-none"
+                                            >
+                                                {withColor.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={entry.color} strokeWidth={0} />
+                                                ))}
+                                            </Pie>
+                                            <text x="50%" y="50%" textAnchor="middle" dominantBaseline="middle">
+                                                <tspan x="50%" dy="-0.5em" fontSize="12" fill="#888">Tổng chi phí</tspan>
+                                                <tspan x="50%" dy="1.2em" fontSize="16" fontWeight="bold" fill="#333">
+                                                    {formatNumber((expenseData || []).reduce((sum, item) => sum + item.value, 0) / 1000000, 1)}M
+                                                </tspan>
+                                            </text>
+                                            <Tooltip content={<CustomTooltip />} />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                )}
+                            </div>
+                            <div className="grid grid-cols-1 gap-2 mt-4 max-h-[150px] overflow-y-auto pr-2 custom-scrollbar">
+                                {!expenseLoading && (expenseData || []).map((item, idx) => (
+                                    <div
+                                        key={item.name}
+                                        className={`flex items-center gap-2 text-sm p-1.5 rounded-md transition-colors cursor-pointer ${activeIndex === idx ? 'bg-muted' : 'hover:bg-muted/50'}`}
+                                        onMouseEnter={() => setActiveIndex(idx)}
+                                        onMouseLeave={() => setActiveIndex(-1)}
+                                    >
+                                        <div
+                                            className="w-3 h-3 rounded-full flex-shrink-0"
+                                            style={{ backgroundColor: chartColors[idx % chartColors.length] }}
+                                        />
+                                        <span className="text-muted-foreground truncate flex-1" title={item.name}>{item.name}</span>
+                                        <div className="text-right">
+                                            <span className="font-medium block">{formatCurrency(item.value)}</span>
+                                            <span className="text-xs text-muted-foreground">{item.percentage.toFixed(1)}%</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+                )}
             </div>
 
             {/* Bottom Row */}
@@ -636,11 +647,15 @@ export function DashboardOverview() {
                                         <div key={driver.id || idx} className="flex items-center justify-between">
                                             <div>
                                                 <p className="font-medium text-sm">{driver.driver_name || driver.full_name || `Tài xế #${idx + 1}`}</p>
-                                                <p className="text-xs text-muted-foreground">{formatCurrency(driver.total_profit || 0)}</p>
+                                                {isFinancialRole && (
+                                                    <p className="text-xs text-muted-foreground">{formatCurrency(driver.total_profit || 0)}</p>
+                                                )}
                                             </div>
                                             <div className="text-right">
                                                 <p className="text-sm">{driver.trip_count || 0} chuyến</p>
-                                                <p className="text-xs text-muted-foreground">{((driver.profit_margin || 0) * 100).toFixed(1)}%</p>
+                                                {isFinancialRole && (
+                                                    <p className="text-xs text-muted-foreground">{((driver.profit_margin || 0) * 100).toFixed(1)}%</p>
+                                                )}
                                             </div>
                                         </div>
                                     ))}

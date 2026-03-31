@@ -27,6 +27,7 @@ import { useRoutes } from "@/hooks/useRoutes";
 import { useCustomers } from "@/hooks/useCustomers";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth, UserRole } from "@/contexts/AuthContext";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
 
 // Define which roles can access each menu item
 const roleAccessMap: Record<string, UserRole[]> = {
@@ -36,15 +37,15 @@ const roleAccessMap: Record<string, UserRole[]> = {
   "/routes": ["admin", "manager", "dispatcher", "viewer"],
   "/customers": ["admin", "manager", "accountant", "viewer"], // Accountant + viewer only
   "/trips": ["admin", "manager", "dispatcher", "accountant", "driver", "viewer"],
-  "/expenses": ["admin", "manager", "dispatcher", "accountant"], // Accountant primary
+  "/expenses": ["admin", "manager", "accountant"], // Professional Role Separation
   "/transport-orders": ["admin", "manager", "dispatcher", "accountant"],
   "/dispatch": ["admin", "manager", "dispatcher"],
   "/maintenance": ["admin", "manager", "accountant"], // Accountant needs maintenance costs
   "/inventory/tires": ["admin", "manager", "accountant"],
-  "/reports": ["admin", "manager", "accountant", "viewer"],
+  "/reports": ["admin", "manager", "accountant"], // Restricted from Dispatcher/Viewer to protect profit
   "/alerts": ["admin", "manager", "dispatcher"],
   "/settings": ["admin"], // Only admin
-  "/members": ["admin", "manager"], // Admin and Manager
+  "/members": ["admin"], // Admin only for strict SaaS account management
   "/logs": ["admin"], // Admin only audit trail
   "/profile": ["admin", "manager", "dispatcher", "accountant", "driver", "viewer"], // All users
 };
@@ -74,6 +75,7 @@ export function AppSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const { toast } = useToast();
   const { role } = useAuth();
+  const { data: companySettings } = useCompanySettings();
 
   // Check for master data existence
   const { data: vehicles } = useVehicles();
@@ -97,13 +99,27 @@ export function AppSidebar() {
       {/* Logo */}
       <div className="flex items-center h-16 px-4 border-b border-sidebar-border">
         <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-sidebar-primary text-sidebar-primary-foreground">
-            <Truck className="w-5 h-5" />
+          <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-sidebar-primary text-sidebar-primary-foreground overflow-hidden">
+            {companySettings?.logo_url ? (
+              <img src={companySettings.logo_url} alt="Logo" className="w-full h-full object-cover" />
+            ) : (
+              <Truck className="w-5 h-5" />
+            )}
           </div>
           {!collapsed && (
-            <div className="animate-fade-in">
-              <h1 className="text-base font-bold text-sidebar-foreground">FleetPro</h1>
-              <p className="text-xs text-sidebar-foreground/60">Quản lý vận tải</p>
+            <div className="animate-fade-in overflow-hidden">
+              <h1 className="text-sm font-bold text-sidebar-foreground truncate max-w-[140px]">
+                {companySettings?.company_name || "FleetPro"}
+              </h1>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                {companySettings?.subscription?.plan === 'enterprise' ? (
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-500 text-white uppercase tracking-tighter">Enterprise</span>
+                ) : companySettings?.subscription?.plan === 'professional' ? (
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500 text-white uppercase tracking-tighter">Pro Fleet</span>
+                ) : (
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-200 text-slate-700 uppercase tracking-tighter">Trial Plan</span>
+                )}
+              </div>
             </div>
           )}
         </div>

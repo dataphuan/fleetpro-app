@@ -46,6 +46,23 @@ const logActivity = async (action: 'CREATE' | 'UPDATE' | 'DELETE' | 'RESTORE' | 
         const tenantId = getTenantId();
         if (!user || !tenantId || collectionName === 'system_logs') return;
 
+        // Delta tracking for updates
+        let delta = metadata?.changes || null;
+        if (action === 'UPDATE' && metadata?.previous && metadata?.changes) {
+            delta = {};
+            // Capture only changed fields
+            for (const key in metadata.changes) {
+                if (metadata.changes[key] !== metadata.previous[key]) {
+                    delta[key] = {
+                        from: metadata.previous[key] ?? null,
+                        to: metadata.changes[key]
+                    };
+                }
+            }
+            // If nothing changed, don't log an empty update
+            if (Object.keys(delta).length === 0) return;
+        }
+
         await addDoc(collection(db, 'system_logs'), {
             timestamp: new Date().toISOString(),
             user_id: user.uid,
@@ -54,10 +71,72 @@ const logActivity = async (action: 'CREATE' | 'UPDATE' | 'DELETE' | 'RESTORE' | 
             action,
             collection_name: collectionName,
             entity_id: entityId,
-            metadata: metadata || {}
+            metadata: {
+                ...metadata,
+                delta
+            }
         });
     } catch (e) {
         console.error("Audit Log Failure:", e);
+    }
+};
+
+/**
+ * SaaS Quota Enforcement
+ */
+const PLAN_LIMITS: Record<string, any> = {
+    trial: { vehicles: 5, drivers: 5, trips_per_month: 20 },
+    professional: { vehicles: 50, drivers: 50, trips_per_month: 200 },
+    enterprise: { vehicles: Infinity, drivers: Infinity, trips_per_month: Infinity }
+};
+
+const checkQuotas = async (tenantId: string, collectionName: string) => {
+    // 1. Get Tenant Subscription Info
+    const settingsDoc = await getDoc(doc(db, 'company_settings', tenantId));
+    const sub = settingsDoc.exists() ? settingsDoc.data().subscription : { plan: 'trial' };
+    const plan = sub?.plan || 'trial';
+    const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.trial;
+
+    // 2. Map collection to quota key
+    const quotaMap: Record<string, string> = {
+        vehicles: 'vehicles',
+        drivers: 'drivers',
+        trips: 'trips_per_month'
+    };
+
+    const quotaKey = quotaMap[collectionName];
+    if (!quotaKey) return; // No quota for this collection
+
+    // 3. Count existing items (for this month if it's trips)
+    const adapter = createFirestoreAdapter(collectionName);
+    const count = await adapter.count();
+
+    if (count >= limits[quotaKey]) {
+        throw new Error(`QUOTA_EXCEEDED: Gói [${plan.toUpperCase()}] đã đạt giới hạn ${limits[quotaKey]} ${quotaKey}. Vui lòng nâng cấp để tiếp tục.`);
+    }
+};
+
+/**
+ * Enterprise Logic Guard: Trip Status State Machine
+ */
+const checkStatusTransition = (oldStatus: string, newStatus: string) => {
+    if (!oldStatus || !newStatus || oldStatus === newStatus) return;
+
+    // Terminal states - no escape
+    if (oldStatus === 'closed' || oldStatus === 'cancelled') {
+        throw new Error(`Critical Logic Breach: Cannot modify status of a ${oldStatus.toUpperCase()} trip.`);
+    }
+
+    const validTransitions: Record<string, string[]> = {
+        'draft': ['confirmed', 'cancelled'],
+        'confirmed': ['dispatched', 'cancelled', 'draft'],
+        'dispatched': ['in_progress', 'cancelled', 'confirmed'],
+        'in_progress': ['completed', 'cancelled'],
+        'completed': ['closed', 'cancelled']
+    };
+
+    if (!validTransitions[oldStatus]?.includes(newStatus)) {
+        throw new Error(`Quy trình không hợp lệ: Không thể chuyển từ [${oldStatus}] sang [${newStatus}].`);
     }
 };
 
@@ -83,6 +162,9 @@ const createFirestoreAdapter = (collectionName: string) => ({
     create: async (data: any) => {
         const tenantId = getTenantId();
         
+        // 1. Quota Check
+        await checkQuotas(tenantId, collectionName);
+
         let validatedData = data;
         try {
             validatedData = validateAdapterData(collectionName, data);
@@ -106,11 +188,23 @@ const createFirestoreAdapter = (collectionName: string) => ({
         }
     },
     update: async (id: string, data: any) => {
-        // ---- SECURITY HARDENING: PRE-CHECK TENANT ----
+        // ---- SECURITY & LOGIC HARDENING ----
         const docRef = doc(db, collectionName, id);
         const existingDoc = await getDoc(docRef);
         if (!existingDoc.exists() || existingDoc.data()?.tenant_id !== getTenantId()) {
             throw new Error(`Unauthorized: Document ${id} does not belong to this tenant.`);
+        }
+        
+        const oldData = existingDoc.data();
+        
+        // 1. Immutability Check (Closed data protection)
+        if (oldData.status === 'closed' && collectionName === 'trips') {
+            throw new Error("Dữ liệu đã đóng: Bản ghi này đã được quyết toán và không thể chỉnh sửa.");
+        }
+
+        // 2. State Machine Check
+        if (collectionName === 'trips' && data.status) {
+            checkStatusTransition(oldData.status, data.status);
         }
         // ----------------------------------------------
 
@@ -123,7 +217,10 @@ const createFirestoreAdapter = (collectionName: string) => ({
         }
         
         await updateDoc(docRef, { ...validatedData, updated_at: new Date().toISOString() });
-        await logActivity('UPDATE', collectionName, id, { changes: validatedData });
+        await logActivity('UPDATE', collectionName, id, { 
+            previous: oldData, 
+            changes: validatedData 
+        });
         return true;
     },
     delete: async (id: string) => {
@@ -318,16 +415,34 @@ const tripFirestoreAdapter = {
     complete: async (id: string, time: string, km?: number) => {
         const tripRef = doc(db, 'trips', id);
         const tripSnap = await getDoc(tripRef);
+        
+        if (!tripSnap.exists()) throw new Error("Chuyến đi không tồn tại.");
+        const data = tripSnap.data();
+
+        // ---- EXPORT LOGIC: POD GUARD ----
+        if (data.pod_status !== 'RECEIVED') {
+            throw new Error("Quy trình bắt buộc: Bạn phải xác nhận ĐÃ NHẬN POD (Biên bản giao nhận) trước khi Hoàn Thành chuyến.");
+        }
+        // ---------------------------------
+
         const batch = writeBatch(db);
         
-        batch.update(tripRef, { status: 'completed', actual_arrival_time: time, actual_distance_km: km });
+        batch.update(tripRef, { 
+            status: 'completed', 
+            actual_arrival_time: time, 
+            actual_distance_km: km,
+            updated_at: new Date().toISOString()
+        });
         
-        if (tripSnap.exists()) {
-            const data = tripSnap.data();
-            // Free the vehicle and driver back to active
-            if (data.vehicle_id) batch.update(doc(db, 'vehicles', data.vehicle_id), { status: 'active' });
-            if (data.driver_id) batch.update(doc(db, 'drivers', data.driver_id), { status: 'active' });
+        // Free the vehicle and driver back to active
+        if (data.vehicle_id) {
+            batch.update(doc(db, 'vehicles', data.vehicle_id), { 
+                status: 'active',
+                current_odometer: (data.start_odometer || 0) + (km || 0) // Auto-update vehicle odo
+            });
         }
+        if (data.driver_id) batch.update(doc(db, 'drivers', data.driver_id), { status: 'active' });
+        
         await batch.commit();
         return true;
     },
@@ -384,6 +499,25 @@ const expenseFirestoreAdapter = {
     ...createFirestoreAdapter('expenses'),
     create: async (data: any) => {
         const baseAdapter = createFirestoreAdapter('expenses');
+        
+        // ---- EXPORT LOGIC: ODOMETER SYNC ----
+        const isFuelOrMaint = ['Dầu', 'Nhiên liệu', 'Bảo trì', 'Sửa chữa'].some(cat => 
+            (data.category || '').toLowerCase().includes(cat.toLowerCase())
+        );
+
+        if (isFuelOrMaint && data.vehicle_id && data.odometer_reading) {
+            const vRef = doc(db, 'vehicles', data.vehicle_id);
+            const vSnap = await getDoc(vRef);
+            if (vSnap.exists()) {
+                const currentOdo = vSnap.data().current_odometer || 0;
+                if (data.odometer_reading < currentOdo) {
+                    throw new Error(`Gian lận/Sai sót ODO: Chỉ số ODO mới (${data.odometer_reading}) không được thấp hơn ODO hiện tại của xe (${currentOdo}).`);
+                }
+                await updateDoc(vRef, { current_odometer: data.odometer_reading });
+            }
+        }
+        // -------------------------------------
+
         const res = await baseAdapter.create(data);
         if (data.trip_id && data.status === 'confirmed') {
             await recalculateTripExpenses(data.trip_id, getTenantId());

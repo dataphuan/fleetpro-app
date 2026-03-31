@@ -11,6 +11,8 @@ type CompanySettings = {
   phone?: string | null;
   email?: string | null;
   website?: string | null;
+  logo_url?: string | null;
+  primary_color?: string | null;
   metadata?: any;
 };
 
@@ -40,6 +42,8 @@ export const useCompanySettings = () => {
           address: '',
           phone: '',
           website: '',
+          logo_url: '',
+          primary_color: '#3b82f6', // Default Blue
           // Inject Default SaaS Subscription
           subscription: {
               plan: 'trial',

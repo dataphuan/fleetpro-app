@@ -41,18 +41,30 @@ export default function CustomerPortal() {
 
     const extractReceiptUrl = (notes?: string) => {
         if (!notes) return null;
-        const match = notes.match(/Bill:\s*(https:\/\/firebasestorage[^ \n]+)/);
+        const match = notes.match(/\[e-POD\] Receipt:\s*(https:\/\/firebasestorage[^ \n]+)/) || notes.match(/Bill:\s*(https:\/\/firebasestorage[^ \n]+)/);
+        return match ? match[1] : null;
+    };
+
+    const extractSignatureUrl = (notes?: string) => {
+        if (!notes) return null;
+        const match = notes.match(/\[e-POD\] Signature:\s*(https:\/\/firebasestorage[^ \n]+)/);
         return match ? match[1] : null;
     };
 
     const getStatusBadge = (status: string) => {
         switch (status) {
-            case 'in_progress': return <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100">ĐANG VẬN CHUYỂN</Badge>;
+            case 'in_progress': return <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 animate-pulse">ĐANG VẬN CHUYỂN</Badge>;
             case 'completed': return <Badge className="bg-green-100 text-green-700 hover:bg-green-100">ĐÃ GIAO HÀNG</Badge>;
             case 'closed': return <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-100">ĐÃ QUYẾT TOÁN</Badge>;
             case 'dispatched': return <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">ĐÃ XẾP XE</Badge>;
             default: return <Badge variant="outline">CHỜ XỬ LÝ</Badge>;
         }
+    };
+
+    const getTimelineStep = (status: string) => {
+        const steps = ['dispatched', 'in_progress', 'completed'];
+        const currentIdx = steps.indexOf(status);
+        return currentIdx;
     };
 
     return (
@@ -109,6 +121,23 @@ export default function CustomerPortal() {
                                     </div>
                                 </div>
 
+                                {/* Timeline View */}
+                                <div className="pt-2">
+                                    <div className="flex justify-between mb-2">
+                                        {['Lên lịch', 'Đang đi', 'Đã giao'].map((label, i) => (
+                                            <span key={i} className={`text-[10px] font-bold uppercase transition-colors ${i <= getTimelineStep(trip.status) ? 'text-blue-600' : 'text-slate-300'}`}>
+                                                {label}
+                                            </span>
+                                        ))}
+                                    </div>
+                                    <div className="h-1.5 w-full bg-slate-100 rounded-full overflow-hidden flex">
+                                        <div 
+                                            className="h-full bg-blue-500 transition-all duration-1000" 
+                                            style={{ width: `${((getTimelineStep(trip.status) + 1) / 3) * 100}%` }}
+                                        />
+                                    </div>
+                                </div>
+
                                 <div className="flex gap-2 pt-2 border-t mt-4">
                                     {trip.status === 'in_progress' ? (
                                         <Button 
@@ -123,17 +152,20 @@ export default function CustomerPortal() {
                                         </Button>
                                     )}
 
-                                    {receiptUrl ? (
+                                    {receiptUrl || extractSignatureUrl(trip.notes) ? (
                                         <Button 
                                             variant="secondary" 
-                                            className="flex-1 bg-blue-50 text-blue-700 hover:bg-blue-100"
-                                            onClick={() => window.open(receiptUrl, '_blank')}
+                                            className="flex-1 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
+                                            onClick={() => {
+                                                const url = extractSignatureUrl(trip.notes) || receiptUrl;
+                                                if (url) window.open(url, '_blank');
+                                            }}
                                         >
-                                            <FileDown className="w-4 h-4 mr-2" /> Tải e-POD
+                                            <FileDown className="w-4 h-4 mr-2" /> Xem e-POD
                                         </Button>
                                     ) : (
                                         <Button variant="outline" className="flex-1" disabled title="Chưa có biên nhận">
-                                            <FileDown className="w-4 h-4 mr-2" /> Tải e-POD
+                                            <FileDown className="w-4 h-4 mr-2" /> Xem e-POD
                                         </Button>
                                     )}
                                 </div>

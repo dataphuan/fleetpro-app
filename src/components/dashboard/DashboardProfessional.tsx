@@ -7,10 +7,12 @@
 
 import { useState } from 'react';
 import { Loader2, TrendingUp, BarChart3, Download, RefreshCw } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDashboardStats, useMonthlyTrend, useExpenseBreakdown, useDriverPerformance, useVehiclePerformance, useRecentTrips } from '@/hooks/useDashboard';
+import { useVehicles } from '@/hooks/useVehicles';
 import {
   AreaChart,
   Area,
@@ -28,18 +30,36 @@ import {
   ComposedChart,
 } from 'recharts';
 import { format, subMonths } from 'date-fns';
+import { useAuth } from '@/contexts/AuthContext';
 
 export function DashboardProfessional() {
+  const { role } = useAuth();
+  const isFinancialRole = ['admin', 'manager', 'accountant'].includes(role || '');
   const today = format(new Date(), 'yyyy-MM-dd');
   const startMonth = format(subMonths(new Date(), 1), 'yyyy-MM-dd');
 
   const { data: stats, isLoading: statsLoading } = useDashboardStats(startMonth, today);
   const { data: monthlyTrend, isLoading: trendLoading } = useMonthlyTrend(12);
   const { data: topDrivers, isLoading: driversLoading } = useDriverPerformance(5);
-  const { data: topRoutes, isLoading: routesLoading } = useVehiclePerformance(5);
+  const { data: topRoutes, isLoading: routesLoading } = useVehiclePerformance(20);
+  const { data: vehicles } = useVehicles();
   
   const isLoading = statsLoading || trendLoading || driversLoading || routesLoading;
   const [selectedMetric, setSelectedMetric] = useState('revenue');
+
+  // Real KPI Calculations
+  const totalRevenue = (stats?.official?.revenue || 0) + (stats?.pending?.revenue || 0);
+  const totalExpense = (stats?.official?.expense || 0) + (stats?.pending?.expense || 0);
+  const totalKm = (stats?.official?.total_km || 0) + (stats?.pending?.total_km || 0);
+  const totalTrips = (stats?.official?.count || 0) + (stats?.pending?.count || 0);
+  
+  // CPK: Cost Per KM
+  const cpk = totalKm > 0 ? (totalExpense / totalKm) : 0;
+  
+  // Fleet Utilization: % of vehicles having at least 1 trip in period
+  const activeVehiclesCount = topRoutes?.filter(v => v.trip_count > 0).length || 0;
+  const totalVehiclesCount = vehicles?.length || 1;
+  const utilization = (activeVehiclesCount / totalVehiclesCount) * 100;
 
   if (isLoading) {
     return (
@@ -49,13 +69,12 @@ export function DashboardProfessional() {
     );
   }
 
-  // YoY Comparison (Mock data - in real app, fetch from API)
-  const yoyGrowth = {
-    revenue: 154.5,
-    trips: 154.5,
-    profit: 141.0,
-    ebitda: 77.5,
-  };
+  // YoY Comparison (Simplified growth comparison with previous data point in trend)
+  const lastMonth = monthlyTrend?.[monthlyTrend.length - 1];
+  const prevMonth = monthlyTrend?.[monthlyTrend.length - 2];
+  
+  const revenueGrowth = prevMonth?.revenue ? ((lastMonth.revenue - prevMonth.revenue) / prevMonth.revenue) * 100 : 0;
+  const profitGrowth = prevMonth?.profit ? ((lastMonth.profit - prevMonth.profit) / prevMonth.profit) * 100 : 0;
 
   const COLORS = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
 
@@ -64,8 +83,10 @@ export function DashboardProfessional() {
       {/* HEADER - Tháng + YoY */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-foreground">📊 Tháng 3/2026</h2>
-          <p className="text-sm text-muted-foreground">YoY: +{yoyGrowth.revenue}% (so sánh T3/2025) vs +{yoyGrowth.trips}% chuyến</p>
+          <h2 className="text-2xl font-bold text-foreground">📊 Phân Tích Hiệu Suất Cao</h2>
+          {isFinancialRole && (
+            <p className="text-sm text-muted-foreground">Tăng trưởng doanh thu: {revenueGrowth > 0 ? '+' : ''}{revenueGrowth.toFixed(1)}% | Biên lợi nhuận: {totalRevenue > 0 ? ((totalRevenue - totalExpense) / totalRevenue * 100).toFixed(1) : 0}%</p>
+          )}
         </div>
         <div className="flex gap-2">
           <Button size="sm" variant="outline" className="gap-2">
@@ -82,65 +103,75 @@ export function DashboardProfessional() {
       {/* 5 KPI CHÍNH - MỌI CHỈ SỐ QUAN TRỌNG */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {/* Doanh Thu */}
-        <Card className="border-l-4 border-l-blue-500">
-          <CardContent className="pt-6">
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase text-muted-foreground">Doanh Thu</p>
-              <p className="text-2xl font-bold text-foreground">
-                {((stats?.official?.revenue || 0) + (stats?.pending?.revenue || 0)).toLocaleString('vi-VN', { notation: 'compact', maximumFractionDigits: 1 })}
-              </p>
-              <p className="text-xs text-emerald-600">↑ {yoyGrowth.revenue.toFixed(1)}% YoY</p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Chi Phí */}
-        <Card className="border-l-4 border-l-red-500">
-          <CardContent className="pt-6">
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase text-muted-foreground">Chi Phí</p>
-              <p className="text-2xl font-bold text-foreground">
-                {((stats?.official?.expense || 0) + (stats?.pending?.expense || 0)).toLocaleString('vi-VN', { notation: 'compact', maximumFractionDigits: 1 })}
-              </p>
-              <p className="text-xs text-muted-foreground">→ Không đổi</p>
-            </div>
-          </CardContent>
-        </Card>
+        {isFinancialRole && (
+          <Card className="border-l-4 border-l-blue-500">
+            <CardContent className="pt-6">
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase text-muted-foreground">Doanh Thu</p>
+                <p className="text-2xl font-bold text-foreground">
+                  {totalRevenue.toLocaleString('vi-VN', { notation: 'compact', maximumFractionDigits: 1 })}
+                </p>
+                <p className={cn("text-xs", revenueGrowth > 0 ? "text-emerald-600" : "text-red-500")}>
+                  {revenueGrowth > 0 ? '↑' : '↓'} {Math.abs(revenueGrowth).toFixed(1)}% MoM
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Lợi Nhuận */}
-        <Card className="border-l-4 border-l-emerald-500">
-          <CardContent className="pt-6">
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase text-muted-foreground">Lợi Nhuận</p>
-              <p className="text-2xl font-bold text-foreground">
-                {(((stats?.official?.revenue || 0) + (stats?.pending?.revenue || 0)) - ((stats?.official?.expense || 0) + (stats?.pending?.expense || 0))).toLocaleString('vi-VN', {
-                  notation: 'compact',
-                  maximumFractionDigits: 1,
-                })}
-              </p>
-              <p className="text-xs text-emerald-600">↑ {yoyGrowth.profit.toFixed(1)}% YoY</p>
-            </div>
-          </CardContent>
-        </Card>
+        {isFinancialRole && (
+          <Card className="border-l-4 border-l-emerald-500">
+            <CardContent className="pt-6">
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase text-muted-foreground">Lợi Nhuận</p>
+                <p className="text-2xl font-bold text-foreground">
+                  {(totalRevenue - totalExpense).toLocaleString('vi-VN', {
+                    notation: 'compact',
+                    maximumFractionDigits: 1,
+                  })}
+                </p>
+                <p className={cn("text-xs", profitGrowth > 0 ? "text-emerald-600" : "text-red-500")}>
+                  {profitGrowth > 0 ? '↑' : '↓'} {Math.abs(profitGrowth).toFixed(1)}% MoM
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-        {/* EBITDA % */}
-        <Card className="border-l-4 border-l-purple-500">
-          <CardContent className="pt-6">
-            <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase text-muted-foreground">EBITDA %</p>
-              <p className="text-2xl font-bold text-foreground">{yoyGrowth.ebitda.toFixed(1)}%</p>
-              <p className="text-xs text-emerald-600">↑ 2 pts from last month</p>
-            </div>
-          </CardContent>
-        </Card>
+        {/* CPK (Cost Per KM) */}
+        {isFinancialRole && (
+          <Card className="border-l-4 border-l-purple-500">
+            <CardContent className="pt-6">
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase text-muted-foreground">Chi Phí / KM (CPK)</p>
+                <p className="text-2xl font-bold text-foreground">
+                  {cpk.toLocaleString('vi-VN', { maximumFractionDigits: 0 })} đ
+                </p>
+                <p className="text-xs text-muted-foreground">Tổng: {totalKm.toLocaleString()} KM</p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
-        {/* Xe Hoạt Động */}
+        {/* Hiệu Suất Đội Xe */}
         <Card className="border-l-4 border-l-orange-500">
           <CardContent className="pt-6">
             <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase text-muted-foreground">Xe Hoạt Động</p>
-              <p className="text-2xl font-bold text-foreground">18/20</p>
-              <p className="text-xs text-muted-foreground">Active</p>
+              <p className="text-xs font-semibold uppercase text-muted-foreground">Hiệu Suất Đội Xe</p>
+              <p className="text-2xl font-bold text-foreground">{utilization.toFixed(1)}%</p>
+              <p className="text-xs text-muted-foreground">{activeVehiclesCount}/{totalVehiclesCount} xe hoạt động</p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Tổng Chuyến Đi */}
+        <Card className="border-l-4 border-l-slate-500">
+          <CardContent className="pt-6">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold uppercase text-muted-foreground">Hoàn Thành</p>
+              <p className="text-2xl font-bold text-foreground">{totalTrips}</p>
+              <p className="text-xs text-muted-foreground">Chuyến đi</p>
             </div>
           </CardContent>
         </Card>
@@ -148,11 +179,15 @@ export function DashboardProfessional() {
 
       {/* ANALYTICS TABS */}
       <Tabs defaultValue="revenue" className="space-y-4">
-        <TabsList className="grid grid-cols-4">
-          <TabsTrigger value="revenue">Doanh Thu</TabsTrigger>
+        <TabsList className={`grid ${isFinancialRole ? 'grid-cols-4' : 'grid-cols-1'}`}>
           <TabsTrigger value="routes">Tuyến Đường</TabsTrigger>
-          <TabsTrigger value="drivers">Tài Xế</TabsTrigger>
-          <TabsTrigger value="expenses">Chi Phí</TabsTrigger>
+          {isFinancialRole && (
+            <>
+              <TabsTrigger value="revenue">Doanh Thu</TabsTrigger>
+              <TabsTrigger value="drivers">Tài Xế</TabsTrigger>
+              <TabsTrigger value="expenses">Chi Phí</TabsTrigger>
+            </>
+          )}
         </TabsList>
 
         {/* TAB 1: REVENUE TREND */}
@@ -207,7 +242,9 @@ export function DashboardProfessional() {
                   <Tooltip formatter={(value) => (value as number).toLocaleString('vi-VN')} />
                   <Legend />
                   <Bar dataKey="total_revenue" fill="#3b82f6" name="Doanh Thu" />
-                  <Bar dataKey="total_profit" fill="#10b981" name="Lợi Nhuận" />
+                  {isFinancialRole && (
+                    <Bar dataKey="total_profit" fill="#10b981" name="Lợi Nhuận" />
+                  )}
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
@@ -229,7 +266,9 @@ export function DashboardProfessional() {
                       </div>
                       <div className="text-right">
                         <p className="font-bold">{(vehicle?.total_revenue || 0).toLocaleString('vi-VN', { notation: 'compact' })}</p>
-                        <p className="text-xs text-emerald-600">{(vehicle?.profit_margin || 0).toFixed(1)}% margin</p>
+                        {isFinancialRole && (
+                          <p className="text-xs text-emerald-600">{(vehicle?.profit_margin || 0).toFixed(1)}% margin</p>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -258,8 +297,14 @@ export function DashboardProfessional() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-lg font-bold text-emerald-600">{(driver?.profit_margin || 0).toFixed(1)}%</p>
-                        <p className="text-xs text-muted-foreground">Hiệu suất</p>
+                        {isFinancialRole ? (
+                          <>
+                            <p className="text-lg font-bold text-emerald-600">{(driver?.profit_margin || 0).toFixed(1)}%</p>
+                            <p className="text-xs text-muted-foreground">Hiệu suất</p>
+                          </>
+                        ) : (
+                          <p className="text-sm font-medium">{driver?.trip_count || 0} chuyến</p>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -36,6 +36,18 @@ export const TripSchema = z.object({
   'Mã chuyến': tripIdSchema.optional(),
   departure_date: z.string().optional().nullable(),
   arrival_date: z.string().optional().nullable(), 
+  cargo_weight_tons: z.number().min(0, { message: 'Khối lượng phải >= 0' }).optional(),
+  freight_revenue: z.number().min(0, { message: 'Doanh thu phải >= 0' }).optional(),
+  additional_charges: z.number().min(0, { message: 'Phí phát sinh phải >= 0' }).optional(),
+  fuel_liters: z.number().min(0, { message: 'Số lít dầu phải >= 0' }).optional(),
+  fuel_cost: z.number().min(0, { message: 'Tiền dầu phải >= 0' }).optional(),
+  
+  // Elite Logistics Logic
+  pod_status: z.enum(['PENDING', 'RECEIVED', 'LOST']).default('PENDING'),
+  pod_url: z.string().optional().nullable(),
+  driver_advance: z.number().min(0, { message: 'Tiền tạm ứng phải >= 0' }).optional().default(0),
+  actual_revenue: z.number().min(0, { message: 'Doanh thu thực tế phải >= 0' }).optional(),
+  adjustment_notes: z.string().optional().nullable(),
 }).passthrough()
 .refine(data => {
   const idValue = data.id || data['Mã chuyến'];
@@ -57,6 +69,16 @@ export const TripSchema = z.object({
 export const ExpenseSchema = z.object({
   amount: amountSchema.optional(),
   'Số tiền': amountSchema.optional(),
+  category: z.string().optional(),
+  payment_method: z.enum(['CASH', 'ETC', 'BANK_TRANSFER']).default('CASH'),
+  odometer_reading: z.number().min(0, { message: 'Chỉ số ODO phải >= 0' }).optional(),
+  is_reconciled: z.boolean().default(false),
+  reconciliation_date: z.string().optional().nullable(),
+}).passthrough();
+
+export const InventoryTransactionSchema = z.object({
+    quantity: z.number().min(0, { message: 'Số lượng phải >= 0' }),
+    unit_price: z.number().min(0, { message: 'Đơn giá phải >= 0' }),
 }).passthrough();
 
 // Factory object to select schema by collection Name
@@ -65,6 +87,7 @@ export const CollectionSchemas: Record<string, z.ZodTypeAny> = {
   drivers: DriverSchema,
   trips: TripSchema,
   expenses: ExpenseSchema,
+  inventoryTransactions: InventoryTransactionSchema,
 };
 
 // Validate generic function to use inside adapter

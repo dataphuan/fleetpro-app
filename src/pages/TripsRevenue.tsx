@@ -118,6 +118,12 @@ interface Trip {
     route?: any;
     customer?: any;
     total_expenses?: number;
+    // Elite Logistics Logic
+    pod_status?: 'PENDING' | 'RECEIVED' | 'LOST';
+    pod_url?: string | null;
+    driver_advance?: number;
+    actual_revenue?: number | null;
+    adjustment_notes?: string | null;
 }
 
 // Status options with Vietnamese labels
@@ -175,6 +181,12 @@ const tripSchema = z.object({
     actual_departure_time: z.string().optional().nullable(),
     actual_arrival_time: z.string().optional().nullable(),
     planned_arrival_date: z.string().optional().nullable(),
+    // Elite Logistics Logic
+    pod_status: z.enum(['PENDING', 'RECEIVED', 'LOST']).default('PENDING'),
+    pod_url: z.string().optional().nullable(),
+    driver_advance: z.coerce.number().min(0, "Tạm ứng >= 0").optional().default(0),
+    actual_revenue: z.coerce.number().min(0, "Thực thu >= 0").optional().nullable(),
+    adjustment_notes: z.string().optional().nullable(),
 }).refine(data => !data.end_odometer || !data.start_odometer || data.end_odometer >= data.start_odometer, {
    message: "Số Km kết thúc phải >= Số Km bắt đầu",
    path: ["end_odometer"]
@@ -186,8 +198,9 @@ export default function TripsRevenue() {
     const { toast } = useToast();
     const [isScanning, setIsScanning] = useState(false);
     const queryClient = useQueryClient();
-    const { user } = useAuth();
+    const { user, role } = useAuth();
     const isSuperUser = user?.role === 'admin';
+    const isFinancialRole = ['admin', 'manager', 'accountant'].includes(role);
     const { canCreate, canDelete, canExport } = usePermissions('trips');
     const { data: closedPeriods } = useClosedPeriods();
     const { data: companySettings } = useCompanySettings();
@@ -244,7 +257,7 @@ export default function TripsRevenue() {
     const allColumnKeys = [
         'trip_code', 'departure_date', 'vehicle', 'driver', 'customer', 'route',
         'cargo_weight_tons', 'actual_distance_km', 'freight_revenue', 'additional_charges',
-        'total_revenue', 'total_expenses', 'profit', 'status', 'notes', 'id'
+        'total_revenue', 'total_expenses', 'profit', 'pod_status', 'driver_advance', 'status', 'notes', 'id'
     ];
     const [visibleColumns, setVisibleColumns] = useState<string[]>(allColumnKeys);
 
@@ -287,6 +300,12 @@ export default function TripsRevenue() {
             additional_charges: 0,
             status: 'draft',
             notes: "",
+            // Elite Logistics Logic
+            pod_status: 'PENDING',
+            pod_url: "",
+            driver_advance: 0,
+            actual_revenue: null,
+            adjustment_notes: "",
         },
     });
 
@@ -886,25 +905,45 @@ export default function TripsRevenue() {
                 return <span className="font-bold text-green-600">{formatCurrency(total)}</span>;
             },
         },
-        {
-            key: 'total_expenses',
-            header: 'Tổng chi phí',
-            width: '130px',
-            align: 'right',
-            render: (value) => <span className="font-medium text-red-600">{formatCurrency((value as number) || 0)}</span>,
-        },
-        {
-            key: 'profit',
-            header: 'Lãi gộp',
-            width: '140px',
-            align: 'right',
-            render: (_: any, row: any) => {
-                const tr = (row.total_revenue || 0) + (!row.total_revenue && ((row.freight_revenue || 0) + (row.additional_charges || 0)));
-                const ex = (row.total_expenses || 0);
-                const pr = tr - ex;
-                return <span className={`font-bold ${pr >= 0 ? 'text-primary' : 'text-red-700'}`}>{formatCurrency(pr)}</span>;
+        ...(isFinancialRole ? [
+            {
+                key: 'total_expenses',
+                header: 'Tổng chi phí',
+                width: '130px',
+                align: 'right',
+                render: (value: any) => <span className="font-medium text-red-600">{formatCurrency((value as number) || 0)}</span>,
             },
-        },
+            {
+                key: 'profit',
+                header: 'Lãi gộp / Margin',
+                width: '160px',
+                align: 'right',
+                render: (_: any, row: any) => {
+                    const tr = (row.total_revenue || 0) + (!row.total_revenue && ((row.freight_revenue || 0) + (row.additional_charges || 0)));
+                    const ex = (row.total_expenses || 0);
+                    const pr = tr - ex;
+                    const margin = tr > 0 ? (pr / tr) * 100 : 0;
+                    
+                    return (
+                        <div className="flex flex-col items-end gap-1">
+                            <span className={`font-bold ${pr >= 0 ? 'text-emerald-600' : 'text-red-700'}`}>
+                                {formatCurrency(pr)}
+                            </span>
+                            <div className="flex items-center gap-1">
+                                {pr < 0 && (
+                                    <Badge variant="destructive" className="h-4 px-1 text-[9px] font-bold animate-pulse">
+                                        LỖ
+                                    </Badge>
+                                )}
+                                <span className={`text-[10px] font-medium ${margin >= 20 ? 'text-emerald-500' : margin >= 0 ? 'text-amber-500' : 'text-red-600'}`}>
+                                    {margin.toFixed(1)}%
+                                </span>
+                            </div>
+                        </div>
+                    );
+                },
+            }
+        ] : []) as Column<Trip>[],
         {
             key: 'status',
             header: 'Trạng thái',
@@ -944,7 +983,7 @@ export default function TripsRevenue() {
                 </Button>
             ),
         }] : []) as any[]
-    ], [handleDeleteClick, canDelete]);
+    ], [handleDeleteClick, canDelete, isFinancialRole]);
 
     // Error state
     if (error) {
@@ -1016,31 +1055,35 @@ export default function TripsRevenue() {
                     </CardContent>
                 </Card>
 
-                <Card className="bg-gradient-to-br from-green-50 to-green-100/50 border-green-200">
-                    <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-green-600 font-medium">Tổng doanh thu</p>
-                                <p className="text-2xl font-bold text-green-700">{formatCurrency(kpiSummary.totalRevenue)}</p>
+                {isFinancialRole && (
+                  <>
+                    <Card className="bg-gradient-to-br from-green-50 to-green-100/50 border-green-200">
+                        <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm text-green-600 font-medium">Tổng doanh thu</p>
+                                    <p className="text-2xl font-bold text-green-700">{formatCurrency(kpiSummary.totalRevenue)}</p>
+                                </div>
+                                <TrendingUp className="w-8 h-8 text-green-400" />
                             </div>
-                            <TrendingUp className="w-8 h-8 text-green-400" />
-                        </div>
-                    </CardContent>
-                </Card>
+                        </CardContent>
+                    </Card>
 
-                <Card className="bg-gradient-to-br from-purple-50 to-purple-100/50 border-purple-200">
-                    <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-sm text-purple-600 font-medium">Lãi gộp ước tính</p>
-                                <p className={`text-2xl font-bold ${kpiSummary.grossProfit >= 0 ? 'text-purple-700' : 'text-red-700'}`}>
-                                    {formatCurrency(kpiSummary.grossProfit)}
-                                </p>
+                    <Card className="bg-gradient-to-br from-purple-50 to-purple-100/50 border-purple-200">
+                        <CardContent className="p-4">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-sm text-purple-600 font-medium">Lãi gộp ước tính</p>
+                                    <p className={`text-2xl font-bold ${kpiSummary.grossProfit >= 0 ? 'text-purple-700' : 'text-red-700'}`}>
+                                        {formatCurrency(kpiSummary.grossProfit)}
+                                    </p>
+                                </div>
+                                <TrendingUp className="w-8 h-8 text-purple-400" />
                             </div>
-                            <TrendingUp className="w-8 h-8 text-purple-400" />
-                        </div>
-                    </CardContent>
-                </Card>
+                        </CardContent>
+                    </Card>
+                  </>
+                )}
 
                 <Card className="bg-gradient-to-br from-amber-50 to-amber-100/50 border-amber-200">
                     <CardContent className="p-4">

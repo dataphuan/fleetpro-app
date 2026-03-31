@@ -9,6 +9,7 @@ interface DashboardStats {
         expense: number;
         profit: number;
         margin: number;
+        total_km: number;
     };
     pending: {
         count: number;
@@ -16,6 +17,7 @@ interface DashboardStats {
         expense: number;
         profit: number;
         margin: number;
+        total_km: number;
     };
     inProgress: {
         count: number;
@@ -76,6 +78,7 @@ export const useDashboardStats = (startDate: string, endDate: string) => {
             trips.forEach((trip: any) => {
                 const status = trip.status;
                 const rev = trip.total_revenue || 0;
+                const km = trip.actual_distance_km || 0;
 
                 // Calculate expense for this trip
                 const tripExpenses = allExpenses.filter((e: any) => e.trip_id === trip.id);
@@ -87,11 +90,13 @@ export const useDashboardStats = (startDate: string, endDate: string) => {
                     stats.official.revenue += rev;
                     stats.official.expense += exp;
                     stats.official.profit += profit;
+                    stats.official.total_km += km;
                 } else if (status === 'completed' || status === 'confirmed') {
                     stats.pending.count++;
                     stats.pending.revenue += rev;
                     stats.pending.expense += exp;
                     stats.pending.profit += profit;
+                    stats.pending.total_km += km;
                 } else if (status === 'in_progress') {
                     stats.inProgress.count++;
                     stats.inProgress.revenue += rev;
@@ -186,9 +191,9 @@ export const useExpenseBreakdown = (startDate: string, endDate: string) => {
         queryKey: ['dashboard', 'expenses', startDate, endDate],
         queryFn: async () => {
             const categories = await dataAdapter.expenseCategories.list().catch(() => []);
-            const catMap = new Map(categories.map((c: any) => [c.id as string, c.category_name]));
+            const catMap = new Map<string, string>(categories.map((c: any) => [String(c.id), String(c.category_name)]));
 
-            const allExpenses = await expenseAdapter.list();
+            const allExpenses = (await expenseAdapter.list()) as any[];
 
             // Filter by date
             const relevant = allExpenses.filter((e: any) => {
@@ -199,9 +204,9 @@ export const useExpenseBreakdown = (startDate: string, endDate: string) => {
             const groups = new Map<string, { val: number, count: number }>();
 
             relevant.forEach((e: any) => {
-                const catName = catMap.get(e.category_id as string) || 'Khác';
+                const catName = catMap.get(String(e.category_id)) || 'Khác';
                 const curr = groups.get(catName) || { val: 0, count: 0 };
-                curr.val += (e.amount || 0);
+                curr.val += (Number(e.amount) || 0);
                 curr.count++;
                 groups.set(catName, curr);
             });
@@ -356,8 +361,8 @@ function calculateMargin(profit: number, revenue: number): number {
 
 function getEmptyStats(): DashboardStats {
     return {
-        official: { count: 0, revenue: 0, expense: 0, profit: 0, margin: 0 },
-        pending: { count: 0, revenue: 0, expense: 0, profit: 0, margin: 0 },
+        official: { count: 0, revenue: 0, expense: 0, profit: 0, margin: 0, total_km: 0 },
+        pending: { count: 0, revenue: 0, expense: 0, profit: 0, margin: 0, total_km: 0 },
         inProgress: { count: 0, revenue: 0 },
         draft: { count: 0 },
     };

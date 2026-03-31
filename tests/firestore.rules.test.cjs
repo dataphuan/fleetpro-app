@@ -105,10 +105,53 @@ async function run() {
       updateDoc(doc(t1AdminDb, 'users', 'user_t1'), { role: 'viewer' })
     );
 
-    console.log('PASS: Firestore security rules tenant isolation and role guard checks succeeded.');
+    // --- NEW TESTS: IMMUTABILITY & AUDIT INTEGRITY ---
+
+    // 1. Closed Trip Immutability
+    await seedTrip(testEnv, 'trip-closed', {
+        tenant_id: 'tenant-1',
+        trip_code: 'CLOSED-001',
+        status: 'closed'
+    });
+    
+    await assertFails(
+        updateDoc(doc(t1UserDb, 'trips', 'trip-closed'), { notes: 'hacking' })
+    );
+
+    // 2. Audit Trail Spoofing (Wrong User ID)
+    const logCol = collection(t1UserDb, 'system_logs');
+    await assertFails(
+        addDoc(logCol, {
+            user_id: 'other-user', // Trying to spoof another user
+            tenant_id: 'tenant-1',
+            action: 'DELETE',
+            timestamp: new Date().toISOString()
+        })
+    );
+
+    // 3. Audit Trail Cross-Tenant Read
+    const t2UserDb = testEnv.authenticatedContext('user_t2').firestore();
+    await seedUser(testEnv, 'log-leak-check', {
+        tenant_id: 'tenant-1',
+        user_id: 'user_t1',
+        action: 'LOGIN'
+    });
+    // Assuming we have a log from tenant-1
+    await testEnv.withSecurityRulesDisabled(async (context) => {
+        await setDoc(doc(context.firestore(), 'system_logs', 'log-t1'), {
+            tenant_id: 'tenant-1',
+            user_id: 'user_t1'
+        });
+    });
+
+    await assertFails(
+        getDoc(doc(t2UserDb, 'system_logs', 'log-t1'))
+    );
+
+    console.log('PASS: Practical QA Audit - All security and isolation benchmarks PASSED.');
     process.exit(0);
   } catch (error) {
-    console.error('FAIL: Firestore security rules test failed.');
+    console.error('FAIL: Practical QA Audit failed one or more benchmarks.');
     console.error(error);
     process.exit(1);
   } finally {

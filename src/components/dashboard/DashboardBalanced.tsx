@@ -12,8 +12,11 @@ import { Button } from '@/components/ui/button';
 import { useDashboardStats, useMonthlyTrend, useExpenseBreakdown, useRecentTrips, useMaintenanceAlerts } from '@/hooks/useDashboard';
 import { LineChart, Line, PieChart, Pie, Cell, ResponsiveContainer, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { format, subMonths } from 'date-fns';
+import { useAuth } from '@/contexts/AuthContext';
 
 export function DashboardBalanced() {
+  const { role } = useAuth();
+  const isFinancialRole = ['admin', 'manager', 'accountant'].includes(role || '');
   const today = format(new Date(), 'yyyy-MM-dd');
   const startMonth = format(subMonths(new Date(), 1), 'yyyy-MM-dd');
 
@@ -43,20 +46,22 @@ export function DashboardBalanced() {
         <h2 className="mb-4 text-lg font-semibold text-foreground">Tóm Tắt Hôm Nay</h2>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {/* Tổng Doanh Thu */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-blue-500" />
-                  <span className="text-sm font-medium text-muted-foreground">📊 Tổng Doanh Thu</span>
+          {isFinancialRole && (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-blue-500" />
+                    <span className="text-sm font-medium text-muted-foreground">📊 Tổng Doanh Thu</span>
+                  </div>
+                  <p className="text-2xl font-bold text-foreground">
+                    {((stats?.official?.revenue || 0) + (stats?.pending?.revenue || 0)).toLocaleString('vi-VN', { notation: 'compact', maximumFractionDigits: 1 })}
+                  </p>
+                  <p className="text-xs text-emerald-600">↑ 12% vs hôm qua</p>
                 </div>
-                <p className="text-2xl font-bold text-foreground">
-                  {((stats?.official?.revenue || 0) + (stats?.pending?.revenue || 0)).toLocaleString('vi-VN', { notation: 'compact', maximumFractionDigits: 1 })}
-                </p>
-                <p className="text-xs text-emerald-600">↑ 12% vs hôm qua</p>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Chuyến Hoàn Thành */}
           <Card>
@@ -75,20 +80,22 @@ export function DashboardBalanced() {
           </Card>
 
           {/* Lợi Nhuận */}
-          <Card>
-            <CardContent className="pt-6">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-5 w-5 text-blue-600" />
-                  <span className="text-sm font-medium text-muted-foreground">💰 Lợi Nhuận</span>
+          {isFinancialRole && (
+            <Card>
+              <CardContent className="pt-6">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5 text-blue-600" />
+                    <span className="text-sm font-medium text-muted-foreground">💰 Lợi Nhuận</span>
+                  </div>
+                  <p className="text-2xl font-bold text-foreground">
+                    {((stats?.official?.profit || 0) + (stats?.pending?.profit || 0)).toLocaleString('vi-VN', { notation: 'compact', maximumFractionDigits: 1 })}
+                  </p>
+                  <p className="text-xs text-muted-foreground">VND</p>
                 </div>
-                <p className="text-2xl font-bold text-foreground">
-                  {((stats?.official?.profit || 0) + (stats?.pending?.profit || 0)).toLocaleString('vi-VN', { notation: 'compact', maximumFractionDigits: 1 })}
-                </p>
-                <p className="text-xs text-muted-foreground">VND</p>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Hiệu Suất Xe */}
           <Card>
@@ -176,54 +183,56 @@ export function DashboardBalanced() {
       </div>
 
       {/* BIỂU ĐỒ - Doanh thu & Chi phí */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Line Chart - Revenue Trend */}
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Doanh Thu & Chi Phí (15 ngày gần nhất)</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={250}>
-              <LineChart data={monthlyTrend?.slice(-15)}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip formatter={(value) => value.toLocaleString('vi-VN')} />
-                <Line type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={2} name="Doanh Thu" />
-                <Line type="monotone" dataKey="expense" stroke="#ef4444" strokeWidth={2} name="Chi Phí" />
-              </LineChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
+      {isFinancialRole && (
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+          {/* Line Chart - Revenue Trend */}
+          <Card className="lg:col-span-2">
+            <CardHeader>
+              <CardTitle>Doanh Thu & Chi Phí (15 ngày gần nhất)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={250}>
+                <LineChart data={monthlyTrend?.slice(-15)}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip formatter={(value) => value.toLocaleString('vi-VN')} />
+                  <Line type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={2} name="Doanh Thu" />
+                  <Line type="monotone" dataKey="expense" stroke="#ef4444" strokeWidth={2} name="Chi Phí" />
+                </LineChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
 
-        {/* Pie Chart - Expense Breakdown */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Chi Phí Chi Tiết</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={250}>
-              <PieChart>
-                <Pie
-                  data={expenseBreakdown}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ name, value }) => `${name}: ${value}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                >
-                  {expenseBreakdown?.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value) => `${value}%`} />
-              </PieChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
+          {/* Pie Chart - Expense Breakdown */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Chi Phí Chi Tiết</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={250}>
+                <PieChart>
+                  <Pie
+                    data={expenseBreakdown}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, value }) => `${name}: ${value}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {expenseBreakdown?.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => `${value}%`} />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* QUICK ACTIONS */}
       <div className="flex flex-wrap gap-2">
