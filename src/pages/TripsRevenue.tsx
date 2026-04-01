@@ -946,6 +946,25 @@ export default function TripsRevenue() {
             }
         ] : []) as Column<Trip>[],
         {
+            key: 'pod_status',
+            header: 'Trạng thái POD',
+            width: '130px',
+            render: (value) => {
+                const status = value as string || 'PENDING';
+                const config = {
+                    PENDING: { label: 'Chưa nhận', color: 'bg-amber-100 text-amber-700 border-amber-200' },
+                    RECEIVED: { label: 'Đã nhận', color: 'bg-green-100 text-green-700 border-green-200' },
+                    LOST: { label: 'Thất lạc', color: 'bg-red-100 text-red-700 border-red-200' },
+                }[status] || { label: status, color: 'bg-gray-100' };
+                
+                return (
+                    <Badge variant="outline" className={`${config.color} font-medium text-[10px] uppercase tracking-wider`}>
+                        {config.label}
+                    </Badge>
+                );
+            }
+        },
+        {
             key: 'status',
             header: 'Trạng thái',
             width: '130px',
@@ -1643,6 +1662,45 @@ export default function TripsRevenue() {
                                                         <FormControl>
                                                             <Input type="number" {...field} value={field.value || 0} />
                                                         </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="border-t pt-4">
+                                        <h3 className="text-sm font-medium mb-3 flex items-center gap-2 text-primary">
+                                            <ScanText className="w-4 h-4" />
+                                            Trạng thái Chứng từ (POD)
+                                        </h3>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <FormField
+                                                control={form.control}
+                                                name="pod_status"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Tình trạng biên bản *</FormLabel>
+                                                        <Select 
+                                                            onValueChange={field.onChange} 
+                                                            defaultValue={field.value}
+                                                            value={field.value}
+                                                        >
+                                                            <FormControl>
+                                                                <SelectTrigger className={
+                                                                    field.value === 'RECEIVED' ? 'bg-green-50 border-green-200 text-green-700' : 
+                                                                    field.value === 'LOST' ? 'bg-red-50 border-red-200 text-red-700' : 
+                                                                    field.value === 'PENDING' ? 'bg-amber-50 border-amber-200 text-amber-700' : ''
+                                                                }>
+                                                                    <SelectValue placeholder="Chọn trạng thái POD" />
+                                                                </SelectTrigger>
+                                                            </FormControl>
+                                                            <SelectContent>
+                                                                <SelectItem value="PENDING">Chưa nhận (Pending)</SelectItem>
+                                                                <SelectItem value="RECEIVED">Đã nhận (Received)</SelectItem>
+                                                                <SelectItem value="LOST">Thất lạc (Lost)</SelectItem>
+                                                            </SelectContent>
+                                                        </Select>
                                                         <FormMessage />
                                                     </FormItem>
                                                 )}

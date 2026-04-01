@@ -135,6 +135,35 @@ export const useConfirmExpense = () => {
 };
 
 /**
+ * Hook to reject an expense with a reason
+ */
+export const useRejectExpense = () => {
+    const queryClient = useQueryClient();
+    const { toast } = useToast();
+
+    return useMutation({
+        mutationFn: async ({ id, reason }: { id: string; reason: string }) => {
+            return await (expenseAdapter as any).reject(id, reason);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['expenses'] });
+            queryClient.invalidateQueries({ queryKey: ['trips'] });
+            toast({
+                title: 'Đã từ chối phiếu chi',
+                description: 'Phiếu chi đã được đánh dấu là bị từ chối.',
+            });
+        },
+        onError: (error: Error) => {
+            toast({
+                title: 'Lỗi khi từ chối phiếu chi',
+                description: error.message,
+                variant: 'destructive',
+            });
+        },
+    });
+};
+
+/**
  * Hook to soft delete an expense
  */
 export const useDeleteExpense = () => {

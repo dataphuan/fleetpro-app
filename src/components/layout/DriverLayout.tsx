@@ -1,4 +1,5 @@
 import { Outlet, Navigate, useLocation, Link } from "react-router-dom";
+import { Suspense } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Truck, Home, User, Bell } from "lucide-react";
 import { PaywallGuard } from "@/components/shared/PaywallGuard";
@@ -47,8 +48,10 @@ export function DriverLayout() {
                 <InstallAppPrompt />
 
                 {/* Main Content Area */}
-                <main className="flex-1 overflow-y-auto w-full pb-20">
-                    <Outlet />
+                <main className="flex-1 overflow-y-auto w-full pb-24">
+                    <Suspense fallback={<div className="p-4 text-sm text-slate-600">Đang tải...</div>}>
+                        <Outlet />
+                    </Suspense>
                 </main>
 
                 {/* Bottom Navigation */}

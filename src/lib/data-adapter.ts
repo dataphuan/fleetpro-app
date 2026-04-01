@@ -1204,6 +1204,28 @@ const expenseFirestoreAdapter = {
             await recalculateTripExpenses(oldDoc.trip_id, getTenantId());
         }
         return res;
+    },
+    reject: async (id: string, reason: string) => {
+        enforceMutationThrottle('expenses', 'reject', id, { reason });
+        const docRef = doc(db, 'expenses', id);
+        const snap = await getDoc(docRef);
+        if (!snap.exists() || snap.data()?.tenant_id !== getTenantId()) {
+            throw new Error('Unauthorized: Expense does not belong to this tenant.');
+        }
+        const data = snap.data();
+        await updateDoc(docRef, { 
+            status: 'rejected', 
+            rejection_reason: reason,
+            updated_at: new Date().toISOString() 
+        });
+        
+        // If it was confirmed, we MUST recalculate trip expenses to reflect the removal
+        if (data.trip_id && data.status === 'confirmed') {
+            await recalculateTripExpenses(data.trip_id, getTenantId());
+        }
+
+        await logActivity('UPDATE', 'expenses', id, { action: 'REJECT', reason });
+        return true;
     }
 };
 

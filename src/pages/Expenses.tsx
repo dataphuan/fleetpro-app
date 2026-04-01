@@ -78,7 +78,8 @@ interface Expense {
   driver_id: string | null;
   document_number: string | null;
   vendor_name: string | null;
-  status: 'draft' | 'confirmed' | 'cancelled';
+  status: 'draft' | 'confirmed' | 'cancelled' | 'rejected';
+  rejection_reason?: string | null;
   category?: { id: string; category_name: string; category_type: string } | null;
   vehicle?: { id: string; license_plate: string; vehicle_code: string } | null;
   driver?: { id: string; full_name: string; driver_code: string } | null;
@@ -97,7 +98,8 @@ const expenseSchema = z.object({
   driver_id: z.string().optional().nullable(),
   document_number: z.string().optional().nullable(),
   vendor_name: z.string().optional().nullable(),
-  status: z.enum(['draft', 'confirmed', 'cancelled'] as const),
+  status: z.enum(['draft', 'confirmed', 'cancelled', 'rejected'] as const),
+  rejection_reason: z.string().optional().nullable(),
 });
 
 type ExpenseFormValues = z.infer<typeof expenseSchema>;
@@ -141,6 +143,10 @@ export default function Expenses() {
     to: null,
   });
 
+  // Rejection State
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
+
   // Category Filter State (Quick Filter Chips)
   const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
 
@@ -165,6 +171,7 @@ export default function Expenses() {
   const { data: expenses, isLoading } = useExpenses();
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin' || user?.role === 'manager';
+  const isAccountant = user?.role === 'accountant' || isAdmin;
   const isSuperUser = user?.role === 'admin';
 
   // Check for navigation from Alerts
@@ -188,6 +195,7 @@ export default function Expenses() {
   const createMutation = useCreateExpense();
   const updateMutation = useUpdateExpense();
   const deleteMutation = useDeleteExpense();
+  const rejectMutation = useRejectExpense();
   const bulkDeleteMutation = useBulkDeleteExpenses();
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
@@ -304,11 +312,29 @@ export default function Expenses() {
         toast({ title: 'Chặn xóa', description: 'Phiếu chi thuộc kỳ dữ liệu đã khóa.', variant: 'destructive' });
         return;
       }
-      // If admin, proceed but warning shows in dialog (we can imply warning by allowing it)
     }
     setSelectedExpense(expense);
     setDeleteDialogOpen(true);
   }, [closedPeriods, isSuperUser, toast]);
+
+  const handleRejectClick = (e: React.MouseEvent, expense: Expense) => {
+    e.stopPropagation();
+    setSelectedExpense(expense);
+    setRejectionReason("");
+    setRejectDialogOpen(true);
+  };
+
+  const handleConfirmReject = async () => {
+    if (!selectedExpense || !rejectionReason.trim()) return;
+    try {
+      await rejectMutation.mutateAsync({ id: selectedExpense.id, reason: rejectionReason });
+      setRejectDialogOpen(false);
+      setDialogOpen(false);
+      setSelectedExpense(null);
+    } catch (error) {
+      // handled by hook
+    }
+  };
 
   const handleConfirmDelete = async () => {
     if (!selectedExpense) return;
@@ -608,10 +634,17 @@ export default function Expenses() {
     {
       key: 'description',
       header: 'Diễn giải',
-      render: (value) => (
-        <span className="truncate max-w-[200px] block" title={value as string}>
-          {value as string}
-        </span>
+      render: (value, row) => (
+        <div className="flex flex-col">
+          <span className="truncate max-w-[200px] block" title={value as string}>
+            {value as string}
+          </span>
+          {row.status === 'rejected' && row.rejection_reason && (
+            <span className="text-[10px] text-red-500 font-medium italic mt-0.5">
+              Lý do: {row.rejection_reason}
+            </span>
+          )}
+        </div>
       ),
     },
     {
@@ -1172,29 +1205,86 @@ export default function Expenses() {
                           <SelectItem value="draft">Nháp</SelectItem>
                           <SelectItem value="confirmed">Đã xác nhận</SelectItem>
                           <SelectItem value="cancelled">Đã hủy</SelectItem>
+                          <SelectItem value="rejected" disabled>Đã từ chối</SelectItem>
                         </SelectContent>
                       </Select>
+                      {field.value === 'rejected' && selectedExpense?.rejection_reason && (
+                        <p className="text-xs text-red-500 mt-1 font-medium bg-red-50 p-2 rounded border border-red-100">
+                          Lý do từ chối: {selectedExpense.rejection_reason}
+                        </p>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}
                 />
               </div>
 
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
-                  Hủy
-                </Button>
-                <Button type="submit" disabled={createMutation.isPending || updateMutation.isPending}>
-                  {(createMutation.isPending || updateMutation.isPending) && (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              <DialogFooter className="flex-col sm:flex-row gap-2">
+                <div className="flex-1 flex justify-start">
+                  {selectedExpense && selectedExpense.status === 'draft' && isAccountant && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="text-red-600 border-red-200 hover:bg-red-50 hover:text-red-700"
+                      onClick={(e) => handleRejectClick(e, selectedExpense)}
+                    >
+                      <X className="w-4 h-4 mr-2" />
+                      Từ chối chi
+                    </Button>
                   )}
-                  {selectedExpense ? 'Cập nhật' : 'Thêm mới'}
-                </Button>
+                </div>
+                <div className="flex gap-2">
+                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                    Hủy
+                  </Button>
+                  <Button 
+                    type="submit" 
+                    disabled={createMutation.isPending || updateMutation.isPending || selectedExpense?.status === 'confirmed' || selectedExpense?.status === 'rejected'}
+                  >
+                    {(createMutation.isPending || updateMutation.isPending) && (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    )}
+                    {selectedExpense ? 'Cập nhật' : 'Thêm mới'}
+                  </Button>
+                </div>
               </DialogFooter>
             </form>
           </Form>
         </DialogContent>
       </Dialog>
+
+      {/* Rejection Reasons Dialog */}
+      <AlertDialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-red-600">Từ chối phiếu chi</AlertDialogTitle>
+            <AlertDialogDescription>
+              Vui lòng nhập lý do từ chối cho phiếu chi <strong>{selectedExpense?.expense_code}</strong>.
+              Hành động này không thể hoàn tác.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-4">
+            <FormLabel>Lý do từ chối *</FormLabel>
+            <Textarea
+              placeholder="VD: Thiếu chứng từ kèm theo, Số tiền không hợp lệ..."
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              className="mt-2 border-red-200 focus-visible:ring-red-500"
+              rows={3}
+            />
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setRejectDialogOpen(false)}>Hủy bỏ</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmReject}
+              disabled={!rejectionReason.trim() || rejectMutation.isPending}
+              className="bg-red-600 hover:bg-red-700 text-white"
+            >
+              {rejectMutation.isPending ? "Đang xử lý..." : "Xác nhận từ chối"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>

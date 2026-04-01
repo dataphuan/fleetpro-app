@@ -51,9 +51,7 @@ export function AppLayout({ children }: AppLayoutProps) {
     <PaywallGuard>
       <div className="flex h-screen overflow-hidden bg-background relative">
         {/* Desktop sidebar */}
-        <div className={useMobileShell ? "hidden" : "block"}>
-          <AppSidebar />
-        </div>
+        {!useMobileShell && <AppSidebar />}
 
         {/* Mobile sidebar drawer */}
         {useMobileShell && mobileSidebarOpen && (
@@ -65,7 +63,7 @@ export function AppLayout({ children }: AppLayoutProps) {
           />
         )}
         <div
-          className={`fixed left-0 top-0 z-40 h-screen transition-transform duration-300 ${useMobileShell ? "" : "hidden"} ${mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
+          className={`fixed left-0 top-0 z-50 h-screen w-[80vw] max-w-[320px] bg-sidebar shadow-2xl transition-transform duration-300 ${useMobileShell ? "" : "hidden"} ${mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
         >
           <AppSidebar onNavigate={closeMobileSidebar} />
         </div>

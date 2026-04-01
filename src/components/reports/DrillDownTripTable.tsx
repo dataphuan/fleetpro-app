@@ -7,10 +7,11 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table";
-import { formatCurrency, formatNumber } from "@/lib/formatters";
+import { formatCurrency } from "@/lib/formatters";
 import { format } from "date-fns";
-import { Badge } from "@/components/ui/badge";
 import { ExternalLink } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
 
 interface DrillDownTripTableProps {
     trips: any[];
@@ -21,8 +22,21 @@ interface DrillDownTripTableProps {
 
 export function DrillDownTripTable({ trips, isLoading, onTripClick, onCloseDrawer }: DrillDownTripTableProps) {
     const navigate = useNavigate();
+    const { role } = useAuth();
+    const { toast } = useToast();
+    const canViewFinance = ['admin', 'manager', 'accountant'].includes(role);
+    const canOpenTripDetail = canViewFinance || role === 'dispatcher';
 
     const handleTripClick = (trip: any) => {
+        if (!canOpenTripDetail) {
+            toast({
+                title: "Không có quyền",
+                description: "Bạn không có quyền xem chi tiết doanh thu chuyến.",
+                variant: "destructive",
+            });
+            return;
+        }
+
         // Close the drawer first
         if (onCloseDrawer) {
             onCloseDrawer();
@@ -78,17 +92,17 @@ export function DrillDownTripTable({ trips, isLoading, onTripClick, onCloseDrawe
                             <TableCell>
                                 {trip.departure_date ? format(new Date(trip.departure_date), 'dd/MM/yyyy') : '—'}
                             </TableCell>
-                            <TableCell className="max-w-[200px] truncate" title={trip.route?.route_name || '—'}>
-                                {trip.route?.route_name || '---'}
+                            <TableCell className="max-w-[200px] truncate" title={trip.route?.route_name || trip.route_name || trip.route_id || '—'}>
+                                {trip.route?.route_name || trip.route_name || trip.route_id || '---'}
                             </TableCell>
-                            <TableCell className="text-right text-green-600 font-medium">
-                                {formatCurrency(trip.total_revenue || 0)}
+                            <TableCell className={`text-right font-medium ${canViewFinance ? "text-green-600" : "text-slate-400"}`}>
+                                {canViewFinance ? formatCurrency(trip.total_revenue || 0) : '—'}
                             </TableCell>
-                            <TableCell className="text-right text-red-600">
-                                {formatCurrency(trip.total_expense || 0)}
+                            <TableCell className={`text-right ${canViewFinance ? "text-red-600" : "text-slate-400"}`}>
+                                {canViewFinance ? formatCurrency(trip.total_expense || 0) : '—'}
                             </TableCell>
-                            <TableCell className="text-right font-bold text-blue-700">
-                                {formatCurrency(trip.profit || 0)}
+                            <TableCell className={`text-right font-bold ${canViewFinance ? "text-blue-700" : "text-slate-400"}`}>
+                                {canViewFinance ? formatCurrency(trip.profit || 0) : '—'}
                             </TableCell>
                         </TableRow>
                     ))}

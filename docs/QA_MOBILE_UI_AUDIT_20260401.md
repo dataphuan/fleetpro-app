@@ -1,40 +1,40 @@
-# QA Mobile UI Audit - All Login Roles (2026-04-01T09:34:06.147Z)
+# QA Mobile UI Audit - All Login Roles (2026-04-01T15:00:27.042Z)
 
-- Base URL: `http://127.0.0.1:5174`
+- Base URL: `http://127.0.0.1:5175`
 - Viewport: iPhone 12 profile, 390x844
 - Summary: 4 PASS / 0 WARN / 0 FAIL
 
 ## Role Results
 
 ### Admin (admindemo@tnc.io.vn) - PASS
-- Final URL: `http://127.0.0.1:5174/`
+- Final URL: `http://127.0.0.1:5175/`
 - Screenshot: `docs/evidence/mobile-ui-audit/mobile-admin.png`
 - Checks:
   - [PASS] Role redirect: User landed on /
   - [PASS] Horizontal overflow: No overflow on 390px viewport
-  - [PASS] Touch target size: All sampled targets >= 36px (55 elements)
+  - [PASS] Touch target size: All sampled targets >= 36px (34 elements)
   - [PASS] Mobile sidebar drawer: Drawer opens and displays navigation sections
 
 ### Manager (quanlydemo@tnc.io.vn) - PASS
-- Final URL: `http://127.0.0.1:5174/`
+- Final URL: `http://127.0.0.1:5175/`
 - Screenshot: `docs/evidence/mobile-ui-audit/mobile-manager.png`
 - Checks:
   - [PASS] Role redirect: User landed on /
   - [PASS] Horizontal overflow: No overflow on 390px viewport
-  - [PASS] Touch target size: All sampled targets >= 36px (49 elements)
+  - [PASS] Touch target size: All sampled targets >= 36px (31 elements)
   - [PASS] Mobile sidebar drawer: Drawer opens and displays navigation sections
 
 ### Accountant (ketoandemo@tnc.io.vn) - PASS
-- Final URL: `http://127.0.0.1:5174/`
+- Final URL: `http://127.0.0.1:5175/`
 - Screenshot: `docs/evidence/mobile-ui-audit/mobile-accountant.png`
 - Checks:
   - [PASS] Role redirect: User landed on /
   - [PASS] Horizontal overflow: No overflow on 390px viewport
-  - [PASS] Touch target size: All sampled targets >= 36px (37 elements)
+  - [PASS] Touch target size: All sampled targets >= 36px (25 elements)
   - [PASS] Mobile sidebar drawer: Drawer opens and displays navigation sections
 
 ### Driver (taixedemo@tnc.io.vn) - PASS
-- Final URL: `http://127.0.0.1:5174/driver`
+- Final URL: `http://127.0.0.1:5175/driver`
 - Screenshot: `docs/evidence/mobile-ui-audit/mobile-driver.png`
 - Checks:
   - [PASS] Role redirect: Driver landed on /driver

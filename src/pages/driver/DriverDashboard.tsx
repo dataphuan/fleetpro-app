@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { SignaturePad } from "@/components/shared/SignaturePad";
 import { DriverLiveMap } from "@/components/driver/DriverLiveMap";
 import { getBestCurrentPosition, geolocationErrorToMessage, startLocationWatch, stopLocationWatch, type DriverGeoPoint } from "@/lib/driver-location";
-import { alertsAdapter, tripAdapter, tripLocationAdapter } from "@/lib/data-adapter";
+import { alertsAdapter, expenseAdapter, tripAdapter, tripLocationAdapter } from "@/lib/data-adapter";
 import { evaluateLocationIntegrity, getIntegrityProfileByVehicleType } from "@/lib/location-integrity";
 import { useVehicles } from "@/hooks/useVehicles";
 import { normalizeUserRole } from "@/lib/rbac";
@@ -36,6 +36,9 @@ const FEATURE_GATES = {
 type FeatureState = 'idle' | 'loading' | 'success' | 'error';
 
 const DRIVER_DRAFTS_STORAGE_KEY = 'driver_dashboard_trip_drafts';
+const DRIVER_PRETRIP_STORAGE_KEY = 'driver_pretrip_checklist';
+const DRIVER_REPORTS_STORAGE_KEY = 'driver_location_reports';
+const DRIVER_EXPENSES_STORAGE_KEY = 'driver_expense_docs';
 
 export default function DriverDashboard() {
     const { user, tenantId, role } = useAuth();
@@ -48,10 +51,16 @@ export default function DriverDashboard() {
     const [isUpdating, setIsUpdating] = useState(false);
     const [isCheckingInTripId, setIsCheckingInTripId] = useState<string | null>(null);
     const [isTrackingActive, setIsTrackingActive] = useState(false);
+    const [preTripTrackingTripId, setPreTripTrackingTripId] = useState<string | null>(null);
     const [liveLocationByTrip, setLiveLocationByTrip] = useState<Record<string, DriverGeoPoint>>({});
     const [startStateByTrip, setStartStateByTrip] = useState<Record<string, FeatureState>>({});
     const [finishStateByTrip, setFinishStateByTrip] = useState<Record<string, FeatureState>>({});
     const [incidentStateByTrip, setIncidentStateByTrip] = useState<Record<string, FeatureState>>({});
+    const [shareStateByTrip, setShareStateByTrip] = useState<Record<string, FeatureState>>({});
+    const [gpsLockStateByTrip, setGpsLockStateByTrip] = useState<Record<string, FeatureState>>({});
+    const [gpsLockAccuracyByTrip, setGpsLockAccuracyByTrip] = useState<Record<string, number | null>>({});
+    const [gpsLockPointByTrip, setGpsLockPointByTrip] = useState<Record<string, DriverGeoPoint | null>>({});
+    const [infoConfirmedByTrip, setInfoConfirmedByTrip] = useState<Record<string, boolean>>({});
     const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
     
     // e-POD states
@@ -60,6 +69,8 @@ export default function DriverDashboard() {
 
     // Store input per trip: { [tripId]: { odo: string, receiptUrl: string, isUploading: boolean } }
     const [tripInputs, setTripInputs] = useState<Record<string, { odo: string, receiptUrl: string, isUploading: boolean, uploadState: FeatureState, uploadError?: string }>>({});
+    const [reportInputs, setReportInputs] = useState<Record<string, { note: string, photoUrl: string, isUploading: boolean, uploadState: FeatureState, uploadError?: string }>>({});
+    const [expenseInputs, setExpenseInputs] = useState<Record<string, { amount: string, note: string, photoUrl: string, isUploading: boolean, uploadState: FeatureState, uploadError?: string }>>({});
     const watchIdRef = useRef<number | null>(null);
     const lastTrackPushRef = useRef<number>(0);
     const lastTripSyncRef = useRef<number>(0);
@@ -120,6 +131,13 @@ export default function DriverDashboard() {
         return myActiveTrips.find((trip: any) => trip.status === 'in_progress') || null;
     }, [myActiveTrips]);
 
+    const preTripTrackingTrip = useMemo(() => {
+        if (!preTripTrackingTripId) return null;
+        return myActiveTrips.find((trip: any) => trip.id === preTripTrackingTripId) || null;
+    }, [myActiveTrips, preTripTrackingTripId]);
+
+    const trackingTrip = activeTrackingTrip || preTripTrackingTrip;
+
     const storageScope = `${tenantId || 'no-tenant'}:${user?.id || user?.email || 'no-user'}`;
 
     useEffect(() => {
@@ -139,11 +157,77 @@ export default function DriverDashboard() {
 
     useEffect(() => {
         try {
+            const raw = localStorage.getItem(`${DRIVER_PRETRIP_STORAGE_KEY}:${storageScope}`);
+            if (!raw) return;
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === 'object') {
+                setInfoConfirmedByTrip(parsed);
+            }
+        } catch {
+            // Best effort only.
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [storageScope]);
+
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem(`${DRIVER_REPORTS_STORAGE_KEY}:${storageScope}`);
+            if (!raw) return;
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === 'object') {
+                setReportInputs(parsed);
+            }
+        } catch {
+            // Best effort only.
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [storageScope]);
+
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem(`${DRIVER_EXPENSES_STORAGE_KEY}:${storageScope}`);
+            if (!raw) return;
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === 'object') {
+                setExpenseInputs(parsed);
+            }
+        } catch {
+            // Best effort only.
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [storageScope]);
+
+    useEffect(() => {
+        try {
             localStorage.setItem(`${DRIVER_DRAFTS_STORAGE_KEY}:${storageScope}`, JSON.stringify(tripInputs));
         } catch {
             // Best effort only.
         }
     }, [tripInputs, storageScope]);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem(`${DRIVER_PRETRIP_STORAGE_KEY}:${storageScope}`, JSON.stringify(infoConfirmedByTrip));
+        } catch {
+            // Best effort only.
+        }
+    }, [infoConfirmedByTrip, storageScope]);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem(`${DRIVER_REPORTS_STORAGE_KEY}:${storageScope}`, JSON.stringify(reportInputs));
+        } catch {
+            // Best effort only.
+        }
+    }, [reportInputs, storageScope]);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem(`${DRIVER_EXPENSES_STORAGE_KEY}:${storageScope}`, JSON.stringify(expenseInputs));
+        } catch {
+            // Best effort only.
+        }
+    }, [expenseInputs, storageScope]);
 
     const vehicleById = useMemo(() => {
         const map = new Map<string, any>();
@@ -229,10 +313,14 @@ export default function DriverDashboard() {
     };
 
     useEffect(() => {
-        if (!activeTrackingTrip || !user?.id) {
+        if (!trackingTrip || !user?.id) {
             stopLocationWatch(watchIdRef.current);
             watchIdRef.current = null;
             setIsTrackingActive(false);
+            setGpsLockStateByTrip((prev) => ({
+                ...prev,
+                ...(preTripTrackingTripId ? { [preTripTrackingTripId]: 'idle' } : {}),
+            }));
             return;
         }
 
@@ -244,8 +332,12 @@ export default function DriverDashboard() {
             async (point) => {
                 setLiveLocationByTrip((prev) => ({
                     ...prev,
-                    [activeTrackingTrip.id]: point,
+                    [trackingTrip.id]: point,
                 }));
+
+                if (trackingTrip.status !== 'in_progress') {
+                    return;
+                }
 
                 if (point.accuracy > MAX_TRACKING_ACCURACY_M) {
                     return;
@@ -259,11 +351,11 @@ export default function DriverDashboard() {
                 lastTrackPushRef.current = now;
 
                 try {
-                    await persistTripLocation(activeTrackingTrip, 'track_point', point);
+                    await persistTripLocation(trackingTrip, 'track_point', point);
 
                     if (now - lastTripSyncRef.current >= TRIP_LAST_LOCATION_SYNC_MS) {
                         lastTripSyncRef.current = now;
-                        await tripAdapter.update(activeTrackingTrip.id, {
+                        await tripAdapter.update(trackingTrip.id, {
                             last_location_lat: point.latitude,
                             last_location_lng: point.longitude,
                             last_location_accuracy_m: point.accuracy,
@@ -281,6 +373,10 @@ export default function DriverDashboard() {
                 }
 
                 lastTrackingErrorToastRef.current = now;
+                setShareStateByTrip((prev) => ({
+                    ...prev,
+                    [trackingTrip.id]: 'error',
+                }));
                 toast({
                     title: 'GPS dang bi gian doan',
                     description: geolocationErrorToMessage(error),
@@ -291,13 +387,17 @@ export default function DriverDashboard() {
 
         watchIdRef.current = watchId;
         setIsTrackingActive(true);
+        setShareStateByTrip((prev) => ({
+            ...prev,
+            [trackingTrip.id]: 'success',
+        }));
 
         return () => {
             stopLocationWatch(watchId);
             watchIdRef.current = null;
             setIsTrackingActive(false);
         };
-    }, [activeTrackingTrip, user?.id]);
+    }, [trackingTrip, user?.id, preTripTrackingTripId]);
 
     const handleInputChange = (tripId: string, field: 'odo' | 'receiptUrl' | 'isUploading' | 'uploadState' | 'uploadError', value: any) => {
         setTripInputs(prev => ({
@@ -307,6 +407,220 @@ export default function DriverDashboard() {
                 [field]: value,
             }
         }));
+    };
+
+    const handleReportInputChange = (tripId: string, field: 'note' | 'photoUrl' | 'isUploading' | 'uploadState' | 'uploadError', value: any) => {
+        setReportInputs(prev => ({
+            ...prev,
+            [tripId]: {
+                ...(prev[tripId] || { note: '', photoUrl: '', isUploading: false, uploadState: 'idle' as FeatureState, uploadError: '' }),
+                [field]: value,
+            }
+        }));
+    };
+
+    const handleExpenseInputChange = (tripId: string, field: 'amount' | 'note' | 'photoUrl' | 'isUploading' | 'uploadState' | 'uploadError', value: any) => {
+        setExpenseInputs(prev => ({
+            ...prev,
+            [tripId]: {
+                ...(prev[tripId] || { amount: '', note: '', photoUrl: '', isUploading: false, uploadState: 'idle' as FeatureState, uploadError: '' }),
+                [field]: value,
+            }
+        }));
+    };
+
+    const uploadTripImage = async (file: File, pathPrefix: string, tripId: string) => {
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const fileRef = ref(storage, `${pathPrefix}/${tenantId}/${tripId}/${Date.now()}_${safeName}`);
+        await uploadBytes(fileRef, file);
+        return await getDownloadURL(fileRef);
+    };
+
+    const handleReportPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, tripId: string) => {
+        if (!isDriverRole) {
+            toast({ title: 'Không có quyền', description: 'Chỉ tài xế mới được gửi báo cáo.', variant: 'destructive' });
+            return;
+        }
+
+        if (!isOnline) {
+            handleReportInputChange(tripId, 'uploadState', 'error');
+            handleReportInputChange(tripId, 'uploadError', 'Thiết bị đang offline. Vui lòng kết nối mạng để gửi báo cáo.');
+            toast({ title: 'Mất kết nối mạng', description: 'Chưa thể tải ảnh khi offline.', variant: 'destructive' });
+            return;
+        }
+
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            handleReportInputChange(tripId, 'uploadState', 'error');
+            handleReportInputChange(tripId, 'uploadError', 'Chỉ chấp nhận tệp ảnh.');
+            toast({ title: 'Tệp không hợp lệ', description: 'Vui lòng chọn tệp ảnh.', variant: 'destructive' });
+            return;
+        }
+
+        handleReportInputChange(tripId, 'isUploading', true);
+        handleReportInputChange(tripId, 'uploadState', 'loading');
+        handleReportInputChange(tripId, 'uploadError', '');
+        try {
+            const downloadUrl = await uploadTripImage(file, 'driver-reports', tripId);
+            handleReportInputChange(tripId, 'photoUrl', downloadUrl);
+            handleReportInputChange(tripId, 'uploadState', 'success');
+            toast({ title: 'Đã tải ảnh báo cáo', description: 'Ảnh đã được lưu.' });
+        } catch {
+            handleReportInputChange(tripId, 'uploadState', 'error');
+            handleReportInputChange(tripId, 'uploadError', 'Không thể lưu ảnh, vui lòng thử lại.');
+            toast({ title: 'Lỗi tải ảnh', description: 'Không thể lưu ảnh, vui lòng thử lại.', variant: 'destructive' });
+        } finally {
+            handleReportInputChange(tripId, 'isUploading', false);
+        }
+    };
+
+    const handleExpensePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, tripId: string) => {
+        if (!isDriverRole) {
+            toast({ title: 'Không có quyền', description: 'Chỉ tài xế mới được gửi chứng từ.', variant: 'destructive' });
+            return;
+        }
+
+        if (!isOnline) {
+            handleExpenseInputChange(tripId, 'uploadState', 'error');
+            handleExpenseInputChange(tripId, 'uploadError', 'Thiết bị đang offline. Vui lòng kết nối mạng để gửi chứng từ.');
+            toast({ title: 'Mất kết nối mạng', description: 'Chưa thể tải ảnh khi offline.', variant: 'destructive' });
+            return;
+        }
+
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (!file.type.startsWith('image/')) {
+            handleExpenseInputChange(tripId, 'uploadState', 'error');
+            handleExpenseInputChange(tripId, 'uploadError', 'Chỉ chấp nhận tệp ảnh.');
+            toast({ title: 'Tệp không hợp lệ', description: 'Vui lòng chọn tệp ảnh.', variant: 'destructive' });
+            return;
+        }
+
+        handleExpenseInputChange(tripId, 'isUploading', true);
+        handleExpenseInputChange(tripId, 'uploadState', 'loading');
+        handleExpenseInputChange(tripId, 'uploadError', '');
+        try {
+            const downloadUrl = await uploadTripImage(file, 'driver-expenses', tripId);
+            handleExpenseInputChange(tripId, 'photoUrl', downloadUrl);
+            handleExpenseInputChange(tripId, 'uploadState', 'success');
+            toast({ title: 'Đã tải chứng từ', description: 'Ảnh chứng từ đã được lưu.' });
+        } catch {
+            handleExpenseInputChange(tripId, 'uploadState', 'error');
+            handleExpenseInputChange(tripId, 'uploadError', 'Không thể lưu ảnh, vui lòng thử lại.');
+            toast({ title: 'Lỗi tải ảnh', description: 'Không thể lưu ảnh, vui lòng thử lại.', variant: 'destructive' });
+        } finally {
+            handleExpenseInputChange(tripId, 'isUploading', false);
+        }
+    };
+
+    const handleSubmitLocationReport = async (trip: any) => {
+        if (!isDriverRole) {
+            toast({ title: 'Không có quyền', description: 'Chỉ tài xế mới được gửi báo cáo.', variant: 'destructive' });
+            return;
+        }
+
+        if (!isOnline) {
+            toast({ title: 'Mất kết nối mạng', description: 'Vui lòng bật mạng để gửi báo cáo.', variant: 'destructive' });
+            return;
+        }
+
+        const report = reportInputs[trip.id];
+        if (!report?.photoUrl && !(report?.note || '').trim()) {
+            toast({ title: 'Thiếu thông tin', description: 'Vui lòng nhập ghi chú hoặc chụp ảnh báo cáo.', variant: 'destructive' });
+            return;
+        }
+
+        setIsUpdating(true);
+        try {
+            let point = liveLocationByTrip[trip.id] || null;
+            if (!point) {
+                try {
+                    point = await getBestCurrentPosition(2);
+                } catch {
+                    point = null;
+                }
+            }
+
+            const payload = buildReleaseSafeCreatePayload('driver-location-report', {
+                alert_type: 'info',
+                title: `Bao cao vi tri - ${trip.trip_code}`,
+                message: report?.note || 'Tai xe gui bao cao vi tri.',
+                reference_id: trip.id,
+                reference_type: 'trip',
+                severity: 'low',
+                is_read: false,
+                date: new Date().toISOString(),
+                metadata: {
+                    trip_code: trip.trip_code,
+                    photo_url: report?.photoUrl || null,
+                    latitude: point?.latitude || null,
+                    longitude: point?.longitude || null,
+                    accuracy_m: point?.accuracy || null,
+                },
+            });
+
+            await alertsAdapter.create(payload);
+            setReportInputs((prev) => ({
+                ...prev,
+                [trip.id]: { note: '', photoUrl: '', isUploading: false, uploadState: 'idle' },
+            }));
+            toast({ title: 'Đã gửi báo cáo', description: 'Báo cáo vị trí đã được gửi.' });
+        } catch {
+            toast({ title: 'Gửi báo cáo thất bại', description: 'Vui lòng thử lại.', variant: 'destructive' });
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
+    const handleSubmitExpenseDoc = async (trip: any) => {
+        if (!isDriverRole) {
+            toast({ title: 'Không có quyền', description: 'Chỉ tài xế mới được gửi chứng từ.', variant: 'destructive' });
+            return;
+        }
+
+        if (!isOnline) {
+            toast({ title: 'Mất kết nối mạng', description: 'Vui lòng bật mạng để gửi chứng từ.', variant: 'destructive' });
+            return;
+        }
+
+        const expense = expenseInputs[trip.id];
+        const amountValue = Number(expense?.amount || 0);
+        if (!amountValue || Number.isNaN(amountValue)) {
+            toast({ title: 'Thiếu số tiền', description: 'Vui lòng nhập số tiền chi phí.', variant: 'destructive' });
+            return;
+        }
+
+        setIsUpdating(true);
+        try {
+            const now = new Date();
+            const expenseDate = now.toISOString().slice(0, 10);
+            await expenseAdapter.create({
+                amount: amountValue,
+                category: 'Chung tu tai xe',
+                trip_id: trip.id,
+                vehicle_id: trip.vehicle_id || trip.vehicle?.id || null,
+                driver_id: trip.driver_id || user?.id || user?.email || null,
+                expense_date: expenseDate,
+                description: expense?.note || `Chung tu tai xe - ${trip.trip_code}`,
+                receipt_url: expense?.photoUrl || null,
+                status: 'draft',
+                payment_method: 'CASH',
+                is_reconciled: false,
+            });
+
+            setExpenseInputs((prev) => ({
+                ...prev,
+                [trip.id]: { amount: '', note: '', photoUrl: '', isUploading: false, uploadState: 'idle' },
+            }));
+            toast({ title: 'Đã gửi chứng từ', description: 'Kế toán sẽ đối soát chi phí.' });
+        } catch (error) {
+            toast({ title: 'Gửi chứng từ thất bại', description: 'Vui lòng thử lại.', variant: 'destructive' });
+        } finally {
+            setIsUpdating(false);
+        }
     };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, tripId: string) => {
@@ -369,6 +683,26 @@ export default function DriverDashboard() {
             return;
         }
 
+        if (!trip.accepted_at && !trip.accepted_by) {
+            toast({ title: 'Chưa nhận chuyến', description: 'Vui lòng bấm Nhận chuyến trước khi check-in.', variant: 'destructive' });
+            return;
+        }
+
+        if (shareStateByTrip[trip.id] !== 'success') {
+            toast({ title: 'Chưa chia sẻ vị trí', description: 'Vui lòng bật chia sẻ vị trí trước khi check-in.', variant: 'destructive' });
+            return;
+        }
+
+        if (gpsLockStateByTrip[trip.id] !== 'success') {
+            toast({ title: 'Chưa chốt vị trí GPS', description: 'Vui lòng định vị chính xác trước khi check-in.', variant: 'destructive' });
+            return;
+        }
+
+        if (!infoConfirmedByTrip[trip.id]) {
+            toast({ title: 'Chưa xác nhận thông tin', description: 'Vui lòng kiểm tra lộ trình và thông tin khách hàng.', variant: 'destructive' });
+            return;
+        }
+
         if (!isOnline) {
             toast({ title: 'Mất kết nối mạng', description: 'Vui lòng bật mạng trước khi check-in chuyến.', variant: 'destructive' });
             return;
@@ -423,6 +757,110 @@ export default function DriverDashboard() {
             setIsCheckingInTripId(null);
             setIsUpdating(false);
         }
+    };
+
+    const handleGpsLock = async (trip: any) => {
+        if (!isDriverRole) {
+            toast({ title: 'Không có quyền', description: 'Chỉ tài xế mới được định vị.', variant: 'destructive' });
+            return;
+        }
+
+        if (!trip.accepted_at && !trip.accepted_by) {
+            toast({ title: 'Chưa nhận chuyến', description: 'Hãy nhận chuyến trước khi định vị GPS.', variant: 'destructive' });
+            return;
+        }
+
+        if (shareStateByTrip[trip.id] !== 'success') {
+            toast({ title: 'Chưa chia sẻ vị trí', description: 'Vui lòng bật chia sẻ vị trí trước khi định vị GPS.', variant: 'destructive' });
+            return;
+        }
+
+        if (!isOnline) {
+            toast({ title: 'Mất kết nối mạng', description: 'Vui lòng bật mạng trước khi định vị.', variant: 'destructive' });
+            return;
+        }
+
+        setGpsLockStateByTrip((prev) => ({ ...prev, [trip.id]: 'loading' }));
+        try {
+            const point = await getBestCurrentPosition(4);
+            setGpsLockAccuracyByTrip((prev) => ({ ...prev, [trip.id]: point.accuracy }));
+
+            if (point.accuracy > MIN_CHECKIN_ACCURACY_M) {
+                setGpsLockStateByTrip((prev) => ({ ...prev, [trip.id]: 'error' }));
+                toast({
+                    title: 'GPS chưa đủ chính xác',
+                    description: `Độ chính xác hiện tại: ${Math.round(point.accuracy)}m. Vui lòng ra ngoài trời và thử lại.`,
+                    variant: 'destructive',
+                });
+                return;
+            }
+
+            setGpsLockPointByTrip((prev) => ({ ...prev, [trip.id]: point }));
+            setGpsLockStateByTrip((prev) => ({ ...prev, [trip.id]: 'success' }));
+            toast({ title: 'Đã chốt vị trí GPS', description: `Sai số: ${Math.round(point.accuracy)}m.` });
+        } catch (error) {
+            setGpsLockStateByTrip((prev) => ({ ...prev, [trip.id]: 'error' }));
+            toast({
+                title: 'Không thể định vị',
+                description: geolocationErrorToMessage(error),
+                variant: 'destructive',
+            });
+        }
+    };
+
+    const handleAcceptTrip = async (trip: any) => {
+        if (!isDriverRole) {
+            toast({ title: 'Không có quyền', description: 'Chỉ tài xế mới được nhận chuyến.', variant: 'destructive' });
+            return;
+        }
+
+        if (!isOnline) {
+            toast({ title: 'Mất kết nối mạng', description: 'Vui lòng bật mạng trước khi nhận chuyến.', variant: 'destructive' });
+            return;
+        }
+
+        setIsUpdating(true);
+        try {
+            await updateTrip({
+                id: trip.id,
+                updates: {
+                    accepted_at: new Date().toISOString(),
+                    accepted_by: user?.id || user?.email || 'driver',
+                },
+            });
+            toast({ title: 'Đã nhận chuyến', description: `Bạn đã nhận chuyến ${trip.trip_code}.` });
+        } catch (error) {
+            toast({ title: 'Nhận chuyến thất bại', description: 'Vui lòng thử lại.', variant: 'destructive' });
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
+    const handleStartSharingLocation = async (trip: any) => {
+        if (!isDriverRole) {
+            toast({ title: 'Không có quyền', description: 'Chỉ tài xế mới được chia sẻ vị trí.', variant: 'destructive' });
+            return;
+        }
+
+        if (!trip.accepted_at && !trip.accepted_by) {
+            toast({ title: 'Chưa nhận chuyến', description: 'Hãy nhận chuyến trước khi chia sẻ vị trí.', variant: 'destructive' });
+            return;
+        }
+
+        if (!isOnline) {
+            toast({ title: 'Mất kết nối mạng', description: 'Vui lòng bật mạng trước khi chia sẻ vị trí.', variant: 'destructive' });
+            return;
+        }
+
+        if (shareStateByTrip[trip.id] === 'loading' || shareStateByTrip[trip.id] === 'success') {
+            return;
+        }
+
+        setShareStateByTrip((prev) => ({ ...prev, [trip.id]: 'loading' }));
+        setPreTripTrackingTripId(trip.id);
+        toast({ title: 'Bật chia sẻ vị trí', description: 'Vui lòng bấm Cho phép khi trình duyệt hỏi về vị trí.' });
+
+        // Location watch starts in the tracking effect once preTripTrackingTripId is set.
     };
 
     const handleFinishTripWithSignature = (trip: any) => {
@@ -613,7 +1051,38 @@ export default function DriverDashboard() {
                 </CardContent>
             </Card>
 
-            {myActiveTrips.map(trip => (
+            {myActiveTrips.map((trip) => {
+                const shareState = shareStateByTrip[trip.id] || 'idle';
+                const gpsState = gpsLockStateByTrip[trip.id] || 'idle';
+                const gpsAccuracy = gpsLockAccuracyByTrip[trip.id];
+                const gpsPoint = gpsLockPointByTrip[trip.id];
+                const infoConfirmed = !!infoConfirmedByTrip[trip.id];
+                const shareLabel = shareState === 'success'
+                    ? 'Đang chia sẻ vị trí'
+                    : shareState === 'loading'
+                        ? 'Đang bật chia sẻ...'
+                        : shareState === 'error'
+                            ? 'Chưa chia sẻ (lỗi GPS)'
+                            : 'Chưa chia sẻ';
+                const shareTone = shareState === 'success'
+                    ? 'text-emerald-700'
+                    : shareState === 'error'
+                        ? 'text-red-700'
+                        : 'text-slate-600';
+                const gpsLabel = gpsState === 'success'
+                    ? 'Đã chốt vị trí'
+                    : gpsState === 'loading'
+                        ? 'Đang định vị...'
+                        : gpsState === 'error'
+                            ? 'GPS chưa đủ chính xác'
+                            : 'Chưa định vị';
+                const gpsTone = gpsState === 'success'
+                    ? 'text-emerald-700'
+                    : gpsState === 'error'
+                        ? 'text-red-700'
+                        : 'text-slate-600';
+
+                return (
                 <Card key={trip.id} className="border-blue-100 shadow-md">
                     <CardHeader className="pb-2 bg-blue-50 focus:bg-blue-100 rounded-t-lg">
                         <div className="flex justify-between items-start">
@@ -641,6 +1110,208 @@ export default function DriverDashboard() {
                             <span className="text-slate-500">Hàng hóa:</span>
                             <span className="font-medium">{trip.cargo_description || "N/A"} - {trip.cargo_weight_tons || 0} Tấn</span>
                         </div>
+
+                        {trip.status === 'dispatched' && !trip.accepted_at && !trip.accepted_by && isDriverRole && (
+                            <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                                Bắt buộc: hãy bấm <strong>Nhận chuyến</strong> trước khi check-in GPS.
+                            </div>
+                        )}
+
+                        {trip.status === 'dispatched' && isDriverRole && (
+                            <div className="mt-3 rounded-md border border-slate-200 bg-white px-3 py-3">
+                                <Label className="text-[11px] font-semibold text-slate-700">BƯỚC 2: CHIA SẺ VỊ TRÍ</Label>
+                                <div className={`mt-1 text-xs ${shareTone}`}>Trạng thái: {shareLabel}</div>
+                                <Button
+                                    className="mt-2 w-full bg-emerald-600 hover:bg-emerald-700"
+                                    disabled={isUpdating || shareState === 'loading' || shareState === 'success'}
+                                    onClick={() => handleStartSharingLocation(trip)}
+                                >
+                                    {shareState === 'loading' ? (
+                                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Đang bật chia sẻ...</>
+                                    ) : shareState === 'success' ? (
+                                        <><CheckCircle2 className="w-4 h-4 mr-2" /> Đang chia sẻ vị trí</>
+                                    ) : (
+                                        <><MapPin className="w-4 h-4 mr-2" /> Bắt đầu chia sẻ vị trí</>
+                                    )}
+                                </Button>
+                            </div>
+                        )}
+
+                        {trip.status === 'dispatched' && isDriverRole && (
+                            <div className="mt-3 rounded-md border border-slate-200 bg-white px-3 py-3">
+                                <Label className="text-[11px] font-semibold text-slate-700">BƯỚC 3: ĐỊNH VỊ CHÍNH XÁC</Label>
+                                <div className={`mt-1 text-xs ${gpsTone}`}>
+                                    Trạng thái: {gpsLabel}
+                                    {typeof gpsAccuracy === 'number' ? ` • Sai số ${Math.round(gpsAccuracy)}m` : ''}
+                                </div>
+                                {gpsPoint && (
+                                    <div className="mt-2 text-[11px] text-slate-700 bg-slate-50 rounded-md border px-2 py-1">
+                                        GPS: {roundCoord(gpsPoint.latitude)}, {roundCoord(gpsPoint.longitude)}
+                                    </div>
+                                )}
+                                <Button
+                                    className="mt-2 w-full bg-blue-600 hover:bg-blue-700"
+                                    disabled={isUpdating || gpsState === 'loading' || shareState !== 'success'}
+                                    onClick={() => handleGpsLock(trip)}
+                                >
+                                    {gpsState === 'loading' ? (
+                                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Đang định vị...</>
+                                    ) : gpsState === 'success' ? (
+                                        <><CheckCircle2 className="w-4 h-4 mr-2" /> Đã chốt vị trí</>
+                                    ) : (
+                                        <><LocateFixed className="w-4 h-4 mr-2" /> Định vị chính xác</>
+                                    )}
+                                </Button>
+                            </div>
+                        )}
+
+                        {trip.status === 'dispatched' && isDriverRole && (
+                            <div className="mt-3 rounded-md border border-slate-200 bg-white px-3 py-3">
+                                <Label className="text-[11px] font-semibold text-slate-700">BƯỚC 4: KIỂM TRA LỘ TRÌNH & KHÁCH HÀNG</Label>
+                                <div className="mt-2 space-y-1 text-xs text-slate-700">
+                                    <div><span className="text-slate-500">Mã đơn:</span> <span className="font-semibold">{trip.trip_code}</span></div>
+                                    <div><span className="text-slate-500">Khách hàng:</span> <span className="font-semibold">{trip.customer?.customer_name || trip.customer?.name || trip.customer_id || 'Khách vãng lai'}</span></div>
+                                    <div>
+                                        <span className="text-slate-500">SĐT:</span>{' '}
+                                        {trip.customer?.phone || trip.customer?.contact_phone ? (
+                                            <a className="font-semibold text-blue-600" href={`tel:${trip.customer?.phone || trip.customer?.contact_phone}`}>
+                                                {trip.customer?.phone || trip.customer?.contact_phone}
+                                            </a>
+                                        ) : (
+                                            <span className="font-semibold">Chưa có</span>
+                                        )}
+                                    </div>
+                                    <div>
+                                        <span className="text-slate-500">Địa chỉ:</span>{' '}
+                                        {trip.customer?.address ? (
+                                            <a
+                                                className="font-semibold text-blue-600"
+                                                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(trip.customer.address)}`}
+                                                target="_blank"
+                                                rel="noreferrer"
+                                            >
+                                                {trip.customer.address}
+                                            </a>
+                                        ) : (
+                                            <span className="font-semibold">Chưa có</span>
+                                        )}
+                                    </div>
+                                    <div><span className="text-slate-500">Tuyến:</span> <span className="font-semibold">{trip.route?.route_name || trip.route_name || trip.route_id || 'Chưa rõ'}</span></div>
+                                    {trip.notes && (
+                                        <div><span className="text-slate-500">Ghi chú:</span> <span className="font-semibold">{trip.notes}</span></div>
+                                    )}
+                                </div>
+
+                                <label className="mt-3 flex items-start gap-2 text-xs text-slate-700">
+                                    <input
+                                        type="checkbox"
+                                        className="mt-0.5"
+                                        checked={infoConfirmed}
+                                        onChange={(e) => setInfoConfirmedByTrip((prev) => ({ ...prev, [trip.id]: e.target.checked }))}
+                                    />
+                                    Tôi đã kiểm tra lộ trình và thông tin khách hàng.
+                                </label>
+                            </div>
+                        )}
+
+                        {isDriverRole && (trip.status === 'dispatched' || trip.status === 'in_progress') && (
+                            <div className="mt-3 rounded-md border border-slate-200 bg-white px-3 py-3 space-y-3">
+                                <div>
+                                    <Label className="text-[11px] font-semibold text-slate-700">BÁO CÁO VỊ TRÍ (ẢNH + GHI CHÚ)</Label>
+                                    <Input
+                                        className="mt-2 bg-white"
+                                        placeholder="Nhập ghi chú nhanh..."
+                                        value={reportInputs[trip.id]?.note || ''}
+                                        onChange={(e) => handleReportInputChange(trip.id, 'note', e.target.value)}
+                                    />
+                                    <Button
+                                        variant="outline"
+                                        className="mt-2 w-full bg-white border-slate-300 text-slate-700 cursor-pointer relative overflow-hidden"
+                                        disabled={reportInputs[trip.id]?.isUploading}
+                                    >
+                                        {reportInputs[trip.id]?.isUploading ? (
+                                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Đang tải ảnh...</>
+                                        ) : reportInputs[trip.id]?.photoUrl ? (
+                                            <><CheckCircle2 className="w-4 h-4 mr-2 text-green-600" /> Đã tải ảnh</>
+                                        ) : (
+                                            <><Camera className="w-4 h-4 mr-2" /> Chụp ảnh vị trí</>
+                                        )}
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            capture="environment"
+                                            className="absolute inset-0 opacity-0 cursor-pointer"
+                                            onChange={(e) => handleReportPhotoUpload(e, trip.id)}
+                                            disabled={reportInputs[trip.id]?.isUploading}
+                                        />
+                                    </Button>
+                                    {reportInputs[trip.id]?.uploadState === 'error' && (
+                                        <div className="mt-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded-md px-2 py-1">
+                                            {reportInputs[trip.id]?.uploadError || 'Tải ảnh thất bại.'}
+                                        </div>
+                                    )}
+                                    <Button
+                                        className="mt-2 w-full bg-slate-900 hover:bg-slate-800"
+                                        disabled={isUpdating || reportInputs[trip.id]?.isUploading}
+                                        onClick={() => handleSubmitLocationReport(trip)}
+                                    >
+                                        <MapPin className="w-4 h-4 mr-2" /> Gửi báo cáo vị trí
+                                    </Button>
+                                </div>
+
+                                <div className="border-t border-slate-100 pt-3">
+                                    <Label className="text-[11px] font-semibold text-slate-700">CHỨNG TỪ CHI PHÍ (GỬI KẾ TOÁN)</Label>
+                                    <div className="mt-2 grid grid-cols-1 gap-2">
+                                        <Input
+                                            type="number"
+                                            className="bg-white"
+                                            placeholder="Số tiền chi phí"
+                                            value={expenseInputs[trip.id]?.amount || ''}
+                                            onChange={(e) => handleExpenseInputChange(trip.id, 'amount', e.target.value)}
+                                        />
+                                        <Input
+                                            className="bg-white"
+                                            placeholder="Ghi chú (vd: phí bốc xếp, cầu đường)"
+                                            value={expenseInputs[trip.id]?.note || ''}
+                                            onChange={(e) => handleExpenseInputChange(trip.id, 'note', e.target.value)}
+                                        />
+                                    </div>
+                                    <Button
+                                        variant="outline"
+                                        className="mt-2 w-full bg-white border-slate-300 text-slate-700 cursor-pointer relative overflow-hidden"
+                                        disabled={expenseInputs[trip.id]?.isUploading}
+                                    >
+                                        {expenseInputs[trip.id]?.isUploading ? (
+                                            <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Đang tải chứng từ...</>
+                                        ) : expenseInputs[trip.id]?.photoUrl ? (
+                                            <><CheckCircle2 className="w-4 h-4 mr-2 text-green-600" /> Đã tải chứng từ</>
+                                        ) : (
+                                            <><Camera className="w-4 h-4 mr-2" /> Chụp chứng từ</>
+                                        )}
+                                        <input
+                                            type="file"
+                                            accept="image/*"
+                                            capture="environment"
+                                            className="absolute inset-0 opacity-0 cursor-pointer"
+                                            onChange={(e) => handleExpensePhotoUpload(e, trip.id)}
+                                            disabled={expenseInputs[trip.id]?.isUploading}
+                                        />
+                                    </Button>
+                                    {expenseInputs[trip.id]?.uploadState === 'error' && (
+                                        <div className="mt-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded-md px-2 py-1">
+                                            {expenseInputs[trip.id]?.uploadError || 'Tải chứng từ thất bại.'}
+                                        </div>
+                                    )}
+                                    <Button
+                                        className="mt-2 w-full bg-blue-600 hover:bg-blue-700"
+                                        disabled={isUpdating || expenseInputs[trip.id]?.isUploading}
+                                        onClick={() => handleSubmitExpenseDoc(trip)}
+                                    >
+                                        <CheckCircle2 className="w-4 h-4 mr-2" /> Gửi chứng từ chi phí
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
                         
                         {trip.status === 'in_progress' && isDriverRole && (
                             <div className="mt-4 p-3 bg-amber-50 rounded-md border border-amber-100 space-y-2">
@@ -719,17 +1390,27 @@ export default function DriverDashboard() {
                                 </Button>
                             </div>
                         ) : (
-                            <Button 
-                                className="w-full bg-blue-600 hover:bg-blue-700 text-lg py-6" 
-                                onClick={() => handleStartTrip(trip)}
-                                disabled={isUpdating || isCheckingInTripId === trip.id}
-                            >
-                                {isCheckingInTripId === trip.id ? (
-                                    <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> DANG CHECK-IN GPS...</>
-                                ) : (
-                                    <><Play className="w-5 h-5 mr-2" /> CHECK-IN & BAT DAU CHAY</>
-                                )}
-                            </Button>
+                            trip.status === 'dispatched' && !trip.accepted_at && !trip.accepted_by ? (
+                                <Button
+                                    className="w-full bg-amber-500 hover:bg-amber-600 text-lg py-6"
+                                    onClick={() => handleAcceptTrip(trip)}
+                                    disabled={isUpdating}
+                                >
+                                    <CheckCircle2 className="w-5 h-5 mr-2" /> NHẬN CHUYẾN
+                                </Button>
+                            ) : (
+                                <Button 
+                                    className="w-full bg-blue-600 hover:bg-blue-700 text-lg py-6" 
+                                    onClick={() => handleStartTrip(trip)}
+                                    disabled={isUpdating || isCheckingInTripId === trip.id || !infoConfirmed}
+                                >
+                                    {isCheckingInTripId === trip.id ? (
+                                        <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> DANG CHECK-IN GPS...</>
+                                    ) : (
+                                        <><Play className="w-5 h-5 mr-2" /> CHECK-IN & BAT DAU CHAY</>
+                                    )}
+                                </Button>
+                            )
                         )}
                     </CardFooter>
                     {startStateByTrip[trip.id] === 'error' && <div className="px-6 pb-3 text-xs text-red-700">Check-in thất bại. Vui lòng kiểm tra GPS và thử lại.</div>}
@@ -739,7 +1420,8 @@ export default function DriverDashboard() {
                     {incidentStateByTrip[trip.id] === 'error' && <div className="px-6 pb-3 text-xs text-red-700">Gửi báo sự cố thất bại.</div>}
                     {incidentStateByTrip[trip.id] === 'success' && <div className="px-6 pb-3 text-xs text-green-700">Đã gửi báo sự cố.</div>}
                 </Card>
-            ))}
+            );
+            })}
 
             {/* Signature Dialog */}
             <Dialog open={signatureDialogOpen} onOpenChange={setSignatureDialogOpen}>
@@ -776,17 +1458,27 @@ export default function DriverDashboard() {
                             Chốt chuyến nhanh ({primaryTripForAction.trip_code})
                         </Button>
                     ) : (
-                        <Button
-                            className="h-12 w-full bg-blue-600 text-base font-bold hover:bg-blue-700"
-                            disabled={isUpdating || !isOnline || isCheckingInTripId === primaryTripForAction.id}
-                            onClick={() => handleStartTrip(primaryTripForAction)}
-                        >
-                            {isCheckingInTripId === primaryTripForAction.id ? (
-                                <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Đang check-in...</>
-                            ) : (
-                                <><Play className="mr-2 h-5 w-5" /> Bắt đầu chuyến nhanh ({primaryTripForAction.trip_code})</>
-                            )}
-                        </Button>
+                        primaryTripForAction.status === 'dispatched' && !primaryTripForAction.accepted_at && !primaryTripForAction.accepted_by ? (
+                            <Button
+                                className="h-12 w-full bg-amber-500 text-base font-bold hover:bg-amber-600"
+                                disabled={isUpdating || !isOnline}
+                                onClick={() => handleAcceptTrip(primaryTripForAction)}
+                            >
+                                <CheckCircle2 className="mr-2 h-5 w-5" /> Nhận chuyến nhanh ({primaryTripForAction.trip_code})
+                            </Button>
+                        ) : (
+                            <Button
+                                className="h-12 w-full bg-blue-600 text-base font-bold hover:bg-blue-700"
+                                disabled={isUpdating || !isOnline || isCheckingInTripId === primaryTripForAction.id || !infoConfirmedByTrip[primaryTripForAction.id]}
+                                onClick={() => handleStartTrip(primaryTripForAction)}
+                            >
+                                {isCheckingInTripId === primaryTripForAction.id ? (
+                                    <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Đang check-in...</>
+                                ) : (
+                                    <><Play className="mr-2 h-5 w-5" /> Bắt đầu chuyến nhanh ({primaryTripForAction.trip_code})</>
+                                )}
+                            </Button>
+                        )
                     )}
                 </div>
             )}

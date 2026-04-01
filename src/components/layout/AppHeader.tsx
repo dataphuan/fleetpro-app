@@ -40,7 +40,7 @@ export function AppHeader({ onOpenMobileSidebar, forceShowMenuButton = false }: 
           type="button"
           variant="ghost"
           size="icon"
-          className={forceShowMenuButton ? "" : "lg:hidden"}
+          className={`${forceShowMenuButton ? "" : "lg:hidden"} min-h-10 min-w-10 shrink-0`}
           onClick={onOpenMobileSidebar}
           aria-label="Mở menu"
         >

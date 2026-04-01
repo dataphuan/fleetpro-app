@@ -112,6 +112,8 @@ export const ExpenseSchema = z.object({
   odometer_reading: z.number().min(0, { message: 'Chỉ số ODO phải >= 0' }).optional(),
   is_reconciled: z.boolean().default(false),
   reconciliation_date: z.string().optional().nullable(),
+  status: z.enum(['draft', 'confirmed', 'cancelled', 'rejected']).default('draft'),
+  rejection_reason: z.string().optional().nullable(),
 }).passthrough()
 .refine(data => {
   return !!(data.trip_id || data.vehicle_id || data.driver_id || data.order_code);

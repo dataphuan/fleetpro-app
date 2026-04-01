@@ -30,6 +30,7 @@ interface Trip {
     actual_arrival_time?: string;
     actual_distance_km?: number;
     total_revenue?: number;
+    pod_status?: 'PENDING' | 'RECEIVED' | 'LOST';
     closed_at?: string;
     cancelled_at?: string;
 }
@@ -103,6 +104,9 @@ export function TripWorkflowActions({
                 }
                 if (draftExpenseCount > 0) {
                     errors.push(`Còn ${draftExpenseCount} phiếu chi chưa xác nhận. Phải xác nhận tất cả trước khi đóng.`);
+                }
+                if (trip.pod_status !== 'RECEIVED') {
+                    errors.push('Chưa xác nhận biên nhận giao hàng (POD). Phải xác nhận trước khi đóng.');
                 }
                 break;
 

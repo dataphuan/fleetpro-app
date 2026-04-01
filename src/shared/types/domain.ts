@@ -130,9 +130,18 @@ export interface Trip {
   total_revenue?: number;
   status: 'draft' | 'pending' | 'confirmed' | 'dispatched' | 'in_progress' | 'completed' | 'closed' | 'cancelled';
 
+  // Elite Logistics Logic
+  pod_status?: 'PENDING' | 'RECEIVED' | 'LOST';
+  pod_url?: string;
+  driver_advance?: number;
+  actual_revenue?: number;
+  adjustment_notes?: string;
+
   // Audit fields
   confirmed_at?: string;
   confirmed_by?: string;
+  accepted_at?: string;
+  accepted_by?: string;
   closed_at?: string;
   closed_by?: string;
   cancelled_at?: string;
@@ -172,7 +181,8 @@ export interface Expense {
   document_number?: string;
   document_date?: string;
   vendor_name?: string;
-  status: 'draft' | 'confirmed' | 'cancelled';
+  status: 'draft' | 'confirmed' | 'cancelled' | 'rejected';
+  rejection_reason?: string;
   confirmed_at?: string;
   confirmed_by?: string;
   notes?: string;

@@ -112,7 +112,9 @@ const App = () => {
                   path="/driver"
                   element={
                     <ProtectedRoute>
-                      <DriverLayout />
+                      <Suspense fallback={<PageSkeleton />}>
+                        <DriverLayout />
+                      </Suspense>
                     </ProtectedRoute>
                   }
                 >
