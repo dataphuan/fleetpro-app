@@ -3,6 +3,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Truck, Home, User, Bell } from "lucide-react";
 import { PaywallGuard } from "@/components/shared/PaywallGuard";
 import { normalizeUserRole } from "@/lib/rbac";
+import { InstallAppPrompt } from "@/components/pwa/InstallAppPrompt";
 
 export function DriverLayout() {
     const { user, role, loading } = useAuth() as any;
@@ -42,6 +43,8 @@ export function DriverLayout() {
                         <span className="absolute top-2 right-2 flex h-2 w-2 rounded-full bg-red-500"></span>
                     </button>
                 </header>
+
+                <InstallAppPrompt />
 
                 {/* Main Content Area */}
                 <main className="flex-1 overflow-y-auto w-full pb-20">

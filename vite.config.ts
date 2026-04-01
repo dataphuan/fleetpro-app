@@ -14,7 +14,8 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       sourcemap: false,
-      minify: mode === 'production' ? 'esbuild' : false,
+      minify: false,
+      target: 'es2015', // Try different target
       chunkSizeWarningLimit: 1000,
       rollupOptions: {
         output: {

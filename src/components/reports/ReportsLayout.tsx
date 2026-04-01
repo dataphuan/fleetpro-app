@@ -7,6 +7,9 @@ import { ReportByCustomerTable } from "./ReportByCustomerTable";
 import { ReportByRevenueTable } from "./ReportByRevenueTable";
 import { ReportByExpenseTable } from "./ReportByExpenseTable";
 import { ReportByProfitTable } from "./ReportByProfitTable";
+import { ReportVehiclePnL } from "./ReportVehiclePnL";
+import { MonthlyReportExport } from "./MonthlyReportExport";
+import { ReportVehicleBenchmark } from "./ReportVehicleBenchmark";
 
 export function ReportsLayout() {
   const [activeTab, setActiveTab] = useState("vehicle");
@@ -20,6 +23,7 @@ export function ReportsLayout() {
             Phân tích hiệu suất, doanh thu, và chi phí vận tải.
           </p>
         </div>
+        <MonthlyReportExport />
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
@@ -32,6 +36,8 @@ export function ReportsLayout() {
             <TabsTrigger value="revenue" className="min-w-[100px]">Doanh Thu</TabsTrigger>
             <TabsTrigger value="expense" className="min-w-[100px]">Chi Phí</TabsTrigger>
             <TabsTrigger value="profit" className="min-w-[100px]">Lợi Nhuận</TabsTrigger>
+            <TabsTrigger value="vehicle-pnl" className="min-w-[140px]">Lãi/Lỗ Theo Xe</TabsTrigger>
+            <TabsTrigger value="benchmark" className="min-w-[130px]">So Sánh Xe</TabsTrigger>
           </TabsList>
         </div>
 
@@ -61,6 +67,14 @@ export function ReportsLayout() {
 
         <TabsContent value="profit" className="space-y-4">
           <ReportByProfitTable />
+        </TabsContent>
+
+        <TabsContent value="vehicle-pnl" className="space-y-4">
+          <ReportVehiclePnL />
+        </TabsContent>
+
+        <TabsContent value="benchmark" className="space-y-4">
+          <ReportVehicleBenchmark />
         </TabsContent>
       </Tabs>
     </div>

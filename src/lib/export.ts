@@ -48,6 +48,23 @@ export function exportToCSV<T>(data: T[], filename: string, columns: { key: stri
     XLSX.writeFile(workbook, `${filename}_${timestamp}.xlsx`);
 }
 
+export function exportToJSON(data: unknown, filename: string) {
+    if (!data) {
+        return;
+    }
+
+    const timestamp = new Date().toISOString().split('T')[0];
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${filename}_${timestamp}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+}
+
 export async function importFromFile(
   file: File,
   columns: ImportColumn[],

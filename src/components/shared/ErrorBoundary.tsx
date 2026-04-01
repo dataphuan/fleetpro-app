@@ -23,9 +23,45 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
         return { hasError: true, error };
     }
 
+    // QA AUDIT FIX 4.1: Log errors to Firestore audit trail
     componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
         console.error('[ErrorBoundary] Uncaught error:', error);
         console.error('[ErrorBoundary] Component stack:', errorInfo.componentStack);
+        
+        // Attempt to log to Firestore for monitoring
+        try {
+            import('@/lib/firebase').then(({ db, auth }) => {
+                import('firebase/firestore').then(({ addDoc, collection, doc, getDoc }) => {
+                    const user = auth.currentUser;
+                    if (user) {
+                        getDoc(doc(db, 'users', user.uid))
+                            .then((userDocSnap) => {
+                                const tenantId = userDocSnap.exists() ? (userDocSnap.data().tenant_id || '') : '';
+                                return addDoc(collection(db, 'system_logs'), {
+                                    timestamp: new Date().toISOString(),
+                                    user_id: user.uid,
+                                    user_email: user.email,
+                                    tenant_id: tenantId,
+                                    action: 'ERROR',
+                                    collection_name: 'app_errors',
+                                    entity_id: 'error_boundary',
+                                    metadata: {
+                                        message: error.message,
+                                        stack: error.stack?.substring(0, 1000),
+                                        component_stack: errorInfo.componentStack?.substring(0, 1000),
+                                        url: window.location.href,
+                                        user_agent: navigator.userAgent,
+                                        occurred_at: new Date().toISOString(),
+                                    }
+                                });
+                            })
+                            .catch(() => {});
+                    }
+                });
+            });
+        } catch {
+            // Silently fail — audit is best-effort
+        }
     }
 
     handleReload = () => {

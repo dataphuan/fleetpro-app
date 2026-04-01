@@ -7,7 +7,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { transportOrderAdapter } from '@/lib/data-adapter';
 import { useToast } from '@/hooks/use-toast';
 
-export type TransportOrderStatus = 'draft' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
+export type TransportOrderStatus = 'draft' | 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
 export type TransportOrderPriority = 'low' | 'normal' | 'high' | 'urgent';
 
 export interface TransportOrder {

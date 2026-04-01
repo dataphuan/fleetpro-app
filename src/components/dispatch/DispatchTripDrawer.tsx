@@ -427,7 +427,7 @@ export function DispatchTripDrawer({
                                             <SelectContent className="max-h-[200px]">
                                                 {activeVehicles.map((v) => (
                                                     <SelectItem key={v.id} value={v.id}>
-                                                        {v.vehicle_code} - {v.license_plate} ({v.vehicle_type || 'N/A'})
+                                                        {v.vehicle_code} - {v.license_plate} ({v.vehicle_type || '—'})
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>

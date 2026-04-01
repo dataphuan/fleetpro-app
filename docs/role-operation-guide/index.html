@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FleetPro - Hướng Dẫn Theo Vai Trò</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <div class="hero__glow hero__glow--one"></div>
+      <div class="hero__glow hero__glow--two"></div>
+      <div class="hero__content">
+        <p class="eyebrow">FleetPro Trực Tuyến</p>
+        <h1>Quy Trình Hướng Dẫn Vận Hành Theo Vai Trò</h1>
+        <p class="subtitle">
+          Tài liệu thao tác nhanh cho Quản trị hệ thống, Quản lý, Kế toán và Tài xế.
+          Mục tiêu: thao tác đúng, phối hợp nhanh, giảm lỗi vận hành.
+        </p>
+        <div class="hero__actions">
+          <button id="btnPrint" class="btn btn--ghost" type="button">In hướng dẫn</button>
+          <button id="btnExpandAll" class="btn" type="button">Mở tất cả danh mục kiểm tra</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="panel panel--matrix" aria-labelledby="matrixTitle">
+        <h2 id="matrixTitle">1) Ma trận quyền thao tác</h2>
+        <p class="panel__hint">Xanh: được thao tác, Vàng: được xem, Đỏ: không được phép.</p>
+        <div class="matrix-wrap">
+          <table class="matrix">
+            <thead>
+              <tr>
+                <th>Chức năng</th>
+                <th>Quản trị hệ thống</th>
+                <th>Quản lý</th>
+                <th>Kế toán</th>
+                <th>Tài xế</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Tạo/chỉnh sửa tuyến, xe, tài xế</td>
+                <td><span class="tag tag--full">Toàn quyền</span></td>
+                <td><span class="tag tag--full">Toàn quyền</span></td>
+                <td><span class="tag tag--view">Xem</span></td>
+                <td><span class="tag tag--none">Không</span></td>
+              </tr>
+              <tr>
+                <td>Phân công chuyến</td>
+                <td><span class="tag tag--full">Toàn quyền</span></td>
+                <td><span class="tag tag--full">Toàn quyền</span></td>
+                <td><span class="tag tag--none">Không</span></td>
+                <td><span class="tag tag--none">Không</span></td>
+              </tr>
+              <tr>
+                <td>Theo dõi bản đồ thời gian thực</td>
+                <td><span class="tag tag--full">Toàn quyền</span></td>
+                <td><span class="tag tag--full">Toàn quyền</span></td>
+                <td><span class="tag tag--view">Xem</span></td>
+                <td><span class="tag tag--view">Vị trí của mình</span></td>
+              </tr>
+              <tr>
+                <td>Cập nhật trạng thái chuyến</td>
+                <td><span class="tag tag--full">Toàn quyền</span></td>
+                <td><span class="tag tag--full">Toàn quyền</span></td>
+                <td><span class="tag tag--none">Không</span></td>
+                <td><span class="tag tag--full">Chuyến được giao</span></td>
+              </tr>
+              <tr>
+                <td>Gửi chi phí + hóa đơn</td>
+                <td><span class="tag tag--full">Toàn quyền</span></td>
+                <td><span class="tag tag--view">Xem</span></td>
+                <td><span class="tag tag--full">Duyệt/từ chối</span></td>
+                <td><span class="tag tag--full">Nhập chi phí</span></td>
+              </tr>
+              <tr>
+                <td>Đóng chuyến</td>
+                <td><span class="tag tag--full">Toàn quyền</span></td>
+                <td><span class="tag tag--full">Toàn quyền có điều kiện</span></td>
+                <td><span class="tag tag--view">Xem</span></td>
+                <td><span class="tag tag--none">Không</span></td>
+              </tr>
+              <tr>
+                <td>Hệ thống quyền truy cập/quy tắc/kiểm tra</td>
+                <td><span class="tag tag--full">Toàn quyền</span></td>
+                <td><span class="tag tag--none">Không</span></td>
+                <td><span class="tag tag--none">Không</span></td>
+                <td><span class="tag tag--none">Không</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="panel panel--roles" aria-labelledby="rolesTitle">
+        <div class="panel__head">
+          <h2 id="rolesTitle">2) Quy trình thao tác theo từng vai trò</h2>
+          <label class="search">
+            <span>Tìm nhanh</span>
+            <input id="quickSearch" type="search" placeholder="Ví dụ: biên nhận, chi phí, bản đồ, kết thúc" />
+          </label>
+        </div>
+
+        <div class="tabs" role="tablist" aria-label="Vai trò">
+          <button class="tab is-active" role="tab" aria-selected="true" data-role="ceo">Quản trị hệ thống</button>
+          <button class="tab" role="tab" aria-selected="false" data-role="manager">Quản lý</button>
+          <button class="tab" role="tab" aria-selected="false" data-role="accountant">Kế toán</button>
+          <button class="tab" role="tab" aria-selected="false" data-role="driver">Tài xế</button>
+        </div>
+
+        <article class="role-panel is-active" data-role-panel="ceo">
+          <h3>Mục tiêu: Quản trị toàn bộ công ty, an toàn dữ liệu, chỉ số hiệu quả và điều kiện sẵn sàng phát hành</h3>
+          <div class="steps">
+            <details open>
+              <summary>P0 mỗi ngày (10-15 phút)</summary>
+              <ul>
+                <li>Kiểm tra tình trạng bảng điều hành: số chuyến đang vận chuyển, cảnh báo đỏ, lỗi đồng bộ.</li>
+                <li>Kiểm tra nhật ký an toàn: truy cập bất thường, sai quyền, vượt phạm vi công ty.</li>
+                <li>Kiểm tra điều kiện phát hành: không lỗi kiểu dữ liệu, dựng ứng dụng thành công, các bước kiểm thử đạt.</li>
+              </ul>
+            </details>
+            <details>
+              <summary>P1 mỗi tuần</summary>
+              <ul>
+                <li>Rà soát ma trận quyền và quy tắc kiểm tra dữ liệu.</li>
+                <li>Xem chỉ số hiệu quả: đúng giờ, tỷ lệ có biên nhận, tỷ lệ chi phí được duyệt.</li>
+                <li>Chốt phương án tối ưu quy trình với nhóm vận hành.</li>
+              </ul>
+            </details>
+            <details>
+              <summary>Quyền được xem</summary>
+              <ul>
+                <li>Toàn bộ bản đồ thời gian thực, dòng thời gian chuyến, sự cố.</li>
+                <li>Toàn bộ nhóm chức năng tài chính và đối soát.</li>
+              </ul>
+            </details>
+            <details>
+              <summary>Không nên thao tác trực tiếp</summary>
+              <ul>
+                <li>Không cập nhật thủ công trạng thái chuyến nếu không có sự cố.</li>
+                <li>Không sửa chi phí đã được kế toán khóa sổ.</li>
+              </ul>
+            </details>
+          </div>
+        </article>
+
+        <article class="role-panel" data-role-panel="manager">
+          <h3>Mục tiêu: Điều phối đúng lúc, giảm trễ hẹn, xử lý sự cố nhanh</h3>
+          <div class="steps">
+            <details open>
+              <summary>Trước ca làm</summary>
+              <ul>
+                <li>Kiểm tra đủ dữ liệu nền: xe, tài xế, tuyến, khách hàng.</li>
+                <li>Tạo và phân công chuyến theo khung giờ.</li>
+                <li>Kiểm tra tài xế đã bật định vị GPS và sẵn sàng nhận chuyến.</li>
+              </ul>
+            </details>
+            <details>
+              <summary>Trong ca</summary>
+              <ul>
+                <li>Theo dõi bản đồ thời gian thực, ưu tiên điểm cảnh báo đỏ/cam.</li>
+                <li>Xử lý cảnh báo lệch tuyến, dừng lâu, thời gian đến dự kiến bị trễ.</li>
+                <li>Cập nhật thông tin cho khách và nhóm liên quan.</li>
+              </ul>
+            </details>
+            <details>
+              <summary>Cuối ca</summary>
+              <ul>
+                <li>Kiểm tra biên nhận giao hàng của từng chuyến trước khi hoàn tất/đóng chuyến.</li>
+                <li>Bàn giao danh sách chi phí đang chờ kế toán duyệt.</li>
+                <li>Tổng hợp sự cố cần tối ưu cho ngày mai.</li>
+              </ul>
+            </details>
+          </div>
+        </article>
+
+        <article class="role-panel" data-role-panel="accountant">
+          <h3>Mục tiêu: Quy trình chi phí minh bạch, chốt nhanh và đúng chứng từ</h3>
+          <div class="steps">
+            <details open>
+              <summary>Danh mục kiểm tra khi duyệt chi phí</summary>
+              <ul>
+                <li>Kiểm tra ảnh hóa đơn rõ ràng, đủ thông tin bắt buộc.</li>
+                <li>Đối chiếu mục chi phí với chuyến, mốc thời gian và GPS.</li>
+                <li>Duyệt/từ chối có lý do để tài xế nộp lại đúng chuẩn.</li>
+              </ul>
+            </details>
+            <details>
+              <summary>Danh mục kiểm tra khi đối soát chuyến</summary>
+              <ul>
+                <li>Kiểm tra doanh thu - chi phí và các sai lệch bất thường.</li>
+                <li>Kiểm tra trạng thái biên nhận đã xác nhận trước khi đóng chuyến.</li>
+                <li>Kiểm tra trạng thái đối soát đã hoàn tất đầy đủ.</li>
+              </ul>
+            </details>
+            <details>
+              <summary>Quyền được xem</summary>
+              <ul>
+                <li>Bản đồ dòng thời gian để xác minh bối cảnh chi phí.</li>
+                <li>Danh sách sự cố ảnh hưởng đến cam kết thời gian/chi phí.</li>
+              </ul>
+            </details>
+          </div>
+        </article>
+
+        <article class="role-panel" data-role-panel="driver">
+          <h3>Mục tiêu: Chạy đúng hạn, cập nhật nhanh, gửi chứng từ đầy đủ</h3>
+          <div class="steps">
+            <details open>
+              <summary>Bắt buộc trước khi xuất phát</summary>
+              <ul>
+                <li>Mở ứng dụng, nhận chuyến được giao.</li>
+                <li>Bấm Bắt đầu chia sẻ vị trí.</li>
+                <li>Bấm Định vị chính xác của tôi để chốt điểm GPS.</li>
+                <li>Kiểm tra lộ trình và thông tin khách hàng.</li>
+              </ul>
+            </details>
+            <details>
+              <summary>Trong hành trình</summary>
+              <ul>
+                <li>Cập nhật trạng thái theo mốc: đến lấy, đã lấy, đang giao, đã giao.</li>
+                <li>Nếu có sự cố, bấm Báo sự cố ngay để điều phối hỗ trợ.</li>
+                <li>Không tắt chia sẻ vị trí khi chuyến đang chạy.</li>
+              </ul>
+            </details>
+            <details>
+              <summary>Sau giao hàng</summary>
+              <ul>
+                <li>Tải lên biên nhận giao hàng rõ ràng (ảnh/chữ ký/chứng từ).</li>
+                <li>Nhập chi phí phát sinh kèm ảnh hóa đơn.</li>
+                <li>Bấm hoàn tất chuyến khi đã đầy đủ thông tin.</li>
+              </ul>
+            </details>
+            <details>
+              <summary>Bạn được xem gì</summary>
+              <ul>
+                <li>Vị trí của chính bạn và chuyến được giao.</li>
+                <li>Trạng thái duyệt chi phí của bạn.</li>
+                <li>Lịch sử các chuyến của bạn.</li>
+              </ul>
+            </details>
+          </div>
+        </article>
+      </section>
+
+      <section class="panel panel--flow" aria-labelledby="flowTitle">
+        <h2 id="flowTitle">3) Luồng phối hợp liên phòng ban</h2>
+        <ol class="flow">
+          <li><strong>Điều phối tạo và giao chuyến</strong> -> Tài xế nhận chuyến.</li>
+          <li><strong>Tài xế bật bản đồ thời gian thực</strong> -> Quản lý giám sát thời gian đến dự kiến và cảnh báo.</li>
+          <li><strong>Tài xế cập nhật mốc trạng thái</strong> -> Điều phối thông báo khách.</li>
+          <li><strong>Tài xế gửi biên nhận + chi phí</strong> -> Kế toán duyệt và đối soát.</li>
+          <li><strong>Quản lý/Quản trị hệ thống đóng chuyến</strong> -> Bảng điều hành cập nhật chỉ số hiệu quả.</li>
+        </ol>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <p>Sổ tay quy trình FleetPro - hiển thị tốt trên máy tính và điện thoại.</p>
+      <p>Cập nhật: 2026-04-01</p>
+    </footer>
+
+    <script src="./app.js"></script>
+  </body>
+</html>

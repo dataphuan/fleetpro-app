@@ -28,7 +28,7 @@ export function ReportByExpenseTable() {
     const summaryCards: SummaryCardProps[] = useMemo(() => {
         const data = reportData || [];
         const totalAmount = data.reduce((s, r) => s + r.total_amount, 0);
-        const topCategory = data.length > 0 ? data[0]?.category : 'N/A';
+        const topCategory = data.length > 0 ? data[0]?.category : '—';
         const avgPct = data.length > 0 ? (100 / data.length) : 0;
         return [
             { title: "Số mục chi", value: data.length, icon: List, color: "text-blue-600", bgColor: "bg-blue-50" },

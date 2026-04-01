@@ -11,6 +11,7 @@ import { useEffect } from "react";
 import { OnboardingFlow } from "@/components/onboarding/OnboardingFlow";
 import { useOnboarding } from "@/hooks/useOnboarding";
 import { useAuth } from "@/contexts/AuthContext";
+import { QuickTripModal } from "@/components/trips/QuickTripModal";
 
 export default function Dashboard() {
   const now = new Date();
@@ -41,6 +42,7 @@ export default function Dashboard() {
       <PageHeader
         title="Bảng Điều Khiển PRO"
         description={`Tổng quan hoạt động vận tải - Tháng ${now.getMonth() + 1}/${now.getFullYear()}`}
+        actions={<QuickTripModal triggerLabel="+ Tạo Chuyến" />}
       />
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">

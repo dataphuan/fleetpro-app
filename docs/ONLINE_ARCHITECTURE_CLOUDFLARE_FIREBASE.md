@@ -20,11 +20,9 @@ Frontend:
 Data access:
 - src/lib/firebase.ts: Firebase app initialization.
 - src/lib/data-adapter.ts: adapter Firestore (list/get/create/update/delete theo tenant_id).
-- src/services/googleSheetsService.ts: bridge GAS legacy (can disable for production mode).
 
 Auth/session:
 - src/contexts/AuthContext.tsx: local session restore (_fleetpro_session), role/tenant context.
-- src/contexts/TenantContext.tsx: tenant config lookup (hien dang goi service legacy).
 
 ## 3) Data luu o dau
 

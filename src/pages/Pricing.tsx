@@ -146,7 +146,7 @@ export default function Pricing() {
                     Nâng Tầm Quản Lý Đội Xe Của Bạn
                 </h1>
                 <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                    Chọn gói cước phù hợp với quy mô doanh nghiệp vận tải. Tất cả các gói đều có đầy đủ tính năng cốt lõi. Hủy bất cứ lúc nào.
+                    Chọn gói theo quy mô xe thực tế: Free giới hạn để dùng thử nhanh, trả phí định kỳ theo số xe để mở full option, và gói cao cấp chuyển giao độc quyền cho doanh nghiệp lớn.
                 </p>
             </div>
 
@@ -164,8 +164,8 @@ export default function Pricing() {
                     </CardHeader>
                     <CardContent className="flex-1">
                         <ul className="space-y-3 text-sm">
-                            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500 shrink-0" /> Quản lý tối đa 2 Xe</li>
-                            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500 shrink-0" /> Quản lý tối đa 50 Chuyến</li>
+                            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500 shrink-0" /> Free: tối đa 5 xe để test đầy đủ luồng</li>
+                            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500 shrink-0" /> Quản lý tối đa 50 chuyến demo/tháng</li>
                             <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500 shrink-0" /> Tất cả tính năng Cốt lõi</li>
                             <li className="flex items-center gap-2 text-muted-foreground"><X className="h-4 w-4 shrink-0" /> Không hỗ trợ Tài khoản phụ</li>
                             <li className="flex items-center gap-2 text-muted-foreground"><X className="h-4 w-4 shrink-0" /> Không có Trợ lý AI</li>
@@ -195,7 +195,8 @@ export default function Pricing() {
                     </CardHeader>
                     <CardContent className="flex-1">
                         <ul className="space-y-3 text-sm">
-                            <li className="flex items-center gap-2 font-medium"><Check className="h-4 w-4 text-blue-500 shrink-0" /> Quản lý lên đến 20 Xe</li>
+                            <li className="flex items-center gap-2 font-medium"><Check className="h-4 w-4 text-blue-500 shrink-0" /> Trả phí định kỳ theo xe - mở full option</li>
+                            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-blue-500 shrink-0" /> Linh hoạt mở rộng theo quy mô đội xe</li>
                             <li className="flex items-center gap-2 font-medium"><Check className="h-4 w-4 text-blue-500 shrink-0" /> Không giới hạn Chuyến đi</li>
                             <li className="flex items-center gap-2"><Check className="h-4 w-4 text-blue-500 shrink-0" /> Cấp 5 tài khoản nhân viên</li>
                             <li className="flex items-center gap-2"><Check className="h-4 w-4 text-blue-500 shrink-0" /> Trợ lý AI (Gemini Flash)</li>
@@ -270,8 +271,8 @@ export default function Pricing() {
                 {/* ENTERPRISE Plan */}
                 <Card className="relative flex flex-col h-full border-slate-200 bg-slate-50">
                     <CardHeader>
-                        <CardTitle className="text-xl">Doanh Nghiệp (Pro)</CardTitle>
-                        <CardDescription>Cho các công ty Logistics lớn</CardDescription>
+                        <CardTitle className="text-xl">Doanh Nghiệp Cao Cấp</CardTitle>
+                        <CardDescription>Gói chuyển giao độc quyền theo yêu cầu doanh nghiệp</CardDescription>
                         <div className="mt-4">
                             <span className="text-4xl font-bold">Liên hệ</span>
                         </div>
@@ -281,7 +282,7 @@ export default function Pricing() {
                             <li className="flex items-center gap-2 font-medium"><Check className="h-4 w-4 text-indigo-600 shrink-0" /> Không giới hạn Số lượng Xe</li>
                             <li className="flex items-center gap-2"><Check className="h-4 w-4 text-indigo-600 shrink-0" /> Không giới hạn Tài khoản dùng chung</li>
                             <li className="flex items-center gap-2"><Check className="h-4 w-4 text-indigo-600 shrink-0" /> Trợ lý AI (Gemini Pro) cao cấp</li>
-                            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-indigo-600 shrink-0" /> Server chạy độc lập (Private Cloud)</li>
+                            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-indigo-600 shrink-0" /> Chuyển giao độc quyền (Private Deployment)</li>
                             <li className="flex items-center gap-2"><Check className="h-4 w-4 text-indigo-600 shrink-0" /> Tích hợp API ERP nội bộ</li>
                         </ul>
                     </CardContent>

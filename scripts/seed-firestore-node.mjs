@@ -101,7 +101,7 @@ async function main() {
   const auth = getAuth(app);
   const db = getFirestore(app);
 
-  const datasets = {
+  let datasets = {
     vehicles: extractConstArray(html, 'VEHICLES'),
     drivers: extractConstArray(html, 'DRIVERS'),
     customers: extractConstArray(html, 'CUSTOMERS'),
@@ -122,6 +122,48 @@ async function main() {
     partners: extractConstArray(html, 'PARTNERS'),
     users: extractConstArray(html, 'USERS'),
   };
+
+  const normalizeSeedData = (seed) => {
+    const trips = seed.trips || [];
+    const expenses = seed.expenses || [];
+    const tripById = new Map(trips.map((t) => [t.id, t]));
+    const expenseTotals = {};
+
+    expenses.forEach((e) => {
+      if (e.trip_id && e.status === 'confirmed') {
+        const amount = Number(e.amount || 0);
+        expenseTotals[e.trip_id] = (expenseTotals[e.trip_id] || 0) + amount;
+      }
+    });
+
+    const normalizedTrips = trips.map((t) => ({
+      ...t,
+      freight_revenue: typeof t.freight_revenue === 'undefined' ? (t.total_revenue || 0) : t.freight_revenue,
+      additional_charges: typeof t.additional_charges === 'undefined' ? 0 : t.additional_charges,
+      total_expenses: typeof t.total_expenses === 'undefined' ? (expenseTotals[t.id] || 0) : t.total_expenses,
+    }));
+
+    const normalizedExpenses = expenses.map((e) => {
+      const trip = tripById.get(e.trip_id);
+      return {
+        ...e,
+        driver_id: e.driver_id || trip?.driver_id,
+        driver_name: e.driver_name || trip?.driver_name,
+        vehicle_id: e.vehicle_id || trip?.vehicle_id,
+        vehicle_plate: e.vehicle_plate || trip?.vehicle_plate,
+        customer_id: e.customer_id || trip?.customer_id,
+        route_id: e.route_id || trip?.route_id,
+      };
+    });
+
+    return {
+      ...seed,
+      trips: normalizedTrips,
+      expenses: normalizedExpenses,
+    };
+  };
+
+  datasets = normalizeSeedData(datasets);
 
   console.log(`Signing in as ${email} ...`);
   const cred = await signInWithEmailAndPassword(auth, email, password);

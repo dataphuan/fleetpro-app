@@ -17,6 +17,8 @@ import {
   Lock,
   Bell,
   UserCircle,
+  MapPin,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -28,46 +30,83 @@ import { useCustomers } from "@/hooks/useCustomers";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth, UserRole } from "@/contexts/AuthContext";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
+import { useSmartAlerts } from "@/hooks/useSmartAlerts";
 
 // Define which roles can access each menu item
 const roleAccessMap: Record<string, UserRole[]> = {
-  "/": ["admin", "manager", "dispatcher", "accountant", "driver", "viewer"], // Dashboard for all
+  "/": ["admin", "manager", "dispatcher", "accountant", "driver", "viewer"],
   "/vehicles": ["admin", "manager", "dispatcher", "viewer"],
   "/drivers": ["admin", "manager", "dispatcher", "viewer"],
   "/routes": ["admin", "manager", "dispatcher", "viewer"],
-  "/customers": ["admin", "manager", "accountant", "viewer"], // Accountant + viewer only
+  "/customers": ["admin", "manager", "accountant", "viewer"],
   "/trips": ["admin", "manager", "dispatcher", "accountant", "driver", "viewer"],
-  "/expenses": ["admin", "manager", "accountant"], // Professional Role Separation
+  "/expenses": ["admin", "manager", "accountant"],
   "/transport-orders": ["admin", "manager", "dispatcher", "accountant"],
   "/dispatch": ["admin", "manager", "dispatcher"],
-  "/maintenance": ["admin", "manager", "accountant"], // Accountant needs maintenance costs
+  "/maintenance": ["admin", "manager", "accountant"],
   "/inventory/tires": ["admin", "manager", "accountant"],
-  "/reports": ["admin", "manager", "accountant"], // Restricted from Dispatcher/Viewer to protect profit
+  "/reports": ["admin", "manager", "accountant"],
   "/alerts": ["admin", "manager", "dispatcher"],
-  "/settings": ["admin"], // Only admin
-  "/members": ["admin"], // Admin only for strict SaaS account management
-  "/logs": ["admin"], // Admin only audit trail
-  "/profile": ["admin", "manager", "dispatcher", "accountant", "driver", "viewer"], // All users
+  "/settings": ["admin"],
+  "/members": ["admin"],
+  "/logs": ["admin"],
+  "/tracking-center": ["admin", "manager", "dispatcher"],
+  "/coaching": ["admin", "manager"],
+  "/profile": ["admin", "manager", "dispatcher", "accountant", "driver", "viewer"],
 };
 
-const navItems = [
-  { path: "/", label: "Bảng Điều Khiển", icon: LayoutDashboard },
-  { path: "/vehicles", label: "Danh Mục Xe", icon: Truck },
-  { path: "/drivers", label: "Danh Mục Tài Xế", icon: Users },
-  { path: "/routes", label: "Danh Mục Tuyến Đường", icon: Route },
-  { path: "/customers", label: "Danh Mục Khách Hàng", icon: Building2 },
-  { path: "/trips", label: "Nhập Liệu Doanh Thu", icon: Package },
-  { path: "/expenses", label: "Nhập Liệu Chi Phí", icon: Wallet },
-  { path: "/transport-orders", label: "Đơn Hàng Vận Chuyển", icon: ClipboardList },
-  { path: "/dispatch", label: "Điều Phối Vận Tải", icon: Calendar },
-  { path: "/maintenance", label: "Bảo Trì – Sửa Chữa", icon: Wrench },
-  { path: "/inventory/tires", label: "Kho Vật Tư & Lốp", icon: Package },
-  { path: "/reports", label: "Báo Cáo Tổng Hợp", icon: BarChart3 },
-  { path: "/alerts", label: "Cài Đặt Cảnh Báo", icon: Bell },
-  { path: "/profile", label: "Hồ Sơ Cá Nhân", icon: UserCircle },
-  { path: "/settings", label: "Cài Đặt Hệ Thống", icon: Settings },
-  { path: "/members", label: "Quản Lý Thành Viên", icon: Users },
-  { path: "/logs", label: "Nhật Ký Hoạt Động", icon: Lock },
+// Compact sidebar types
+interface NavItem {
+  path: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+interface NavSection {
+  label: string;
+  items: NavItem[];
+}
+
+// 5 core sections — no PHÁT TRIỂN, no HỆ THỐNG (moved to bottom bar)
+const navSections: NavSection[] = [
+  {
+    label: "TỔNG QUAN",
+    items: [
+      { path: "/", label: "Bảng Điều Khiển", icon: LayoutDashboard },
+      { path: "/reports", label: "Báo Cáo", icon: BarChart3 },
+      { path: "/alerts", label: "Cảnh Báo", icon: Bell },
+    ],
+  },
+  {
+    label: "DANH MỤC",
+    items: [
+      { path: "/vehicles", label: "Xe", icon: Truck },
+      { path: "/drivers", label: "Tài Xế", icon: Users },
+      { path: "/routes", label: "Tuyến Đường", icon: Route },
+      { path: "/customers", label: "Khách Hàng", icon: Building2 },
+    ],
+  },
+  {
+    label: "VẬN HÀNH",
+    items: [
+      { path: "/transport-orders", label: "Đơn Hàng", icon: ClipboardList },
+      { path: "/dispatch", label: "Điều Phối", icon: Calendar },
+      { path: "/tracking-center", label: "Tracking", icon: MapPin },
+    ],
+  },
+  {
+    label: "TÀI CHÍNH",
+    items: [
+      { path: "/trips", label: "Doanh Thu", icon: Package },
+      { path: "/expenses", label: "Chi Phí", icon: Wallet },
+    ],
+  },
+  {
+    label: "KỸ THUẬT",
+    items: [
+      { path: "/maintenance", label: "Bảo Trì", icon: Wrench },
+      { path: "/inventory/tires", label: "Kho & Lốp", icon: Package },
+    ],
+  },
 ];
 
 export function AppSidebar() {
@@ -76,14 +115,16 @@ export function AppSidebar() {
   const { toast } = useToast();
   const { role } = useAuth();
   const { data: companySettings } = useCompanySettings();
+  const guideUrl = "/docs/role-operation-guide/index.html";
+  const videoUrl = import.meta.env.VITE_SUPPORT_VIDEO_URL || "";
+  const hasVideoUrl = videoUrl.trim().length > 0;
 
-  // Check for master data existence
   const { data: vehicles } = useVehicles();
   const { data: drivers } = useDrivers();
   const { data: routes } = useRoutes();
   const { data: customers } = useCustomers();
+  const { criticalBadgeCount } = useSmartAlerts();
 
-  // Check if user has access to a path based on role
   const hasAccess = (path: string) => {
     const allowedRoles = roleAccessMap[path] || [];
     return allowedRoles.includes(role);
@@ -93,131 +134,214 @@ export function AppSidebar() {
     <aside
       className={cn(
         "flex flex-col h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300",
-        collapsed ? "w-16" : "w-64"
+        collapsed ? "w-16" : "w-56"
       )}
     >
-      {/* Logo */}
-      <div className="flex items-center h-16 px-4 border-b border-sidebar-border">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center w-9 h-9 rounded-lg bg-sidebar-primary text-sidebar-primary-foreground overflow-hidden">
+      {/* Logo — Compact */}
+      <div className="flex items-center h-14 px-3 border-b border-sidebar-border">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-sidebar-primary text-sidebar-primary-foreground overflow-hidden flex-shrink-0">
             {companySettings?.logo_url ? (
               <img src={companySettings.logo_url} alt="Logo" className="w-full h-full object-cover" />
             ) : (
-              <Truck className="w-5 h-5" />
+              <Truck className="w-4 h-4" />
             )}
           </div>
           {!collapsed && (
-            <div className="animate-fade-in overflow-hidden">
-              <h1 className="text-sm font-bold text-sidebar-foreground truncate max-w-[140px]">
+            <div className="animate-fade-in min-w-0">
+              <h1 className="text-[13px] font-bold text-sidebar-foreground leading-tight line-clamp-2">
                 {companySettings?.company_name || "FleetPro"}
               </h1>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                {companySettings?.subscription?.plan === 'enterprise' ? (
-                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-indigo-500 text-white uppercase tracking-tighter">Enterprise</span>
-                ) : companySettings?.subscription?.plan === 'professional' ? (
-                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-amber-500 text-white uppercase tracking-tighter">Pro Fleet</span>
-                ) : (
-                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-200 text-slate-700 uppercase tracking-tighter">Trial Plan</span>
-                )}
-              </div>
             </div>
           )}
         </div>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto py-4 px-2 scrollbar-thin">
-        <ul className="space-y-1">
-          {navItems.map((item) => {
-            const isActive = location.pathname === item.path;
-            const Icon = item.icon;
+      {/* Navigation — Compact Grouped Sections */}
+      <nav className="flex-1 overflow-y-auto py-1 px-1.5 scrollbar-thin">
+        {navSections.map((section, sectionIdx) => {
+          const visibleItems = section.items.filter(item => hasAccess(item.path) || item.path === "/");
+          if (visibleItems.length === 0) return null;
 
-            // Role-based access control
-            const isDisabled = !hasAccess(item.path);
+          return (
+            <div key={section.label} className={cn(sectionIdx > 0 && "mt-1.5 pt-1.5 border-t border-sidebar-border/30")}>
+              {!collapsed && (
+                <h3 className="px-2.5 mb-0.5 text-[9px] font-bold tracking-widest text-sidebar-foreground/35 uppercase">
+                  {section.label}
+                </h3>
+              )}
+              <ul className="space-y-px">
+                {visibleItems.map((item) => {
+                  const isActive = location.pathname === item.path;
+                  const Icon = item.icon;
+                  const isDisabled = !hasAccess(item.path);
 
-            // Hide items user doesn't have access to (except dashboard)
-            if (!hasAccess(item.path) && item.path !== "/") {
-              return null;
-            }
+                  const isOperationalTab = ["/trips", "/expenses", "/dispatch", "/transport-orders", "/reports"].includes(item.path);
+                  const hasMasterData = (vehicles?.length || 0) > 0 &&
+                    (drivers?.length || 0) > 0 &&
+                    (routes?.length || 0) > 0 &&
+                    (customers?.length || 0) > 0;
+                  const isMissingDependency = isOperationalTab && !hasMasterData;
+                  const isEffectivelyDisabled = isDisabled || isMissingDependency;
 
-            // Master Data Dependency Check
-            const isOperationalTab = ["/trips", "/expenses", "/dispatch", "/transport-orders", "/reports", "/dashboard"].includes(item.path);
-            const hasMasterData = (vehicles?.length || 0) > 0 &&
-              (drivers?.length || 0) > 0 &&
-              (routes?.length || 0) > 0 &&
-              (customers?.length || 0) > 0;
-
-            // Only enforce sequential entry for specific roles if needed, or globally? 
-            // User request implies global logic to guide workflow.
-            const isMissingDependency = isOperationalTab && !hasMasterData;
-
-            const isEffectivelyDisabled = isDisabled || isMissingDependency;
-
-            return (
-              <li key={item.path}>
-                <Link
-                  to={isEffectivelyDisabled ? "#" : item.path}
-                  onClick={(e) => {
-                    if (isDisabled) {
-                      e.preventDefault();
-                      toast({
-                        title: "Không có quyền truy cập",
-                        description: "Bạn không có quyền sử dụng tính năng này. Liên hệ Admin để được cấp quyền.",
-                        variant: "destructive",
-                      });
-                    } else if (isMissingDependency) {
-                      e.preventDefault();
-                      toast({
-                        title: "Chưa đủ dữ liệu nền",
-                        description: "Vui lòng nhập danh sách Xe, Tài xế, Tuyến đường và Khách hàng trước khi sử dụng tính năng này.",
-                        variant: "default",
-                      });
-                    }
-                  }}
-                  className={cn(
-                    "nav-item",
-                    isActive ? "nav-item-active" : "nav-item-inactive",
-                    isEffectivelyDisabled && "opacity-50 cursor-not-allowed hover:bg-transparent hover:text-sidebar-foreground"
-                  )}
-                  title={isDisabled ? "Không có quyền truy cập" : isMissingDependency ? "Cần nhập dữ liệu danh mục trước" : (collapsed ? item.label : undefined)}
-                >
-                  <div className="relative">
-                    <Icon className="w-5 h-5 flex-shrink-0" />
-                    {isDisabled && (
-                      <div className="absolute -top-1 -right-1">
-                        <Lock className="w-3 h-3 text-destructive" />
-                      </div>
-                    )}
-                    {!isDisabled && isMissingDependency && (
-                      <div className="absolute -top-1 -right-1">
-                        <Lock className="w-3 h-3 text-amber-500" />
-                      </div>
-                    )}
-                  </div>
-                  {!collapsed && (
-                    <span className="animate-fade-in truncate">{item.label}</span>
-                  )}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
+                  return (
+                    <li key={item.path}>
+                      <Link
+                        to={isEffectivelyDisabled ? "#" : item.path}
+                        onClick={(e) => {
+                          if (isDisabled) {
+                            e.preventDefault();
+                            toast({ title: "Không có quyền", description: "Liên hệ Admin.", variant: "destructive" });
+                          } else if (isMissingDependency) {
+                            e.preventDefault();
+                            toast({ title: "Chưa đủ dữ liệu nền", description: "Vui lòng nhập danh sách Xe, Tài xế, Tuyến đường và Khách hàng", variant: "default" });
+                          }
+                        }}
+                        className={cn(
+                          "nav-item",
+                          isActive ? "nav-item-active" : "nav-item-inactive",
+                          isEffectivelyDisabled && "opacity-50 cursor-not-allowed hover:bg-transparent hover:text-sidebar-foreground"
+                        )}
+                        title={collapsed ? item.label : undefined}
+                      >
+                        <div className="relative">
+                          <Icon className="w-[18px] h-[18px] flex-shrink-0" />
+                          {isDisabled && (
+                            <div className="absolute -top-1 -right-1">
+                              <Lock className="w-2.5 h-2.5 text-destructive" />
+                            </div>
+                          )}
+                          {!isDisabled && isMissingDependency && (
+                            <div className="absolute -top-1 -right-1">
+                              <Lock className="w-2.5 h-2.5 text-amber-500" />
+                            </div>
+                          )}
+                          {item.path === "/alerts" && criticalBadgeCount > 0 && (
+                            <span className="absolute -top-2 -right-2 min-w-[16px] h-4 px-1 rounded-full bg-red-600 text-white text-[10px] leading-4 text-center font-semibold">
+                              {criticalBadgeCount > 99 ? "99+" : criticalBadgeCount}
+                            </span>
+                          )}
+                        </div>
+                        {!collapsed && (
+                          <span className="animate-fade-in text-[13px]">{item.label}</span>
+                        )}
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          );
+        })}
       </nav>
 
-      {/* Collapse button */}
-      <div className="p-2 border-t border-sidebar-border">
+      {/* Bottom System Bar */}
+      <div className="border-t border-sidebar-border/50 px-1.5 py-1.5 space-y-0.5">
+        {!collapsed ? (
+          <div className="flex items-center gap-0.5">
+            {hasAccess("/profile") && (
+              <Link to="/profile" className={cn("flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-[11px] font-medium transition-colors", location.pathname === '/profile' ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/30')} title="Hồ Sơ">
+                <UserCircle className="w-3.5 h-3.5" />
+                <span>Hồ Sơ</span>
+              </Link>
+            )}
+            {hasAccess("/settings") && (
+              <Link to="/settings" className={cn("flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-[11px] font-medium transition-colors", location.pathname === '/settings' ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/30')} title="Cài Đặt">
+                <Settings className="w-3.5 h-3.5" />
+                <span>Cài Đặt</span>
+              </Link>
+            )}
+            {hasAccess("/members") && (
+              <Link to="/members" className={cn("flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-[11px] font-medium transition-colors", location.pathname === '/members' ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/30')} title="Thành Viên">
+                <Users className="w-3.5 h-3.5" />
+                <span>Team</span>
+              </Link>
+            )}
+            {hasAccess("/logs") && (
+              <Link to="/logs" className={cn("flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-[11px] font-medium transition-colors", location.pathname === '/logs' ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/30')} title="Nhật Ký">
+                <Lock className="w-3.5 h-3.5" />
+                <span>Logs</span>
+              </Link>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-0.5">
+            {hasAccess("/profile") && <Link to="/profile" className="p-1.5 rounded text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/30" title="Hồ Sơ"><UserCircle className="w-4 h-4" /></Link>}
+            {hasAccess("/settings") && <Link to="/settings" className="p-1.5 rounded text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/30" title="Cài Đặt"><Settings className="w-4 h-4" /></Link>}
+          </div>
+        )}
+
+        {!collapsed ? (
+          <div className="grid grid-cols-2 gap-1 pt-1">
+            <a
+              href={guideUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-1.5 px-2 py-1.5 rounded text-[10px] font-medium text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/30 transition-colors border border-sidebar-border/50"
+              title="Hướng dẫn theo vai trò"
+            >
+              <ExternalLink className="w-3 h-3" />
+              <span>Hướng dẫn</span>
+            </a>
+            <a
+              href={hasVideoUrl ? videoUrl : "#"}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => {
+                if (!hasVideoUrl) {
+                  e.preventDefault();
+                  toast({ title: "Video đang cập nhật", description: "Chưa cấu hình VITE_SUPPORT_VIDEO_URL.", variant: "default" });
+                }
+              }}
+              className="flex items-center justify-center gap-1.5 px-2 py-1.5 rounded text-[10px] font-medium text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/30 transition-colors border border-sidebar-border/50"
+              title="Xem video"
+            >
+              <ExternalLink className="w-3 h-3" />
+              <span>Xem video</span>
+            </a>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-0.5 pt-1">
+            <a
+              href={guideUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-1.5 rounded text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/30"
+              title="Hướng dẫn theo vai trò"
+            >
+              <ExternalLink className="w-4 h-4" />
+            </a>
+            <a
+              href={hasVideoUrl ? videoUrl : "#"}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => {
+                if (!hasVideoUrl) {
+                  e.preventDefault();
+                  toast({ title: "Video đang cập nhật", description: "Chưa cấu hình VITE_SUPPORT_VIDEO_URL.", variant: "default" });
+                }
+              }}
+              className="p-1.5 rounded text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/30"
+              title="Xem video"
+            >
+              <ExternalLink className="w-4 h-4" />
+            </a>
+          </div>
+        )}
+
+        {/* Collapse Toggle */}
         <Button
           variant="ghost"
           size="sm"
           onClick={() => setCollapsed(!collapsed)}
-          className="w-full justify-center text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/50"
+          className="w-full justify-center text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/40 h-7"
         >
           {collapsed ? (
-            <ChevronRight className="w-4 h-4" />
+            <ChevronRight className="w-3.5 h-3.5" />
           ) : (
             <>
-              <ChevronLeft className="w-4 h-4 mr-2" />
-              <span>Thu gọn</span>
+              <ChevronLeft className="w-3.5 h-3.5 mr-1" />
+              <span className="text-[11px]">Thu gọn</span>
             </>
           )}
         </Button>

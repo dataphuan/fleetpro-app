@@ -7,17 +7,15 @@
  * for SEO and marketing purposes
  * 
  * Demo Accounts:
- * - CEO@demo.tnc.io.vn / Demo@1234
- * - Manager@demo.tnc.io.vn / Demo@1234
- * - Driver@demo.tnc.io.vn / Demo@1234
- * - Developer@demo.tnc.io.vn / Demo@1234
+ * - admindemo@tnc.io.vn / Demo@1234
+ * - quanlydemo@tnc.io.vn / Demo@1234
+ * - ketoandemo@tnc.io.vn / Demo@1234
+ * - taixedemo@tnc.io.vn / Demo@1234
  */
 
 import fs from 'node:fs';
 import path from 'node:path';
-import { initializeApp, cert } from 'firebase-admin/app.js';
-import { getAuth } from 'firebase-admin/auth.js';
-import { getFirestore, doc, setDoc, getDoc } from 'firebase-admin/firestore.js';
+import admin from 'firebase-admin';
 
 // Read Firebase service account
 function getServiceAccountKey() {
@@ -29,46 +27,49 @@ function getServiceAccountKey() {
 }
 
 const serviceAccount = getServiceAccountKey();
-const app = initializeApp({
-  credential: cert(serviceAccount),
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
 });
 
-const auth = getAuth(app);
-const db = getFirestore(app);
+const auth = admin.auth();
+const db = admin.firestore();
 
 // Demo accounts configuration
+const DEFAULT_TENANT_ID = process.env.DEMO_TENANT_ID || 'internal-tenant-1';
+const DEFAULT_COMPANY = process.env.DEMO_COMPANY_NAME || 'TNC Demo Company';
+
 const DEMO_ACCOUNTS = [
   {
-    email: 'CEO@demo.tnc.io.vn',
+    email: 'admindemo@tnc.io.vn',
     password: 'Demo@1234',
-    displayName: 'CEO - FleetPro Demo',
+    displayName: 'Admin - TNC Demo',
     role: 'admin',
-    company: 'FleetPro Demo Company',
-    tenantId: 'demo-company',
+    company: DEFAULT_COMPANY,
+    tenantId: DEFAULT_TENANT_ID,
   },
   {
-    email: 'Manager@demo.tnc.io.vn',
+    email: 'quanlydemo@tnc.io.vn',
     password: 'Demo@1234',
-    displayName: 'Manager - FleetPro Demo',
+    displayName: 'Quan ly - TNC Demo',
     role: 'manager',
-    company: 'FleetPro Demo Company',
-    tenantId: 'demo-company',
+    company: DEFAULT_COMPANY,
+    tenantId: DEFAULT_TENANT_ID,
   },
   {
-    email: 'Driver@demo.tnc.io.vn',
+    email: 'ketoandemo@tnc.io.vn',
     password: 'Demo@1234',
-    displayName: 'Driver - FleetPro Demo',
+    displayName: 'Ke toan - TNC Demo',
+    role: 'accountant',
+    company: DEFAULT_COMPANY,
+    tenantId: DEFAULT_TENANT_ID,
+  },
+  {
+    email: 'taixedemo@tnc.io.vn',
+    password: 'Demo@1234',
+    displayName: 'Tai xe - TNC Demo',
     role: 'driver',
-    company: 'FleetPro Demo Company',
-    tenantId: 'demo-company',
-  },
-  {
-    email: 'Developer@demo.tnc.io.vn',
-    password: 'Demo@1234',
-    displayName: 'Developer - FleetPro Demo',
-    role: 'admin',
-    company: 'FleetPro Demo Company',
-    tenantId: 'demo-company',
+    company: DEFAULT_COMPANY,
+    tenantId: DEFAULT_TENANT_ID,
   },
 ];
 
@@ -113,7 +114,7 @@ async function createDemoAccount(accountConfig) {
       record_id: `${accountConfig.tenantId}_users_${user.uid}`,
     };
 
-    await setDoc(doc(db, 'users', user.uid), userDocData, { merge: true });
+    await db.collection('users').doc(user.uid).set(userDocData, { merge: true });
     console.log(`✓ Created Firestore user profile for: ${accountConfig.email}`);
 
     // Set custom claims for role-based access
@@ -132,15 +133,15 @@ async function createDemoAccount(accountConfig) {
 
 async function createDemoDtenantIfNeeded() {
   try {
-    const tenantDoc = doc(db, 'tenants', 'demo-company');
-    const tenantSnap = await getDoc(tenantDoc);
+    const tenantDoc = db.collection('tenants').doc(DEFAULT_TENANT_ID);
+    const tenantSnap = await tenantDoc.get();
 
-    if (!tenantSnap.exists()) {
-      console.log('\n🏢 Creating demo tenant: demo-company');
+    if (!tenantSnap.exists) {
+      console.log(`\n🏢 Creating demo tenant: ${DEFAULT_TENANT_ID}`);
       const now = new Date().toISOString();
-      await setDoc(tenantDoc, {
-        id: 'demo-company',
-        name: 'FleetPro Demo Company',
+      await tenantDoc.set({
+        id: DEFAULT_TENANT_ID,
+        name: DEFAULT_COMPANY,
         status: 'active',
         plan: 'pro',
         is_deleted: 0,
@@ -150,7 +151,7 @@ async function createDemoDtenantIfNeeded() {
       });
       console.log('✓ Created demo tenant');
     } else {
-      console.log('\n✓ Demo tenant already exists: demo-company');
+      console.log(`\n✓ Demo tenant already exists: ${DEFAULT_TENANT_ID}`);
     }
   } catch (error) {
     console.error('Error creating demo tenant:', error.message);
@@ -198,9 +199,8 @@ async function main() {
     console.log('\n' + '─'.repeat(60));
     console.log('\n💡 Tips:');
     console.log('- All demo accounts share the password: Demo@1234');
-    console.log('- Domain: demo.tnc.io.vn (professional for SEO & marketing)');
-    console.log('- All accounts belong to tenant: demo-company');
-    console.log('- Roles: CEO=admin, Manager=manager, Driver=driver, Developer=admin');
+    console.log('- All accounts belong to tenant:', DEFAULT_TENANT_ID);
+    console.log('- Roles: Admin=admin, Quan ly=manager, Ke toan=accountant, Tai xe=driver');
 
     console.log('\n' + '='.repeat(60) + '\n');
 

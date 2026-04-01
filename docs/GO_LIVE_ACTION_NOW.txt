@@ -1,0 +1,7 @@
+FIREBASE-ONLY GO-LIVE
+
+This project runs on Firebase Auth + Firestore + Storage.
+Apps Script/GAS is fully removed and should not be used.
+
+Use the Firebase-only runbook:
+- docs/FIREBASE_ONLY_RUNBOOK.md

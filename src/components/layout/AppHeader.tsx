@@ -41,7 +41,7 @@ export function AppHeader() {
           <Building className="w-5 h-5 text-primary/70" />
         </div>
         <div className="flex flex-col">
-          <span className="text-sm font-bold text-slate-800 truncate max-w-[180px]">
+          <span className="text-sm font-bold text-slate-800 truncate max-w-[280px]">
             {companySettings?.company_name || "Hệ thống quản lý"}
           </span>
           <div className="flex items-center gap-1.5 mt-0.5">

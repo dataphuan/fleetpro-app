@@ -46,6 +46,7 @@ import {
 import { ChangePasswordForm } from "@/components/settings/ChangePasswordForm";
 import { AISettingsForm } from "@/components/settings/AISettingsForm";
 import { GDriveSettingsForm } from "@/components/settings/GDriveSettingsForm";
+import { DataOwnershipExportCard } from "@/components/settings/DataOwnershipExportCard";
 import { Cloud } from "lucide-react";
 
 export default function Settings() {
@@ -532,6 +533,8 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="data">
+          <DataOwnershipExportCard />
+
           <Card>
             <CardHeader>
               <CardTitle>Quản lý dữ liệu</CardTitle>

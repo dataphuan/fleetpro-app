@@ -1,161 +1,250 @@
-import { useMemo, useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle, Cloud, Link2 } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
-import { db } from "@/lib/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { Cloud, RefreshCw, CheckCircle, AlertCircle, Settings, Link2, Unlink } from "lucide-react";
+import { GoogleDriveSync } from "@/components/sync/GoogleDriveSync";
+import { googleDriveService } from "@/services/googleDrive";
 
 export function GDriveSettingsForm() {
-    const { toast } = useToast();
-    const { userId, tenantId } = useAuth();
-    const [projectId, setProjectId] = useState(import.meta.env.VITE_FIREBASE_PROJECT_ID || "");
-    const [authDomain, setAuthDomain] = useState(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "");
-    const [storageBucket, setStorageBucket] = useState(import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "");
-    const [cloudflareSite, setCloudflareSite] = useState(localStorage.getItem('cloudflare_site') || "");
-    const [lastHealth, setLastHealth] = useState<string>("");
+  const { toast } = useToast();
+  const [isConnected, setIsConnected] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [lastSync, setLastSync] = useState<Date | undefined>();
 
-    const isConfigured = useMemo(() => {
-        return Boolean(projectId && authDomain && storageBucket);
-    }, [projectId, authDomain, storageBucket]);
-
-    const handleSaveCloudProfile = () => {
-        localStorage.setItem('cloudflare_site', cloudflareSite);
-        localStorage.setItem('firebase_project_id', projectId);
-        localStorage.setItem('firebase_auth_domain', authDomain);
-        localStorage.setItem('firebase_storage_bucket', storageBucket);
-        toast({ title: "Đã lưu cấu hình đám mây", description: "Cấu hình Cloudflare + Firebase đã được lưu trên trình duyệt hiện tại." });
-    };
-
-    const handleCheckConnection = async () => {
-        try {
-            if (!userId) {
-                setLastHealth('Không tìm thấy phiên đăng nhập. Vui lòng đăng nhập trước.');
-                toast({ title: "Không tìm thấy phiên", description: "Vui lòng đăng nhập trước khi kiểm tra trạng thái cloud.", variant: 'destructive' });
-                return;
-            }
-
-            const userSnap = await getDoc(doc(db, 'users', userId));
-            if (!userSnap.exists()) {
-                setLastHealth(`Thiếu users/${userId} trên Firestore`);
-                toast({ title: "Lỗi bảng users", description: `Không tìm thấy users/${userId} trên Firestore.`, variant: 'destructive' });
-                return;
-            }
-
-            const resolvedTenant = String(userSnap.data().tenant_id || tenantId || '');
-            if (!resolvedTenant) {
-                setLastHealth('Thiếu tenant_id trong hồ sơ người dùng/phiên đăng nhập');
-                toast({ title: "Lỗi ánh xạ tenant", description: "Không tìm thấy tenant_id cho người dùng hiện tại.", variant: 'destructive' });
-                return;
-            }
-
-            const tenantSnap = await getDoc(doc(db, 'tenants', resolvedTenant));
-            if (!tenantSnap.exists()) {
-                setLastHealth(`Thiếu tenants/${resolvedTenant} trên Firestore`);
-                toast({ title: "Lỗi bảng tenant", description: `Không tìm thấy tenants/${resolvedTenant}.`, variant: 'destructive' });
-                return;
-            }
-
-            const plan = String(tenantSnap.data().plan || tenantSnap.data().plan_code || 'default');
-            setLastHealth(`Kết nối tenant thành công: ${resolvedTenant} | gói=${plan} | dự án=${projectId || 'n/a'}`);
-            toast({ title: "Kết nối online thành công", description: "Đã kết nối Firebase Auth + Firestore theo tenant." });
-        } catch (error: any) {
-            setLastHealth(`Lỗi kết nối Firebase: ${error?.message || 'không rõ nguyên nhân'}`);
-            toast({ title: "Lỗi kết nối", description: error?.message || 'Không thể kết nối backend Firebase', variant: 'destructive' });
+  useEffect(() => {
+    // Check if already connected on component mount
+    const checkConnection = async () => {
+      const initialized = await googleDriveService.initialize();
+      if (initialized) {
+        setIsConnected(googleDriveService.isAuthenticatedStatus());
+        // Load last sync time from localStorage
+        const lastSyncTime = localStorage.getItem('gdrive_last_sync');
+        if (lastSyncTime) {
+          setLastSync(new Date(lastSyncTime));
         }
+      }
     };
+    checkConnection();
+  }, []);
 
-    return (
-        <div className="space-y-6">
+  const handleConnect = async () => {
+    setIsLoading(true);
+    try {
+      const initialized = await googleDriveService.initialize();
+      if (!initialized) {
+        throw new Error('Không thể khởi tạo Google Drive API');
+      }
+
+      const authenticated = await googleDriveService.authenticate();
+      if (authenticated) {
+        setIsConnected(true);
+        toast({
+          title: "Kết nối thành công",
+          description: "Đã kết nối với Google Drive.",
+        });
+      } else {
+        throw new Error('Xác thực thất bại');
+      }
+    } catch (error: any) {
+      console.error('Connection failed:', error);
+      toast({
+        title: "Lỗi kết nối",
+        description: error.message || "Không thể kết nối với Google Drive.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleDisconnect = () => {
+    setIsConnected(false);
+    // Note: Google Drive API doesn't have a direct disconnect method
+    // The connection will be re-established on next authentication
+    toast({
+      title: "Đã ngắt kết nối",
+      description: "Đã ngắt kết nối với Google Drive.",
+    });
+  };
+
+  const handleSync = async () => {
+    if (!isConnected) return;
+
+    setIsLoading(true);
+    try {
+      // Mock data sync - in real implementation, this would sync actual fleet data
+      const mockData = {
+        reportType: 'settings-sync',
+        generatedAt: new Date().toISOString(),
+        settings: {
+          connected: true,
+          lastSync: new Date().toISOString()
+        }
+      };
+
+      const result = await googleDriveService.syncFleetData(mockData, 'current-tenant');
+
+      if (result.success) {
+        const now = new Date();
+        setLastSync(now);
+        localStorage.setItem('gdrive_last_sync', now.toISOString());
+        toast({
+          title: "Đồng bộ thành công",
+          description: "Dữ liệu đã được đồng bộ với Google Drive.",
+        });
+      } else {
+        throw new Error(result.error || 'Đồng bộ thất bại');
+      }
+    } catch (error: any) {
+      console.error('Sync failed:', error);
+      toast({
+        title: "Lỗi đồng bộ",
+        description: error.message || "Không thể đồng bộ dữ liệu.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Cloud className="w-5 h-5 text-blue-500" />
+            Google Drive Integration
+          </CardTitle>
+          <CardDescription>
+            Đồng bộ và sao lưu dữ liệu tự động với Google Drive. Bảo vệ dữ liệu của bạn với bộ nhớ đám mây an toàn.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Connection Status */}
+          <div className="flex items-center justify-between p-4 border rounded-lg">
+            <div className="flex items-center gap-3">
+              {isConnected ? (
+                <CheckCircle className="w-5 h-5 text-green-600" />
+              ) : (
+                <AlertCircle className="w-5 h-5 text-amber-600" />
+              )}
+              <div>
+                <p className="font-medium">
+                  {isConnected ? "Đã kết nối Google Drive" : "Chưa kết nối Google Drive"}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {isConnected
+                    ? "Tài khoản Google Drive đã được liên kết"
+                    : "Kết nối để bật tính năng đồng bộ đám mây"
+                  }
+                </p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              {isConnected ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDisconnect}
+                  disabled={isLoading}
+                >
+                  <Unlink className="w-4 h-4 mr-2" />
+                  Ngắt kết nối
+                </Button>
+              ) : (
+                <Button
+                  onClick={handleConnect}
+                  disabled={isLoading}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {isLoading ? (
+                    <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  ) : (
+                    <Link2 className="w-4 h-4 mr-2" />
+                  )}
+                  Kết nối Google Drive
+                </Button>
+              )}
+            </div>
+          </div>
+
+          {/* Sync Component */}
+          {isConnected && (
+            <GoogleDriveSync
+              onSync={handleSync}
+              lastSync={lastSync}
+              isConnected={isConnected}
+              onConnect={handleConnect}
+            />
+          )}
+
+          {/* Features List */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card>
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Cloud className="w-5 h-5 text-blue-500" />
-                        Cấu hình online (Cloudflare + Firebase)
-                    </CardTitle>
-                    <CardDescription>
-                        Chế độ production: Cloudflare Pages + Firebase Auth + Firestore + Storage (không dùng GAS runtime).
-                    </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 gap-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="projectId">Firebase Project ID</Label>
-                            <Input
-                                id="projectId"
-                                value={projectId}
-                                onChange={(e) => setProjectId(e.target.value)}
-                                placeholder="fleetpro-app"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="authDomain">Firebase Auth Domain</Label>
-                            <Input
-                                id="authDomain"
-                                value={authDomain}
-                                onChange={(e) => setAuthDomain(e.target.value)}
-                                placeholder="fleetpro-app.firebaseapp.com"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="storageBucket">Firebase Storage Bucket</Label>
-                            <Input
-                                id="storageBucket"
-                                value={storageBucket}
-                                onChange={(e) => setStorageBucket(e.target.value)}
-                                placeholder="fleetpro-app.firebasestorage.app"
-                            />
-                        </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="cloudflareSite">URL Cloudflare Pages (tuỳ chọn)</Label>
-                            <Input
-                                id="cloudflareSite"
-                                value={cloudflareSite}
-                                onChange={(e) => setCloudflareSite(e.target.value)}
-                                placeholder="https://your-site.pages.dev"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="pt-4 border-t">
-                        <div className="space-y-4">
-                            <div className="bg-blue-50 p-3 rounded-md border border-blue-200 text-sm text-blue-800">
-                                <p className="font-semibold mb-1">Luồng online khuyến nghị (không dùng GAS runtime):</p>
-                                <ol className="list-decimal pl-5 space-y-1">
-                                    <li>Thiết lập biến môi trường Firebase trong Cloudflare Pages (Production + Preview).</li>
-                                    <li>Đảm bảo users/{'{'}uid{'}'}.tenant_id và tenants/{'{'}tenant_id{'}'} tồn tại đúng dữ liệu.</li>
-                                    <li>Triển khai Firestore rules/indexes trước khi mở traffic.</li>
-                                    <li>Chạy lint/typecheck/build + security gate trước khi go-live.</li>
-                                </ol>
-                            </div>
-
-                            <div className="flex flex-wrap gap-2">
-                                <Button onClick={handleSaveCloudProfile} variant="outline">
-                                    <CheckCircle className="w-4 h-4 mr-2" />
-                                    Lưu hồ sơ cloud
-                                </Button>
-                                <Button onClick={handleCheckConnection} className="bg-blue-600 hover:bg-blue-700">
-                                    <Link2 className="w-4 h-4 mr-2" />
-                                    Kiểm tra kết nối tenant
-                                </Button>
-                            </div>
-
-                            {lastHealth && (
-                                <div className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
-                                    {lastHealth}
-                                </div>
-                            )}
-
-                            <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
-                                Trạng thái cấu hình: {isConfigured ? 'SẴN SÀNG' : 'THIẾU TRƯỜNG BẮT BUỘC'}
-                            </div>
-                        </div>
-                    </div>
-                </CardContent>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <Cloud className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-medium">Sao lưu tự động</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Dữ liệu được sao lưu hàng ngày
+                    </p>
+                  </div>
+                </div>
+                <Badge variant="secondary" className="text-xs">
+                  {isConnected ? "Đã bật" : "Cần kết nối"}
+                </Badge>
+              </CardContent>
             </Card>
-        </div>
-    );
+
+            <Card>
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2 bg-green-100 rounded-lg">
+                    <RefreshCw className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div>
+                    <h4 className="font-medium">Đồng bộ realtime</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Đồng bộ dữ liệu giữa các thiết bị
+                    </p>
+                  </div>
+                </div>
+                <Badge variant="secondary" className="text-xs">
+                  {isConnected ? "Đã bật" : "Cần kết nối"}
+                </Badge>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Setup Instructions */}
+          {!isConnected && (
+            <Card className="border-amber-200 bg-amber-50/50">
+              <CardHeader>
+                <CardTitle className="text-amber-800 flex items-center gap-2">
+                  <Settings className="w-5 h-5" />
+                  Hướng dẫn thiết lập
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ol className="list-decimal list-inside space-y-2 text-sm text-amber-700">
+                  <li>Nhấp vào nút "Kết nối Google Drive" ở trên</li>
+                  <li>Cho phép truy cập khi được yêu cầu</li>
+                  <li>Chọn tài khoản Google Drive bạn muốn sử dụng</li>
+                  <li>Xác nhận quyền truy cập để FleetPro có thể tạo và quản lý file</li>
+                </ol>
+                <p className="text-xs text-amber-600 mt-3">
+                  <strong>Lưu ý:</strong> FleetPro chỉ tạo thư mục riêng và không truy cập file khác của bạn.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
 }

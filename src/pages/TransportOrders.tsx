@@ -82,7 +82,7 @@ const orderSchema = z.object({
     total_value: z.coerce.number().min(0, "Không được âm"),
     priority: z.enum(['low', 'normal', 'high', 'urgent'] as const),
     notes: z.string().optional().nullable(),
-    status: z.enum(['draft', 'confirmed', 'in_progress', 'completed', 'cancelled'] as const),
+    status: z.enum(['draft', 'pending', 'confirmed', 'in_progress', 'completed', 'cancelled'] as const),
 });
 
 type OrderFormValues = z.infer<typeof orderSchema>;
@@ -103,6 +103,7 @@ const priorityColors: Record<string, string> = {
 
 const statusLabels: Record<string, string> = {
     draft: 'Nháp',
+    pending: 'Chờ xử lý',
     confirmed: 'Đã xác nhận',
     in_progress: 'Đang vận chuyển',
     completed: 'Hoàn thành',
@@ -440,7 +441,7 @@ export default function TransportOrders() {
         {
             key: 'customer',
             header: 'Khách hàng',
-            render: (_, row) => <span>{row.customer?.customer_name || 'N/A'}</span>,
+            render: (_, row) => <span>{row.customer?.customer_name || '—'}</span>,
         },
         {
             key: 'order_date',

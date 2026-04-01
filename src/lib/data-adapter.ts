@@ -3,12 +3,42 @@
  * Provides interface for data access to Firebase Firestore
  */
 
-import { db, auth, firebaseConfig } from './firebase';
+import { db, auth, firebaseConfig, functions } from './firebase';
 import { collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, addDoc, writeBatch } from 'firebase/firestore';
+import { httpsCallable } from 'firebase/functions';
 import { signInWithEmailAndPassword, signOut as firebaseSignOut, getAuth, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { initializeApp, deleteApp } from 'firebase/app';
 import { normalizeUserRole } from './rbac';
 import { validateAdapterData } from './schemas';
+import { TENANT_DEMO_SEED } from '../data/tenantDemoSeed';
+
+const mutationLastSeen = new Map<string, number>();
+const MUTATION_THROTTLE_WINDOW_MS = 800;
+
+const buildMutationKey = (collectionName: string, action: string, id?: string, payload?: any) => {
+    const userId = auth.currentUser?.uid || 'anonymous';
+    const tenantId = runtimeTenantId || 'no-tenant';
+    const stableToken = id
+        || payload?.id
+        || payload?.trip_id
+        || payload?.order_code
+        || payload?.trip_code
+        || payload?.expense_code
+        || payload?.vehicle_id
+        || payload?.driver_id
+        || '';
+    return `${tenantId}:${userId}:${collectionName}:${action}:${stableToken}`;
+};
+
+const enforceMutationThrottle = (collectionName: string, action: string, id?: string, payload?: any) => {
+    const key = buildMutationKey(collectionName, action, id, payload);
+    const now = Date.now();
+    const prev = mutationLastSeen.get(key);
+    if (prev && now - prev < MUTATION_THROTTLE_WINDOW_MS) {
+        throw new Error('Thao tác quá nhanh. Vui lòng chờ một giây rồi thử lại.');
+    }
+    mutationLastSeen.set(key, now);
+};
 
 // Helper to check environment
 export const isElectron = () => {
@@ -140,12 +170,366 @@ const checkStatusTransition = (oldStatus: string, newStatus: string) => {
     }
 };
 
+// --- QA P0+P1+P2 CROSS INTEGRITY CHECKER ---
+const runCrossIntegrity = async (collectionName: string, data: any, tenantId: string, oldData?: any) => {
+    if (!data || !tenantId) return;
+
+    if (collectionName === 'trips') {
+        const isOperational = data.status && data.status !== 'draft' && data.status !== 'cancelled';
+        
+        // R04: Tenant Guard
+        if (data.vehicle_id) {
+            const vSnap = await getDoc(doc(db, 'vehicles', data.vehicle_id));
+            if (vSnap.exists()) {
+                const vehicle = vSnap.data();
+                if (vehicle?.tenant_id !== tenantId) throw new Error('Xe này thuộc đối tác/công ty khác, không thể điều phối.');
+                
+                // R46: Maintenance Threshold (P1)
+                if (isOperational && (data.status === 'dispatched' || data.status === 'in_progress')) {
+                    const currentOdo = vehicle.current_odometer || 0;
+                    const nextMaint = vehicle.next_maintenance_odometer || 0;
+                    if (nextMaint > 0 && currentOdo >= nextMaint) {
+                        throw new Error(`Cảnh báo R46: Xe ${vehicle.license_plate} đã quá hạn bảo trì (${currentOdo} >= ${nextMaint}). Vui lòng bảo trì trước khi điều phối.`);
+                    }
+                }
+            }
+        }
+        if (data.driver_id) {
+            const dSnap = await getDoc(doc(db, 'drivers', data.driver_id));
+            if (dSnap.exists()) {
+                const driver = dSnap.data();
+                if (driver.tenant_id !== tenantId) throw new Error('Tài xế này thuộc đối tác/công ty khác, không thể điều phối.');
+                
+                // R47: Driver active/license guard
+                if (isOperational) {
+                    if (driver.status === 'inactive') throw new Error('Tài xế này đang ngưng hoạt động.');
+                    if (driver.license_expiry_date && new Date(driver.license_expiry_date) < new Date()) {
+                        throw new Error('Giấy phép lái xe đã hết hạn, không thể điều phối.');
+                    }
+                }
+            }
+        }
+
+        // R12: Timeline Audit (P1)
+        if (data.confirmed_at && data.created_at && new Date(data.confirmed_at) < new Date(data.created_at)) {
+             console.warn(`[CẢNH BÁO R12] Ngày xác nhận ${data.confirmed_at} trước ngày tạo ${data.created_at}.`);
+        }
+
+        // R18 & R19: Overlap Guard
+        if (isOperational && (!oldData || oldData.status !== data.status)) {
+            const activeTrpsQ = query(collection(db, 'trips'), where("tenant_id", "==", tenantId), where("status", "in", ["dispatched", "in_progress"]));
+            const activeSnaps = await getDocs(activeTrpsQ);
+            for (const docSnap of activeSnaps.docs) {
+                if (docSnap.id === (data.id || oldData?.id)) continue;
+                const trip = docSnap.data();
+                if (data.vehicle_id && trip.vehicle_id === data.vehicle_id) throw new Error('Cảnh báo R18: Xe đang kẹt một chuyến đi khác cùng thời gian.');
+                if (data.driver_id && trip.driver_id === data.driver_id) throw new Error('Cảnh báo R19: Tài xế đang phụ trách chuyến đi khác.');
+            }
+        }
+
+        // R48: Route change auto-recalculation (P1)
+        if (data.route_id && oldData && data.route_id !== oldData.route_id) {
+            const rSnap = await getDoc(doc(db, 'routes', data.route_id));
+            if (rSnap.exists()) {
+                const route = rSnap.data();
+                data.freight_revenue = route.standard_freight_rate || 0;
+            }
+        }
+
+        // R24 & R25: Odometer Verification and Auto-check
+        if (data.start_odometer !== undefined && data.end_odometer !== undefined) {
+             const expectedKm = Number(data.end_odometer) - Number(data.start_odometer);
+             const actualKm = Number(data.actual_distance_km !== undefined ? data.actual_distance_km : 0);
+             if (expectedKm !== actualKm && actualKm > 0) {
+                 console.warn(`[CẢNH BÁO R25] Lệch ODO và KM thực tế. Thực đi: ${actualKm}, ODO logic: ${expectedKm}. Hệ thống chỉ Verify và ghi nhận rủi ro gian lận.`);
+             }
+        }
+        
+        // R32, 34, 35: Auto calculate totals for P&L
+        const rev = Number(data.freight_revenue || 0) + Number(data.actual_revenue || 0) + Number(data.additional_charges || 0);
+        const cost = Number(data.fuel_cost || 0) + Number(data.driver_advance || 0) + Number(data.toll_cost || 0);
+        data.gross_revenue = rev;
+        data.total_cost = cost;
+        data.gross_profit = rev - cost;
+    }
+
+    if (collectionName === 'expenses') {
+        // R17: Cancelled Trip Protection (P1)
+        if (data.trip_id) {
+            const tSnap = await getDoc(doc(db, 'trips', data.trip_id));
+            if (tSnap.exists()) {
+                const trip = tSnap.data();
+                if (trip.status === 'cancelled' && data.category !== 'CANCEL_FEE') {
+                    throw new Error('Cảnh báo R17: Không thể ghi nhận chi phí vào chuyến đi đã bị hủy.');
+                }
+                
+                // R43: Early Accounting Alert (P2)
+                if (trip.status === 'planned' || trip.status === 'confirmed') {
+                    console.warn(`[CẢNH BÁO R43] Ghi nhận chi phí thực tế cho chuyến đi chưa khởi hành (${trip.status}).`);
+                }
+            }
+        }
+        
+        // R20: Expense Boundary (P1)
+        if (data.reconciliation_date && data.trip_id) {
+            const tSnap = await getDoc(doc(db, 'trips', data.trip_id));
+            if (tSnap.exists()) {
+                const trip = tSnap.data();
+                if (trip.completed_at) {
+                    const diffDays = Math.abs(new Date(data.reconciliation_date).getTime() - new Date(trip.completed_at).getTime()) / (1000 * 3600 * 24);
+                    if (diffDays > 30) {
+                        console.warn(`[CẢNH BÁO R20] Chi phí phát sinh quá xa ngày hoàn thành chuyến (>30 ngày).`);
+                    }
+                }
+            }
+        }
+    }
+
+    if (collectionName === 'maintenance' && data.vehicle_id) {
+        const vSnap = await getDoc(doc(db, 'vehicles', data.vehicle_id));
+        if (vSnap.exists() && vSnap.data().tenant_id !== tenantId) throw new Error('Bảo trì không hợp lệ: Xe thuộc tenant khác.');
+    }
+
+    if (collectionName === 'transportOrders' && data.customer_id) {
+        const cSnap = await getDoc(doc(db, 'customers', data.customer_id));
+        if (cSnap.exists() && cSnap.data().tenant_id !== tenantId) throw new Error('Đơn hàng không hợp lệ: Khách hàng thuộc tenant khác.');
+    }
+};
+// -------------------------------------
+
+const pickRefId = (row: any, keys: string[]) => {
+    for (const key of keys) {
+        const value = row?.[key];
+        if (typeof value === 'string' && value.trim()) return value;
+    }
+    return null;
+};
+
+const getTenantRows = async (collectionName: string) => {
+    const tenantId = getTenantId();
+    const q = query(collection(db, collectionName), where('tenant_id', '==', tenantId));
+    const snap = await getDocs(q);
+    return snap.docs
+        .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+        .filter((row: any) => row.is_deleted !== 1);
+};
+
+const buildIdMap = (rows: any[]) => {
+    const map = new Map<string, any>();
+    rows.forEach((row) => map.set(String(row.id), row));
+    return map;
+};
+
+const enrichTripsWithRelations = async (rows: any[]) => {
+    if (!rows?.length) return rows;
+
+    const [vehicles, drivers, customers, routes] = await Promise.all([
+        getTenantRows('vehicles'),
+        getTenantRows('drivers'),
+        getTenantRows('customers'),
+        getTenantRows('routes'),
+    ]);
+
+    const vehicleMap = buildIdMap(vehicles);
+    const driverMap = buildIdMap(drivers);
+    const customerMap = buildIdMap(customers);
+    const routeMap = buildIdMap(routes);
+
+    const vehicleByPlate = new Map<string, any>();
+    const vehicleByCode = new Map<string, any>();
+    vehicles.forEach((v: any) => {
+        if (v.license_plate) vehicleByPlate.set(String(v.license_plate).toLowerCase(), v);
+        if (v.vehicle_code) vehicleByCode.set(String(v.vehicle_code).toLowerCase(), v);
+    });
+
+    const driverByCode = new Map<string, any>();
+    const driverByName = new Map<string, any>();
+    drivers.forEach((d: any) => {
+        if (d.driver_code) driverByCode.set(String(d.driver_code).toLowerCase(), d);
+        if (d.full_name) driverByName.set(String(d.full_name).toLowerCase(), d);
+    });
+
+    const customerByCode = new Map<string, any>();
+    const customerByName = new Map<string, any>();
+    customers.forEach((c: any) => {
+        if (c.customer_code) customerByCode.set(String(c.customer_code).toLowerCase(), c);
+        if (c.customer_name) customerByName.set(String(c.customer_name).toLowerCase(), c);
+        if (c.name) customerByName.set(String(c.name).toLowerCase(), c);
+    });
+
+    const routeByCode = new Map<string, any>();
+    const routeByName = new Map<string, any>();
+    routes.forEach((r: any) => {
+        if (r.route_code) routeByCode.set(String(r.route_code).toLowerCase(), r);
+        if (r.route_name) routeByName.set(String(r.route_name).toLowerCase(), r);
+        if (r.name) routeByName.set(String(r.name).toLowerCase(), r);
+    });
+
+    return rows.map((row: any) => {
+        const vehicleId = pickRefId(row, ['vehicle_id', 'vehicleId']);
+        const driverId = pickRefId(row, ['driver_id', 'driverId']);
+        const customerId = pickRefId(row, ['customer_id', 'customerId']);
+        const routeId = pickRefId(row, ['route_id', 'routeId']);
+
+        const fallbackVehicle = vehicleByPlate.get(String(row.license_plate || row.vehicle_plate || row['Biển số xe'] || '').toLowerCase())
+            || vehicleByCode.get(String(row.vehicle_code || row['Mã xe'] || '').toLowerCase())
+            || null;
+        const fallbackDriver = driverByCode.get(String(row.driver_code || row['Mã tài xế'] || '').toLowerCase())
+            || driverByName.get(String(row.driver_name || row.driver_full_name || row['Tài xế'] || '').toLowerCase())
+            || null;
+        const fallbackCustomer = customerByCode.get(String(row.customer_code || row['Mã khách hàng'] || '').toLowerCase())
+            || customerByName.get(String(row.customer_name || row['Khách hàng'] || '').toLowerCase())
+            || null;
+        const fallbackRoute = routeByCode.get(String(row.route_code || row['Mã tuyến'] || '').toLowerCase())
+            || routeByName.get(String(row.route_name || row['Tuyến đường'] || '').toLowerCase())
+            || null;
+
+        const vehicle = (vehicleId ? vehicleMap.get(vehicleId) : null) || fallbackVehicle;
+        const driver = (driverId ? driverMap.get(driverId) : null) || fallbackDriver;
+        const customer = (customerId ? customerMap.get(customerId) : null) || fallbackCustomer;
+        const route = (routeId ? routeMap.get(routeId) : null) || fallbackRoute;
+
+        return {
+            ...row,
+            vehicle_id: vehicleId || vehicle?.id || row.vehicle_id || null,
+            driver_id: driverId || driver?.id || row.driver_id || null,
+            customer_id: customerId || customer?.id || row.customer_id || null,
+            route_id: routeId || route?.id || row.route_id || null,
+            vehicle: vehicle || null,
+            driver: driver || null,
+            customer: customer || null,
+            route: route || null,
+        };
+    });
+};
+
+const enrichExpensesWithRelations = async (rows: any[]) => {
+    if (!rows?.length) return rows;
+
+    const [vehicles, drivers, trips, categories] = await Promise.all([
+        getTenantRows('vehicles'),
+        getTenantRows('drivers'),
+        getTenantRows('trips'),
+        getTenantRows('expenseCategories'),
+    ]);
+
+    const vehicleMap = buildIdMap(vehicles);
+    const driverMap = buildIdMap(drivers);
+    const tripMap = buildIdMap(trips);
+    const categoryMap = buildIdMap(categories);
+
+    const tripByCode = new Map<string, any>();
+    trips.forEach((t: any) => {
+        if (t.trip_code) tripByCode.set(String(t.trip_code).toLowerCase(), t);
+    });
+
+    const vehicleByPlate = new Map<string, any>();
+    vehicles.forEach((v: any) => {
+        if (v.license_plate) vehicleByPlate.set(String(v.license_plate).toLowerCase(), v);
+    });
+
+    const driverByCode = new Map<string, any>();
+    drivers.forEach((d: any) => {
+        if (d.driver_code) driverByCode.set(String(d.driver_code).toLowerCase(), d);
+    });
+
+    return rows.map((row: any) => {
+        const vehicleId = pickRefId(row, ['vehicle_id', 'vehicleId']);
+        const driverId = pickRefId(row, ['driver_id', 'driverId']);
+        const tripId = pickRefId(row, ['trip_id', 'tripId']);
+        const categoryId = pickRefId(row, ['category_id', 'categoryId']);
+
+        const fallbackTrip = tripByCode.get(String(row.trip_code || row['Mã chuyến'] || '').toLowerCase()) || null;
+        const fallbackVehicle = vehicleByPlate.get(String(row.license_plate || row['Biển số xe'] || '').toLowerCase()) || null;
+        const fallbackDriver = driverByCode.get(String(row.driver_code || row['Mã tài xế'] || '').toLowerCase()) || null;
+
+        const linkedTrip = (tripId ? (tripMap.get(tripId) || null) : null) || fallbackTrip;
+        const linkedVehicle = (vehicleId ? (vehicleMap.get(vehicleId) || null) : null) || fallbackVehicle;
+        const linkedDriver = (driverId ? (driverMap.get(driverId) || null) : null) || fallbackDriver;
+
+        return {
+            ...row,
+            vehicle_id: vehicleId || linkedVehicle?.id || linkedTrip?.vehicle_id || row.vehicle_id || null,
+            driver_id: driverId || linkedDriver?.id || linkedTrip?.driver_id || row.driver_id || null,
+            trip_id: tripId || linkedTrip?.id || row.trip_id || null,
+            category_id: categoryId || row.category_id || null,
+            vehicle: linkedVehicle || null,
+            driver: linkedDriver || null,
+            trip: linkedTrip || null,
+            category: categoryId ? (categoryMap.get(categoryId) || null) : null,
+        };
+    });
+};
+
 const createFirestoreAdapter = (collectionName: string) => ({
     list: async (limitCount?: number, offsetCount?: number) => {
         const tenantId = getTenantId();
         const q = query(collection(db, collectionName), where("tenant_id", "==", tenantId));
         const snapshot = await getDocs(q);
         let rows = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        if (collectionName === 'vehicles') {
+            rows = rows.map((row: any) => {
+                const mapped = { ...row };
+                mapped.insurance_expiry_civil = mapped.insurance_expiry_civil || mapped.insurance_civil_expiry || mapped.insurance_expiry_date;
+                mapped.insurance_expiry_body = mapped.insurance_expiry_body || mapped.insurance_body_expiry || mapped.insurance_expiry_date;
+                mapped.insurance_civil_expiry = mapped.insurance_civil_expiry || mapped.insurance_expiry_civil;
+                mapped.insurance_body_expiry = mapped.insurance_body_expiry || mapped.insurance_expiry_body;
+                mapped.registration_cycle = mapped.registration_cycle || mapped.inspection_cycle || '6 tháng';
+                mapped.registration_date = mapped.registration_date || mapped.inspection_date;
+                mapped.registration_expiry_date = mapped.registration_expiry_date || mapped.inspection_expiry_date;
+                mapped.inspection_cycle = mapped.inspection_cycle || mapped.registration_cycle;
+                mapped.inspection_date = mapped.inspection_date || mapped.registration_date;
+                mapped.inspection_expiry_date = mapped.inspection_expiry_date || mapped.registration_expiry_date;
+                mapped.engine_number = mapped.engine_number || `ENG-${mapped.vehicle_code || mapped.id || 'NA'}`;
+                mapped.chassis_number = mapped.chassis_number || `CHS-${mapped.vehicle_code || mapped.id || 'NA'}`;
+                mapped.current_location = mapped.current_location || 'Bãi xe TP.HCM';
+                mapped.registration_cost = typeof mapped.registration_cost === 'number' ? mapped.registration_cost : 350000;
+                return mapped;
+            });
+        }
+
+        if (collectionName === 'drivers') {
+            rows = rows.map((row: any, idx: number) => {
+                const mapped = { ...row };
+                mapped.date_of_birth = mapped.date_of_birth || mapped.birth_date || addDaysIso('1988-01-01', idx * 170);
+                mapped.birth_date = mapped.birth_date || mapped.date_of_birth;
+                mapped.contract_type = mapped.contract_type || 'toan_thoi_gian';
+                mapped.license_issue_date = mapped.license_issue_date || mapped.hire_date;
+                mapped.tax_code = mapped.tax_code || `0${String(100000000 + idx).slice(-9)}`;
+                mapped.id_card = mapped.id_card || `0790${String(100000 + idx).padStart(6, '0')}`;
+                return mapped;
+            });
+        }
+
+        if (collectionName === 'routes') {
+            rows = rows.map((row: any) => {
+                const mapped = { ...row };
+                mapped.base_price = mapped.base_price ?? mapped.standard_freight_rate ?? 0;
+                mapped.cargo_weight_standard = mapped.cargo_weight_standard ?? mapped.cargo_tons ?? 0;
+                mapped.transport_revenue_standard = mapped.transport_revenue_standard ?? ((mapped.cargo_weight_standard || 0) * (mapped.base_price || 0));
+                mapped.driver_allowance_standard = mapped.driver_allowance_standard ?? Math.round((mapped.transport_revenue_standard || 0) * 0.08);
+                mapped.support_fee_standard = mapped.support_fee_standard ?? Math.round((mapped.transport_revenue_standard || 0) * 0.03);
+                mapped.police_fee_standard = mapped.police_fee_standard ?? 120000;
+                mapped.fuel_liters_standard = mapped.fuel_liters_standard ?? mapped.fuel_liters ?? 0;
+                mapped.fuel_cost_standard = mapped.fuel_cost_standard ?? mapped.fuel_cost ?? 0;
+                mapped.tire_service_fee_standard = mapped.tire_service_fee_standard ?? 80000;
+                mapped.toll_cost = mapped.toll_cost ?? 0;
+                mapped.default_extra_fee = mapped.default_extra_fee ?? mapped.other_cost ?? 100000;
+                mapped.total_cost_standard = mapped.total_cost_standard ?? (
+                    (mapped.driver_allowance_standard || 0)
+                    + (mapped.support_fee_standard || 0)
+                    + (mapped.police_fee_standard || 0)
+                    + (mapped.fuel_cost_standard || 0)
+                    + (mapped.tire_service_fee_standard || 0)
+                    + (mapped.toll_cost || 0)
+                    + (mapped.default_extra_fee || 0)
+                );
+                mapped.profit_standard = mapped.profit_standard ?? ((mapped.transport_revenue_standard || 0) - (mapped.total_cost_standard || 0));
+                return mapped;
+            });
+        }
+
         rows = rows.filter((r: any) => r.is_deleted !== 1);
         if (typeof offsetCount === 'number' && offsetCount > 0) rows = rows.slice(offsetCount);
         if (typeof limitCount === 'number' && limitCount > 0) rows = rows.slice(0, limitCount);
@@ -161,9 +545,17 @@ const createFirestoreAdapter = (collectionName: string) => ({
     },
     create: async (data: any) => {
         const tenantId = getTenantId();
+        enforceMutationThrottle(collectionName, 'create', undefined, data);
         
         // 1. Quota Check
         await checkQuotas(tenantId, collectionName);
+
+        // 2. Cross Integrity Check
+        try {
+            await runCrossIntegrity(collectionName, data, tenantId);
+        } catch (error: any) {
+            throw new Error(`[${collectionName}] Lỗi Nghiệp Vụ P0: ${error.message}`);
+        }
 
         let validatedData = data;
         try {
@@ -175,6 +567,16 @@ const createFirestoreAdapter = (collectionName: string) => ({
         // Use provided id (e.g., Mã xe) if available, otherwise let Firestore auto-generate
         const documentId = validatedData.id || validatedData['Mã xe'] || validatedData['Mã tài xế'] || validatedData['Mã KH'] || validatedData['Mã tuyến'] || validatedData['Mã chuyến'] || validatedData['Mã chi phí'] || validatedData['Mã lệnh'];
         
+        // ---- SECURITY HARDENING: Use Cloud Functions for Trips ----
+        if (collectionName === 'trips') {
+            const secureCreateTrip = httpsCallable(functions, 'secureCreateTrip');
+            const result = await secureCreateTrip(validatedData);
+            const tripId = (result.data as any).id;
+            await logActivity('CREATE', 'trips', tripId, { payload: validatedData });
+            return { id: tripId, ...validatedData, tenant_id: tenantId };
+        }
+        // -----------------------------------------------------------
+
         const payload = { ...validatedData, tenant_id: tenantId, created_at: new Date().toISOString() };
         
         if (documentId) {
@@ -188,6 +590,7 @@ const createFirestoreAdapter = (collectionName: string) => ({
         }
     },
     update: async (id: string, data: any) => {
+        enforceMutationThrottle(collectionName, 'update', id, data);
         // ---- SECURITY & LOGIC HARDENING ----
         const docRef = doc(db, collectionName, id);
         const existingDoc = await getDoc(docRef);
@@ -205,6 +608,16 @@ const createFirestoreAdapter = (collectionName: string) => ({
         // 2. State Machine Check
         if (collectionName === 'trips' && data.status) {
             checkStatusTransition(oldData.status, data.status);
+            if (data.status === 'completed' && !data.completed_at && !oldData.completed_at) {
+                data.completed_at = new Date().toISOString();
+            }
+        }
+        
+        // 3. Cross Integrity Check
+        try {
+            await runCrossIntegrity(collectionName, data, getTenantId(), { id, ...oldData });
+        } catch (error: any) {
+             throw new Error(`[${collectionName}] Lỗi Nghiệp Vụ P0: ${error.message}`);
         }
         // ----------------------------------------------
 
@@ -216,6 +629,18 @@ const createFirestoreAdapter = (collectionName: string) => ({
             throw new Error(`[${collectionName}] ${error.message}`);
         }
         
+        // ---- SECURITY HARDENING: Use Cloud Functions for Trips ----
+        if (collectionName === 'trips') {
+            const secureUpdateTrip = httpsCallable(functions, 'secureUpdateTrip');
+            await secureUpdateTrip({ id, ...validatedData });
+            await logActivity('UPDATE', 'trips', id, { 
+                previous: oldData, 
+                changes: validatedData 
+            });
+            return true;
+        }
+        // -----------------------------------------------------------
+
         await updateDoc(docRef, { ...validatedData, updated_at: new Date().toISOString() });
         await logActivity('UPDATE', collectionName, id, { 
             previous: oldData, 
@@ -224,6 +649,7 @@ const createFirestoreAdapter = (collectionName: string) => ({
         return true;
     },
     delete: async (id: string) => {
+        enforceMutationThrottle(collectionName, 'delete', id);
         // ---- SECURITY HARDENING: PRE-CHECK TENANT ----
         const docRef = doc(db, collectionName, id);
         const existingDoc = await getDoc(docRef);
@@ -245,6 +671,7 @@ const createFirestoreAdapter = (collectionName: string) => ({
         return { id: docSnap.id, ...data };
     },
     softDelete: async (id: string) => {
+        enforceMutationThrottle(collectionName, 'softDelete', id);
         const nowIso = new Date().toISOString();
         const docRef = doc(db, collectionName, id);
         
@@ -307,20 +734,45 @@ const transportOrderFirestoreAdapter = {
         }, 0);
         return `DH${String(maxNo + 1).padStart(8, '0')}`;
     },
+    // QA AUDIT FIX 1.3: All status mutations must verify tenant ownership
     confirm: async (id: string) => {
-        await updateDoc(doc(db, 'transportOrders', id), { status: 'confirmed', confirmed_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+        enforceMutationThrottle('transportOrders', 'confirm', id);
+        const docRef = doc(db, 'transportOrders', id);
+        const snap = await getDoc(docRef);
+        if (!snap.exists() || snap.data()?.tenant_id !== getTenantId()) {
+            throw new Error('Unauthorized: Transport order does not belong to this tenant.');
+        }
+        await updateDoc(docRef, { status: 'confirmed', confirmed_at: new Date().toISOString(), updated_at: new Date().toISOString() });
         return true;
     },
     startProgress: async (id: string) => {
-        await updateDoc(doc(db, 'transportOrders', id), { status: 'in_progress', updated_at: new Date().toISOString() });
+        enforceMutationThrottle('transportOrders', 'startProgress', id);
+        const docRef = doc(db, 'transportOrders', id);
+        const snap = await getDoc(docRef);
+        if (!snap.exists() || snap.data()?.tenant_id !== getTenantId()) {
+            throw new Error('Unauthorized: Transport order does not belong to this tenant.');
+        }
+        await updateDoc(docRef, { status: 'in_progress', updated_at: new Date().toISOString() });
         return true;
     },
     complete: async (id: string) => {
-        await updateDoc(doc(db, 'transportOrders', id), { status: 'completed', completed_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+        enforceMutationThrottle('transportOrders', 'complete', id);
+        const docRef = doc(db, 'transportOrders', id);
+        const snap = await getDoc(docRef);
+        if (!snap.exists() || snap.data()?.tenant_id !== getTenantId()) {
+            throw new Error('Unauthorized: Transport order does not belong to this tenant.');
+        }
+        await updateDoc(docRef, { status: 'completed', completed_at: new Date().toISOString(), updated_at: new Date().toISOString() });
         return true;
     },
     cancel: async (id: string) => {
-        await updateDoc(doc(db, 'transportOrders', id), { status: 'cancelled', cancelled_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+        enforceMutationThrottle('transportOrders', 'cancel', id);
+        const docRef = doc(db, 'transportOrders', id);
+        const snap = await getDoc(docRef);
+        if (!snap.exists() || snap.data()?.tenant_id !== getTenantId()) {
+            throw new Error('Unauthorized: Transport order does not belong to this tenant.');
+        }
+        await updateDoc(docRef, { status: 'cancelled', cancelled_at: new Date().toISOString(), updated_at: new Date().toISOString() });
         return true;
     },
 };
@@ -389,35 +841,97 @@ const tiresFirestoreAdapter = {
 // Implementation of Trips requires specific methods
 const tripFirestoreAdapter = {
     ...createFirestoreAdapter('trips'),
+    list: async (limitCount?: number, offsetCount?: number) => {
+        const baseAdapter = createFirestoreAdapter('trips') as any;
+        const rows = await baseAdapter.list(limitCount, offsetCount);
+        return enrichTripsWithRelations(rows);
+    },
+    getById: async (id: string) => {
+        const baseAdapter = createFirestoreAdapter('trips') as any;
+        const row = await baseAdapter.getById(id);
+        if (!row) return null;
+        const [enriched] = await enrichTripsWithRelations([row]);
+        return enriched || null;
+    },
+    // QA AUDIT FIX 1.4: All status changes must go through state machine validation
     confirm: async (id: string) => {
-        await updateDoc(doc(db, 'trips', id), { status: 'confirmed', updated_at: new Date().toISOString() });
+        enforceMutationThrottle('trips', 'confirm', id);
+        const tripRef = doc(db, 'trips', id);
+        const tripSnap = await getDoc(tripRef);
+        if (!tripSnap.exists() || tripSnap.data()?.tenant_id !== getTenantId()) {
+            throw new Error('Unauthorized: Trip does not belong to this tenant.');
+        }
+        checkStatusTransition(tripSnap.data().status, 'confirmed');
+        await updateDoc(tripRef, { status: 'confirmed', confirmed_at: new Date().toISOString(), updated_at: new Date().toISOString() });
         return true;
     },
     dispatched: async (id: string) => {
-        await updateDoc(doc(db, 'trips', id), { status: 'dispatched', dispatched_at: new Date().toISOString() });
-        return true;
-    },
-    start: async (id: string, time: string) => {
+        enforceMutationThrottle('trips', 'dispatched', id);
         const tripRef = doc(db, 'trips', id);
         const tripSnap = await getDoc(tripRef);
+        if (!tripSnap.exists() || tripSnap.data()?.tenant_id !== getTenantId()) {
+            throw new Error('Unauthorized: Trip does not belong to this tenant.');
+        }
+        checkStatusTransition(tripSnap.data().status, 'dispatched');
+        await updateDoc(tripRef, { status: 'dispatched', dispatched_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+        return true;
+    },
+    // QA AUDIT FIX 2.4: Validate tenant + state machine before start
+    start: async (id: string, time: string) => {
+        enforceMutationThrottle('trips', 'start', id, { time });
+        const tripRef = doc(db, 'trips', id);
+        const tripSnap = await getDoc(tripRef);
+        if (!tripSnap.exists() || tripSnap.data()?.tenant_id !== getTenantId()) {
+            throw new Error('Unauthorized: Trip does not belong to this tenant.');
+        }
+        checkStatusTransition(tripSnap.data().status, 'in_progress');
         const batch = writeBatch(db);
         
-        batch.update(tripRef, { status: 'in_progress', actual_departure_time: time });
+        batch.update(tripRef, {
+            status: 'in_progress',
+            actual_departure_time: time,
+            updated_at: new Date().toISOString()
+        });
         
-        if (tripSnap.exists()) {
-            const data = tripSnap.data();
-            if (data.vehicle_id) batch.update(doc(db, 'vehicles', data.vehicle_id), { status: 'on_trip' });
-            if (data.driver_id) batch.update(doc(db, 'drivers', data.driver_id), { status: 'on_trip' });
+        const data = tripSnap.data();
+        if (data.vehicle_id) {
+            const vSnap = await getDoc(doc(db, 'vehicles', data.vehicle_id));
+            if (!vSnap.exists()) {
+                throw new Error(`Vehicle không tồn tại: ${data.vehicle_id}`);
+            }
+            if (vSnap.data()?.tenant_id !== getTenantId()) {
+                throw new Error(`Unauthorized: Vehicle ${data.vehicle_id} does not belong to this tenant.`);
+            }
+            batch.update(doc(db, 'vehicles', data.vehicle_id), { status: 'on_trip' });
         }
-        await batch.commit();
+        if (data.driver_id) {
+            const dSnap = await getDoc(doc(db, 'drivers', data.driver_id));
+            if (!dSnap.exists()) {
+                throw new Error(`Driver không tồn tại: ${data.driver_id}`);
+            }
+            if (dSnap.data()?.tenant_id !== getTenantId()) {
+                throw new Error(`Unauthorized: Driver ${data.driver_id} does not belong to this tenant.`);
+            }
+            batch.update(doc(db, 'drivers', data.driver_id), { status: 'on_trip' });
+        }
+        try {
+            await batch.commit();
+        } catch (error: any) {
+            throw new Error(`Không thể bắt đầu chuyến: ${error?.message || 'Batch update failed'}`);
+        }
         return true;
     },
     complete: async (id: string, time: string, km?: number) => {
+        enforceMutationThrottle('trips', 'complete', id, { time, km });
         const tripRef = doc(db, 'trips', id);
         const tripSnap = await getDoc(tripRef);
         
         if (!tripSnap.exists()) throw new Error("Chuyến đi không tồn tại.");
         const data = tripSnap.data();
+        if (data.tenant_id !== getTenantId()) {
+            throw new Error('Unauthorized: Trip does not belong to this tenant.');
+        }
+        checkStatusTransition(data.status, 'completed');
 
         // ---- EXPORT LOGIC: POD GUARD ----
         if (data.pod_status !== 'RECEIVED') {
@@ -436,49 +950,166 @@ const tripFirestoreAdapter = {
         
         // Free the vehicle and driver back to active
         if (data.vehicle_id) {
-            batch.update(doc(db, 'vehicles', data.vehicle_id), { 
+            const vRef = doc(db, 'vehicles', data.vehicle_id);
+            const vSnap = await getDoc(vRef);
+            if (!vSnap.exists()) {
+                throw new Error(`Vehicle không tồn tại: ${data.vehicle_id}`);
+            }
+            if (vSnap.data()?.tenant_id !== getTenantId()) {
+                throw new Error(`Unauthorized: Vehicle ${data.vehicle_id} does not belong to this tenant.`);
+            }
+            batch.update(vRef, {
                 status: 'active',
                 current_odometer: (data.start_odometer || 0) + (km || 0) // Auto-update vehicle odo
             });
         }
-        if (data.driver_id) batch.update(doc(db, 'drivers', data.driver_id), { status: 'active' });
+        if (data.driver_id) {
+            const dRef = doc(db, 'drivers', data.driver_id);
+            const dSnap = await getDoc(dRef);
+            if (!dSnap.exists()) {
+                throw new Error(`Driver không tồn tại: ${data.driver_id}`);
+            }
+            if (dSnap.data()?.tenant_id !== getTenantId()) {
+                throw new Error(`Unauthorized: Driver ${data.driver_id} does not belong to this tenant.`);
+            }
+            batch.update(dRef, { status: 'active' });
+        }
         
-        await batch.commit();
+        try {
+            await batch.commit();
+        } catch (error: any) {
+            throw new Error(`Không thể hoàn thành chuyến: ${error?.message || 'Batch update failed'}`);
+        }
         return true;
     },
+    // QA AUDIT FIX 2.1: Comprehensive close-trip pre-conditions guard
     close: async (id: string, force?: boolean) => {
-        await updateDoc(doc(db, 'trips', id), { status: 'closed', updated_at: new Date().toISOString() });
+        enforceMutationThrottle('trips', 'close', id, { force });
+        const tripRef = doc(db, 'trips', id);
+        const tripSnap = await getDoc(tripRef);
+        if (!tripSnap.exists() || tripSnap.data()?.tenant_id !== getTenantId()) {
+            throw new Error('Unauthorized: Trip does not belong to this tenant.');
+        }
+        const tripData = tripSnap.data();
+        checkStatusTransition(tripData.status, 'closed');
+
+        if (!force) {
+            // Check POD received
+            if (tripData.pod_status !== 'RECEIVED') {
+                throw new Error('Quy trình bắt buộc: POD (Biên bản giao nhận) chưa được xác nhận trước khi đóng chuyến.');
+            }
+            // Check all linked expenses are reconciled
+            const tenantId = getTenantId();
+            const expQ = query(collection(db, 'expenses'), where('tenant_id', '==', tenantId), where('trip_id', '==', id));
+            const expSnap = await getDocs(expQ);
+            const unreconciledCount = expSnap.docs.filter(d => {
+                const e = d.data();
+                return e.status === 'confirmed' && !e.is_reconciled;
+            }).length;
+            if (unreconciledCount > 0) {
+                throw new Error(`Còn ${unreconciledCount} chi phí chưa quyết toán. Vui lòng đối soát trước khi đóng chuyến.`);
+            }
+        }
+
+        await updateDoc(tripRef, {
+            status: 'closed',
+            closed_at: new Date().toISOString(),
+            closed_by: auth.currentUser?.uid || '',
+            updated_at: new Date().toISOString()
+        });
+        await logActivity('UPDATE', 'trips', id, { action: 'CLOSE', forced: !!force });
         return true;
     },
     cancel: async (id: string) => {
+        enforceMutationThrottle('trips', 'cancel', id);
         const tripRef = doc(db, 'trips', id);
         const tripSnap = await getDoc(tripRef);
+        if (!tripSnap.exists()) {
+            throw new Error('Chuyến đi không tồn tại.');
+        }
+        const data = tripSnap.data();
+        if (data.tenant_id !== getTenantId()) {
+            throw new Error('Unauthorized: Trip does not belong to this tenant.');
+        }
+        checkStatusTransition(data.status, 'cancelled');
         const batch = writeBatch(db);
         
-        batch.update(tripRef, { status: 'cancelled', cancelled_at: new Date().toISOString() });
+        batch.update(tripRef, {
+            status: 'cancelled',
+            cancelled_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        });
         
-        if (tripSnap.exists()) {
-            const data = tripSnap.data();
-            // Free the vehicle and driver back to active
-            if (data.vehicle_id) batch.update(doc(db, 'vehicles', data.vehicle_id), { status: 'active' });
-            if (data.driver_id) batch.update(doc(db, 'drivers', data.driver_id), { status: 'active' });
+        // Free the vehicle and driver back to active
+        if (data.vehicle_id) {
+            const vRef = doc(db, 'vehicles', data.vehicle_id);
+            const vSnap = await getDoc(vRef);
+            if (!vSnap.exists()) {
+                throw new Error(`Vehicle không tồn tại: ${data.vehicle_id}`);
+            }
+            if (vSnap.data()?.tenant_id !== getTenantId()) {
+                throw new Error(`Unauthorized: Vehicle ${data.vehicle_id} does not belong to this tenant.`);
+            }
+            batch.update(vRef, { status: 'active' });
         }
-        await batch.commit();
+        if (data.driver_id) {
+            const dRef = doc(db, 'drivers', data.driver_id);
+            const dSnap = await getDoc(dRef);
+            if (!dSnap.exists()) {
+                throw new Error(`Driver không tồn tại: ${data.driver_id}`);
+            }
+            if (dSnap.data()?.tenant_id !== getTenantId()) {
+                throw new Error(`Unauthorized: Driver ${data.driver_id} does not belong to this tenant.`);
+            }
+            batch.update(dRef, { status: 'active' });
+        }
+        try {
+            await batch.commit();
+        } catch (error: any) {
+            throw new Error(`Không thể hủy chuyến: ${error?.message || 'Batch update failed'}`);
+        }
         return true;
     },
     listByStatus: async (status: string) => {
         const tenantId = getTenantId();
         const q = query(collection(db, 'trips'), where("tenant_id", "==", tenantId), where("status", "==", status));
         const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const rows = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        return enrichTripsWithRelations(rows);
     },
     listByDateRange: async () => {
         // Implement full date range query if required by UI, for now fallback to standard list
         const tenantId = getTenantId();
         const q = query(collection(db, 'trips'), where("tenant_id", "==", tenantId));
         const snapshot = await getDocs(q);
-        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        const rows = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        return enrichTripsWithRelations(rows);
     }
+};
+
+const tripLocationFirestoreAdapter = {
+    ...createFirestoreAdapter('trip_location_logs'),
+    listByTrip: async (tripId: string) => {
+        const tenantId = getTenantId();
+        const q = query(
+            collection(db, 'trip_location_logs'),
+            where('tenant_id', '==', tenantId),
+            where('trip_id', '==', tripId)
+        );
+        const snapshot = await getDocs(q);
+        return snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }));
+    },
+    listByDriverEmail: async (driverEmail: string) => {
+        const tenantId = getTenantId();
+        const q = query(
+            collection(db, 'trip_location_logs'),
+            where('tenant_id', '==', tenantId)
+        );
+        const snapshot = await getDocs(q);
+        return snapshot.docs
+            .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+            .filter((row: any) => row.driver_email === driverEmail);
+    },
 };
 
 // Helper function to recalculate trip expenses
@@ -497,7 +1128,30 @@ const recalculateTripExpenses = async (tripId: string, tenantId: string) => {
 // Specialized adapter for Expenses to handle Trip recalculations
 const expenseFirestoreAdapter = {
     ...createFirestoreAdapter('expenses'),
+    list: async (limitCount?: number, offsetCount?: number) => {
+        const baseAdapter = createFirestoreAdapter('expenses') as any;
+        const rows = await baseAdapter.list(limitCount, offsetCount);
+        return enrichExpensesWithRelations(rows);
+    },
+    getById: async (id: string) => {
+        const baseAdapter = createFirestoreAdapter('expenses') as any;
+        const row = await baseAdapter.getById(id);
+        if (!row) return null;
+        const [enriched] = await enrichExpensesWithRelations([row]);
+        return enriched || null;
+    },
+    listByTrip: async (tripId: string) => {
+        const baseAdapter = createFirestoreAdapter('expenses') as any;
+        const allRows = await baseAdapter.list();
+        const normalizedTripId = String(tripId);
+        const filtered = allRows.filter((row: any) => {
+            const rowTripId = pickRefId(row, ['trip_id', 'tripId']);
+            return rowTripId === normalizedTripId;
+        });
+        return enrichExpensesWithRelations(filtered);
+    },
     create: async (data: any) => {
+        enforceMutationThrottle('expenses', 'create', undefined, data);
         const baseAdapter = createFirestoreAdapter('expenses');
         
         // ---- EXPORT LOGIC: ODOMETER SYNC ----
@@ -525,6 +1179,7 @@ const expenseFirestoreAdapter = {
         return res;
     },
     update: async (id: string, data: any) => {
+        enforceMutationThrottle('expenses', 'update', id, data);
         const baseAdapter = createFirestoreAdapter('expenses');
         const oldDoc = (await baseAdapter.get(id)) as any;
         const res = await baseAdapter.update(id, data);
@@ -536,11 +1191,16 @@ const expenseFirestoreAdapter = {
         }
         return res;
     },
+    // QA AUDIT FIX 2.2: Block deletion of confirmed expenses
     delete: async (id: string) => {
+        enforceMutationThrottle('expenses', 'delete', id);
         const baseAdapter = createFirestoreAdapter('expenses');
         const oldDoc = (await baseAdapter.get(id)) as any;
+        if (oldDoc?.status === 'confirmed') {
+            throw new Error('Không thể xóa chi phí đã xác nhận. Vui lòng hủy (cancel) chi phí trước khi xóa.');
+        }
         const res = await baseAdapter.delete(id);
-        if (oldDoc?.trip_id && oldDoc?.status === 'confirmed') {
+        if (oldDoc?.trip_id) {
             await recalculateTripExpenses(oldDoc.trip_id, getTenantId());
         }
         return res;
@@ -601,6 +1261,23 @@ const alertsFirestoreAdapter = {
                 items.push({ id: `trip_prof_${docSnap.id}`, type: 'trip_low_profit', entityName: `Chuyến ${t.trip_code}`, description: `Lỗ: ${profit.toLocaleString()} đ. Doanh thu: ${rev.toLocaleString()} đ, Chi phí: ${exp.toLocaleString()} đ.`, severity: 'warning', date: t.departure_date, isRead: false });
             }
         });
+
+        const persistedAlerts = await (createFirestoreAdapter('alerts') as any).list();
+        persistedAlerts.forEach((alert: any) => {
+            const severity = alert.severity === 'critical' ? 'critical' : (alert.severity === 'warning' ? 'warning' : 'info');
+            if (severity === 'critical') criticalCount++;
+            else if (severity === 'warning') warningCount++;
+
+            items.push({
+                id: alert.id,
+                type: alert.alert_type || 'custom_alert',
+                entityName: alert.title || 'Canh bao',
+                description: alert.message || '',
+                severity,
+                date: alert.date || alert.created_at || now.toISOString(),
+                isRead: !!alert.is_read,
+            });
+        });
         
         return {
             totalCount: criticalCount + warningCount,
@@ -609,6 +1286,234 @@ const alertsFirestoreAdapter = {
             infoCount: 0,
             items: items.sort((a, b) => b.severity.localeCompare(a.severity))
         };
+    }
+};
+
+type TenantSeedOptions = {
+    tenantId: string;
+    companyName: string;
+    adminUid: string;
+    adminEmail: string;
+    adminName: string;
+};
+
+const classifyExpenseTypeByKeyword = (text: string) => {
+    const s = String(text || '').toLowerCase();
+    if (s.includes('dầu') || s.includes('nhiên liệu') || s.includes('xăng')) return 'Nhiên liệu';
+    if (s.includes('cầu đường') || s.includes('cao tốc') || s.includes('phí đường')) return 'Cầu đường';
+    if (s.includes('bốc xếp') || s.includes('nhân công')) return 'Nhân công';
+    if (s.includes('bảo dưỡng') || s.includes('sửa chữa') || s.includes('lốp')) return 'Bảo dưỡng';
+    return 'Khác';
+};
+
+const addDaysIso = (isoDate: string | undefined, days: number) => {
+    if (!isoDate) return undefined;
+    const dt = new Date(`${isoDate}T00:00:00`);
+    if (Number.isNaN(dt.getTime())) return undefined;
+    dt.setDate(dt.getDate() + days);
+    return dt.toISOString().slice(0, 10);
+};
+
+const normalizeSeedRows = (rowsByCollection: Record<string, Array<Record<string, any>>>) => {
+    const vehicles = rowsByCollection.vehicles || [];
+    const routes = rowsByCollection.routes || [];
+    const trips = rowsByCollection.trips || [];
+    const expenses = rowsByCollection.expenses || [];
+    const transportOrders = rowsByCollection.transportOrders || [];
+    const drivers = rowsByCollection.drivers || [];
+
+    const vehicleIds = new Set(vehicles.map((v) => String(v.id || v.vehicle_code || '')));
+    const tripIds = new Set(trips.map((t) => String(t.id || t.trip_code || '')));
+
+    vehicles.forEach((vehicle, idx) => {
+        vehicle.insurance_expiry_civil = vehicle.insurance_expiry_civil || vehicle.insurance_civil_expiry || vehicle.insurance_expiry_date;
+        vehicle.insurance_expiry_body = vehicle.insurance_expiry_body || vehicle.insurance_body_expiry || vehicle.insurance_expiry_date;
+        vehicle.insurance_civil_expiry = vehicle.insurance_civil_expiry || vehicle.insurance_expiry_civil;
+        vehicle.insurance_body_expiry = vehicle.insurance_body_expiry || vehicle.insurance_expiry_body;
+        vehicle.registration_cycle = vehicle.registration_cycle || vehicle.inspection_cycle || '6 tháng';
+        vehicle.inspection_cycle = vehicle.inspection_cycle || vehicle.registration_cycle;
+        vehicle.registration_date = vehicle.registration_date || vehicle.inspection_date;
+        vehicle.inspection_date = vehicle.inspection_date || vehicle.registration_date;
+        vehicle.registration_expiry_date = vehicle.registration_expiry_date || vehicle.inspection_expiry_date;
+        vehicle.inspection_expiry_date = vehicle.inspection_expiry_date || vehicle.registration_expiry_date;
+        vehicle.insurance_purchase_date = vehicle.insurance_purchase_date || addDaysIso('2025-01-01', idx * 3);
+        vehicle.insurance_expiry_date = vehicle.insurance_expiry_date || addDaysIso(vehicle.insurance_purchase_date, 365);
+        vehicle.engine_number = vehicle.engine_number || `ENG-${vehicle.vehicle_code || vehicle.id || 'NA'}`;
+        vehicle.chassis_number = vehicle.chassis_number || `CHS-${vehicle.vehicle_code || vehicle.id || 'NA'}`;
+        vehicle.current_location = vehicle.current_location || 'Bãi xe chính';
+    });
+
+    drivers.forEach((driver, idx) => {
+        driver.date_of_birth = driver.date_of_birth || driver.birth_date || addDaysIso('1988-01-01', idx * 170);
+        driver.birth_date = driver.birth_date || driver.date_of_birth;
+        driver.contract_type = driver.contract_type || 'toan_thoi_gian';
+        driver.license_issue_date = driver.license_issue_date || driver.hire_date;
+        driver.tax_code = driver.tax_code || `0${String(100000000 + idx).slice(-9)}`;
+        driver.id_card = driver.id_card || `0790${String(100000 + idx).padStart(6, '0')}`;
+        if (!driver.assigned_vehicle_id && vehicles.length > 0) {
+            driver.assigned_vehicle_id = vehicles[idx % vehicles.length].id;
+        }
+    });
+
+    routes.forEach((route) => {
+        route.base_price = route.base_price ?? route.standard_freight_rate ?? 0;
+        route.cargo_weight_standard = route.cargo_weight_standard ?? route.cargo_tons ?? 0;
+        route.transport_revenue_standard = route.transport_revenue_standard ?? ((route.cargo_weight_standard || 0) * (route.base_price || 0));
+        route.driver_allowance_standard = route.driver_allowance_standard ?? Math.round((route.transport_revenue_standard || 0) * 0.08);
+        route.support_fee_standard = route.support_fee_standard ?? Math.round((route.transport_revenue_standard || 0) * 0.03);
+        route.police_fee_standard = route.police_fee_standard ?? 120000;
+        route.fuel_liters_standard = route.fuel_liters_standard ?? route.fuel_liters ?? 0;
+        route.fuel_cost_standard = route.fuel_cost_standard ?? route.fuel_cost ?? 0;
+        route.tire_service_fee_standard = route.tire_service_fee_standard ?? 80000;
+        route.toll_cost = route.toll_cost ?? 0;
+        route.default_extra_fee = route.default_extra_fee ?? route.other_cost ?? 100000;
+        route.total_cost_standard = route.total_cost_standard ?? (
+            (route.driver_allowance_standard || 0)
+            + (route.support_fee_standard || 0)
+            + (route.police_fee_standard || 0)
+            + (route.fuel_cost_standard || 0)
+            + (route.tire_service_fee_standard || 0)
+            + (route.toll_cost || 0)
+            + (route.default_extra_fee || 0)
+        );
+        route.profit_standard = route.profit_standard ?? ((route.transport_revenue_standard || 0) - (route.total_cost_standard || 0));
+    });
+
+    transportOrders.forEach((order) => {
+        order.order_date = order.order_date || order.pickup_date || order.delivery_date;
+        order.expected_delivery_date = order.expected_delivery_date || order.delivery_date || addDaysIso(order.order_date, 1);
+        order.delivery_date = order.delivery_date || order.expected_delivery_date;
+        order.order_value = order.order_value ?? order.total_value ?? order.freight_amount ?? 0;
+        order.total_value = order.total_value ?? order.order_value ?? order.freight_amount ?? 0;
+    });
+
+    expenses.forEach((expense) => {
+        if (!expense.category_name) {
+            expense.category_name = classifyExpenseTypeByKeyword(`${expense.description || ''} ${expense.expense_code || ''}`);
+        }
+        if (!expense.vehicle_id && expense.vehicleId && vehicleIds.has(String(expense.vehicleId))) {
+            expense.vehicle_id = expense.vehicleId;
+        }
+        if (!expense.trip_id && expense.tripId && tripIds.has(String(expense.tripId))) {
+            expense.trip_id = expense.tripId;
+        }
+    });
+};
+
+const seedNewTenantDemoData = async (options: TenantSeedOptions) => {
+    const { tenantId, companyName, adminUid, adminEmail, adminName } = options;
+    const nowIso = new Date().toISOString();
+
+    const existingVehicles = await getDocs(query(collection(db, 'vehicles'), where("tenant_id", "==", tenantId)));
+    if (!existingVehicles.empty) return;
+
+    const toDocId = (collectionName: string, sourceId: string) => `${tenantId}_${collectionName}_${sourceId}`;
+    const withAudit = (row: Record<string, any>) => ({
+        ...row,
+        tenant_id: tenantId,
+        created_at: row.created_at || nowIso,
+        updated_at: row.updated_at || nowIso,
+        is_deleted: typeof row.is_deleted === 'number' ? row.is_deleted : 0,
+    });
+
+    const relationMap: Record<string, string> = {
+        vehicle_id: 'vehicles',
+        vehicleId: 'vehicles',
+        driver_id: 'drivers',
+        driverId: 'drivers',
+        customer_id: 'customers',
+        customerId: 'customers',
+        route_id: 'routes',
+        routeId: 'routes',
+        trip_id: 'trips',
+        tripId: 'trips',
+        category_id: 'expenseCategories',
+        item_id: 'inventory',
+        current_vehicle_id: 'vehicles',
+        expense_id: 'expenses',
+    };
+
+    const resolveRef = (field: string, value: any) => {
+        if (!value || typeof value !== 'string') return value;
+        const targetCollection = relationMap[field];
+        if (!targetCollection) return value;
+        if (value.startsWith(`${tenantId}_`)) return value;
+        return toDocId(targetCollection, value);
+    };
+
+    const seedRowsByCollection = Object.fromEntries(
+        Object.entries(TENANT_DEMO_SEED.collections).map(([collectionName, rows]) => [
+            collectionName,
+            (rows as unknown as Array<Record<string, any>>).map((row) => ({ ...row })),
+        ])
+    ) as Record<string, Array<Record<string, any>>>;
+
+    normalizeSeedRows(seedRowsByCollection);
+
+    const allCollections = Object.entries(seedRowsByCollection).map(([collectionName, rows]) => {
+        const mappedRows = rows.map((row) => {
+            const sourceId = String(row.id || row.record_id || `${collectionName}_${Math.random().toString(36).slice(2, 8)}`);
+            const payload = { ...row };
+            delete payload.id;
+
+            Object.keys(payload).forEach((field) => {
+                payload[field] = resolveRef(field, payload[field]);
+            });
+
+            if (collectionName === 'users' && payload.email && typeof payload.email === 'string') {
+                const [localPart] = payload.email.split('@');
+                payload.email = `${localPart}+${tenantId}@fleetpro.vn`;
+                payload.company_name = companyName;
+            }
+
+            if (collectionName === 'companySettings') {
+                payload.company_name = companyName;
+                payload.email = adminEmail;
+                payload.subscription = {
+                    plan: 'trial',
+                    status: 'active',
+                    trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
+                };
+            }
+
+            return {
+                docId: toDocId(collectionName, sourceId),
+                data: withAudit(payload),
+            };
+        });
+
+        return { collectionName, rows: mappedRows };
+    });
+
+    allCollections.push({
+        collectionName: 'users',
+        rows: [
+            {
+                docId: adminUid,
+                data: withAudit({
+                    email: adminEmail,
+                    full_name: adminName,
+                    company_name: companyName,
+                    role: 'admin',
+                    status: 'active',
+                }),
+            },
+        ],
+    });
+
+    const writes: Array<{ collectionName: string; docId: string; data: Record<string, any> }> = [];
+    allCollections.forEach(({ collectionName, rows }) => {
+        rows.forEach((row) => writes.push({ collectionName, ...row }));
+    });
+
+    const chunkSize = 450;
+    for (let i = 0; i < writes.length; i += chunkSize) {
+        const batch = writeBatch(db);
+        const chunk = writes.slice(i, i + chunkSize);
+        chunk.forEach(({ collectionName, docId, data }) => {
+            batch.set(doc(db, collectionName, docId), data, { merge: true });
+        });
+        await batch.commit();
     }
 };
 
@@ -626,6 +1531,7 @@ const webDataAdapters: Record<string, any> = {
     tires: tiresFirestoreAdapter,
     partners: createFirestoreAdapter('partners'),
     inventory: inventoryFirestoreAdapter,
+    tripLocationLogs: tripLocationFirestoreAdapter,
     transportOrders: transportOrderFirestoreAdapter,
     companySettings: createFirestoreAdapter('companySettings'),
     tripExpenses: createFirestoreAdapter('tripExpenses'),
@@ -668,7 +1574,27 @@ const webDataAdapters: Record<string, any> = {
                     }
                 };
             } catch (error: any) {
-                return { success: false, error: error.message };
+                // 🔴 Detailed Firebase error handling
+                let errorMessage = error.message;
+                
+                if (error.code === 'auth/api-key-not-valid') {
+                    errorMessage = '❌ Firebase API Key lỗi. Vui lòng liên hệ quản trị viên để kiểm tra cấu hình Firebase Console.\n\nThao tác:\n1. Vào https://console.firebase.google.com\n2. Project Settings → API Keys\n3. Kiểm tra API Key có hợp lệ\n4. Vào Authentication → Settings → Authorized Domains\n5. Thêm domain hiện tại vào danh sách';
+                } else if (error.code === 'auth/user-not-found') {
+                    errorMessage = 'Email này chưa được đăng ký trong hệ thống';
+                } else if (error.code === 'auth/wrong-password') {
+                    errorMessage = 'Mật khẩu không chính xác';
+                } else if (error.code === 'auth/invalid-email') {
+                    errorMessage = 'Định dạng email không hợp lệ';
+                } else if (error.code === 'auth/user-disabled') {
+                    errorMessage = 'Tài khoản này đã bị vô hiệu hóa';
+                } else if (error.code === 'auth/too-many-requests') {
+                    errorMessage = '⏸️ Quá nhiều lần đăng nhập thất bại.\n\nVui lòng chờ 5-10 phút rồi thử lại.\n\n✅ Các bước:\n1. Đợi 5-10 phút để Firebase reset\n2. Kiểm tra email/password chính xác\n3. Kiểm tra kết nối Internet\n4. Thử lại';
+                } else if (error.code === 'auth/network-request-failed') {
+                    errorMessage = 'Lỗi kết nối mạng. Vui lòng kiểm tra kết nối Internet và thử lại';
+                }
+                
+                console.error('🔴 Login Error:', { code: error.code, message: error.message });
+                return { success: false, error: errorMessage };
             }
         },
         register: async (payload: { email: string; password: string; full_name: string; company_name: string }) => {
@@ -699,12 +1625,39 @@ const webDataAdapters: Record<string, any> = {
                     created_at: new Date().toISOString(),
                     subscription: { plan: 'trial', status: 'active' }
                 });
+
+                // 5. Auto-provision realistic demo dataset for immediate full-feature onboarding
+                await seedNewTenantDemoData({
+                    tenantId,
+                    companyName: payload.company_name,
+                    adminUid: uid,
+                    adminEmail: payload.email,
+                    adminName: payload.full_name,
+                });
                 
                 await logActivity('CREATE', 'users', uid, { type: 'registration', company: payload.company_name });
 
                 return { success: true, data: { uid, tenantId } };
             } catch (error: any) {
-                return { success: false, error: error.message };
+                // 🔴 Detailed Firebase error handling for registration
+                let errorMessage = error.message;
+                
+                if (error.code === 'auth/api-key-not-valid') {
+                    errorMessage = '❌ Firebase API Key lỗi. Vui lòng liên hệ quản trị viên.';
+                } else if (error.code === 'auth/email-already-in-use') {
+                    errorMessage = 'Email này đã được đăng ký. Vui lòng sử dụng email khác hoặc đăng nhập';
+                } else if (error.code === 'auth/weak-password') {
+                    errorMessage = 'Mật khẩu quá yếu. Cần ít nhất 8 ký tự với chữ hoa, chữ thường, số và ký tự đặc biệt';
+                } else if (error.code === 'auth/invalid-email') {
+                    errorMessage = 'Định dạng email không hợp lệ';
+                } else if (error.code === 'auth/requires-recent-login') {
+                    errorMessage = 'Phiên đăng nhập hết hạn. Vui lòng đăng nhập lại';
+                } else if (error.code === 'auth/network-request-failed') {
+                    errorMessage = 'Lỗi kết nối mạng. Vui lòng kiểm tra kết nối Internet và thử lại';
+                }
+                
+                console.error('🔴 Registration Error:', { code: error.code, message: error.message });
+                return { success: false, error: errorMessage };
             }
         },
         resetPassword: async (email: string) => {
@@ -712,7 +1665,21 @@ const webDataAdapters: Record<string, any> = {
                 await sendPasswordResetEmail(auth, email);
                 return { success: true };
             } catch (error: any) {
-                return { success: false, error: error.message };
+                // 🔴 Detailed Firebase error handling for password reset
+                let errorMessage = error.message;
+                
+                if (error.code === 'auth/api-key-not-valid') {
+                    errorMessage = '❌ Firebase API Key lỗi. Vui lòng liên hệ quản trị viên.';
+                } else if (error.code === 'auth/user-not-found') {
+                    errorMessage = 'Email này chưa được đăng ký trong hệ thống';
+                } else if (error.code === 'auth/invalid-email') {
+                    errorMessage = 'Định dạng email không hợp lệ';
+                } else if (error.code === 'auth/network-request-failed') {
+                    errorMessage = 'Lỗi kết nối mạng. Vui lòng kiểm tra kết nối Internet và thử lại';
+                }
+                
+                console.error('🔴 Password Reset Error:', { code: error.code, message: error.message });
+                return { success: false, error: errorMessage };
             }
         },
         logout: async () => {
@@ -855,6 +1822,7 @@ export const alertsAdapter = AdapterFactory.getAdapter('alerts');
 export const tiresAdapter = AdapterFactory.getAdapter('tires');
 export const partnersAdapter = AdapterFactory.getAdapter('partners');
 export const inventoryAdapter = AdapterFactory.getAdapter('inventory');
+export const tripLocationAdapter = AdapterFactory.getAdapter('tripLocationLogs');
 
 // Export all adapters as a single object for convenience
 export const dataAdapter = {
@@ -875,4 +1843,5 @@ export const dataAdapter = {
     tires: tiresAdapter,
     partners: partnersAdapter,
     inventory: inventoryAdapter,
+    tripLocationLogs: tripLocationAdapter,
 };

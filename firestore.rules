@@ -33,8 +33,9 @@ service cloud.firestore {
       return resource.data.tenant_id == tenantId();
     }
 
+    // QA AUDIT FIX 2.3: Unified role taxonomy — app uses 'admin' only
     function isTenantAdmin() {
-      return userRole() in ['admin', 'admin_tenant'];
+      return userRole() == 'admin';
     }
 
     // --- SECURE COLLECTION MATCHES ---
@@ -71,33 +72,42 @@ service cloud.firestore {
       allow update, delete: if false; // Immutable
     }
 
-    // Tenants: Master collection - allow admin/system writes
+    // Tenants: Master collection — SERVER-SIDE ONLY (Cloud Functions / Admin SDK)
+    // QA AUDIT FIX 1.1: No client-side writes to tenant records
     match /tenants/{tenantId} {
       allow read: if isAuthed();
-      allow create, update, delete: if request.auth != null; // Admin/system use
+      allow create, update, delete: if false;
     }
 
-    // Trips: Special Immutability for Closed records
+    // Trips: SECURITY HARDENING — Server-side Writes Only
     match /trips/{tripId} {
-      allow read, create: if canAccessTenantData() && sameTenantOnCreate();
-      allow update: if canAccessTenantData() && sameTenantOnReadUpdateDelete() && 
-                    resource.data.status != 'closed' && 
-                    resource.data.status != 'cancelled';
+      allow read: if canAccessTenantData() && sameTenantOnReadUpdateDelete();
+      // QA AUDIT FIX 2.1: Chặn hoàn toàn việc ghi từ client. Bắt buộc qua Cloud Functions.
+      allow create, update: if false; 
       allow delete: if canAccessTenantData() && sameTenantOnReadUpdateDelete() && isTenantAdmin();
     }
 
-    // Core Business Entities
+    // Role-based Access for other collections
     match /{collection}/{docId} {
-      // Standard multi-tenant isolation for all other collections (vehicles, drivers, trips, etc.)
-      allow read: if canAccessTenantData() && sameTenantOnReadUpdateDelete();
-      allow create: if canAccessTenantData() && sameTenantOnCreate();
-      allow update: if canAccessTenantData() && sameTenantOnReadUpdateDelete();
-      allow delete: if canAccessTenantData() && sameTenantOnReadUpdateDelete();
+      function canDispatcherWrite() {
+        return userRole() == 'dispatcher' || userRole() == 'admin';
+      }
+      function canAccountantWrite() {
+        return userRole() == 'accountant' || userRole() == 'admin';
+      }
+
+      allow read: if collection not in ['users', 'company_settings', 'system_logs', 'tenants', 'trips']
+                    && canAccessTenantData() && sameTenantOnReadUpdateDelete();
       
-      // Additional safety for critical collections
-      allow delete: if collection in ['vehicles', 'drivers', 'trips', 'expenses'] 
+      allow create, update: if collection not in ['users', 'company_settings', 'system_logs', 'tenants', 'trips']
+                    && canAccessTenantData() && (
+                      (collection == 'expenses' && canAccountantWrite()) ||
+                      (collection in ['vehicles', 'drivers', 'routes', 'customers'] && canDispatcherWrite())
+                    );
+
+      allow delete: if (collection in ['vehicles', 'drivers', 'expenses'])
                     ? (canAccessTenantData() && sameTenantOnReadUpdateDelete() && isTenantAdmin())
-                    : (canAccessTenantData() && sameTenantOnReadUpdateDelete());
+                    : false;
     }
   }
 }

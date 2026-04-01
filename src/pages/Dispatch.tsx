@@ -42,6 +42,7 @@ import { useUpdateTrip } from "@/hooks/useTrips";
 
 const weekDays = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
 import { FleetMap } from "@/components/dispatch/FleetMap";
+import { QuickTripModal } from "@/components/trips/QuickTripModal";
 
 export default function Dispatch() {
   const { toast } = useToast();
@@ -284,11 +285,11 @@ export default function Dispatch() {
     if (searchQuery) {
       const lowerQ = searchQuery.toLowerCase();
       filtered = filtered.filter(t =>
-        t.trip_code.toLowerCase().includes(lowerQ) ||
-        t.vehicle?.license_plate?.toLowerCase().includes(lowerQ) ||
-        t.driver?.full_name?.toLowerCase().includes(lowerQ) ||
-        t.route?.route_name?.toLowerCase().includes(lowerQ) ||
-        t.customer?.customer_name?.toLowerCase().includes(lowerQ)
+        String(t.trip_code || '').toLowerCase().includes(lowerQ) ||
+        String(t.vehicle?.license_plate || '').toLowerCase().includes(lowerQ) ||
+        String(t.driver?.full_name || '').toLowerCase().includes(lowerQ) ||
+        String(t.route?.route_name || '').toLowerCase().includes(lowerQ) ||
+        String(t.customer?.customer_name || '').toLowerCase().includes(lowerQ)
       );
     }
 
@@ -323,11 +324,11 @@ export default function Dispatch() {
     if (searchQuery) {
       const lowerQ = searchQuery.toLowerCase();
       filtered = filtered.filter(t =>
-        t.trip_code.toLowerCase().includes(lowerQ) ||
-        t.vehicle?.license_plate?.toLowerCase().includes(lowerQ) ||
-        t.driver?.full_name?.toLowerCase().includes(lowerQ) ||
-        t.route?.route_name?.toLowerCase().includes(lowerQ) ||
-        t.customer?.customer_name?.toLowerCase().includes(lowerQ)
+        String(t.trip_code || '').toLowerCase().includes(lowerQ) ||
+        String(t.vehicle?.license_plate || '').toLowerCase().includes(lowerQ) ||
+        String(t.driver?.full_name || '').toLowerCase().includes(lowerQ) ||
+        String(t.route?.route_name || '').toLowerCase().includes(lowerQ) ||
+        String(t.customer?.customer_name || '').toLowerCase().includes(lowerQ)
       );
     }
 
@@ -390,10 +391,7 @@ export default function Dispatch() {
                 {isAiThinking ? <Bot className="w-4 h-4 mr-2 animate-bounce" /> : <Sparkles className="w-4 h-4 mr-2 text-indigo-500" />}
                 {isAiThinking ? "AI Đang Tính..." : "AI Tối Ưu Tuyến"}
             </Button>
-            <Button onClick={handleCreateTrip}>
-                <Plus className="w-4 h-4 mr-2" />
-                Tạo chuyến mới
-            </Button>
+            <QuickTripModal triggerLabel="Tạo chuyến mới" />
           </div>
         }
       />

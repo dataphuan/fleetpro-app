@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, HashRouter, Routes, Route, Outlet } from "react-router-dom";
+import { BrowserRouter, HashRouter, Routes, Route, Outlet, Navigate } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { ThemeInjector } from "@/components/layout/ThemeInjector";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -16,6 +16,7 @@ import { PageSkeleton } from "@/components/shared/PageSkeleton";
 
 // Lazy Loaded Pages
 const Dashboard = lazy(() => import("./pages/Dashboard"));
+const CoachingPage = lazy(() => import("./pages/CoachingPage"));
 const Vehicles = lazy(() => import("./pages/Vehicles"));
 const Drivers = lazy(() => import("./pages/Drivers"));
 const RoutesPage = lazy(() => import("./pages/Routes"));
@@ -34,9 +35,11 @@ const UserProfilePage = lazy(() => import("./pages/UserProfilePage"));
 const Pricing = lazy(() => import("./pages/Pricing"));
 const Members = lazy(() => import("./pages/Members"));
 const Logs = lazy(() => import("./pages/Logs"));
+const TrackingCenter = lazy(() => import("./pages/TrackingCenter"));
 
 // Driver PWA Routes
 const DriverDashboard = lazy(() => import("./pages/driver/DriverDashboard"));
+const DriverHistory = lazy(() => import("./pages/driver/DriverHistory"));
 
 // Customer B2B Portal Routes
 const CustomerPortal = lazy(() => import("./pages/portal/CustomerPortal"));
@@ -96,8 +99,11 @@ const App = () => {
                   <Route path="/settings" element={<Settings />} />
                   <Route path="/profile" element={<UserProfilePage />} />
                   <Route path="/pricing" element={<Pricing />} />
+                  <Route path="/coaching" element={<CoachingPage />} />
+                  <Route path="/sales" element={<Navigate to="/" replace />} />
                   <Route path="members" element={<Members />} />
                   <Route path="logs" element={<Logs />} />
+                  <Route path="/tracking-center" element={<TrackingCenter />} />
                   <Route path="*" element={<NotFound />} />
                 </Route>
 
@@ -111,8 +117,8 @@ const App = () => {
                   }
                 >
                   <Route index element={<DriverDashboard />} />
-                  {/* <Route path="history" element={<DriverHistory />} /> */}
-                  {/* <Route path="profile" element={<UserProfilePage />} /> */}
+                  <Route path="history" element={<DriverHistory />} />
+                  <Route path="profile" element={<UserProfilePage />} />
                 </Route>
 
                 {/* Customer B2B Portal Routes */}

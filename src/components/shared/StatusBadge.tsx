@@ -3,6 +3,7 @@ import { Circle } from "lucide-react";
 
 type StatusType = 
   | 'draft' 
+  | 'pending'
   | 'confirmed' 
   | 'in_progress' 
   | 'completed' 
@@ -20,6 +21,7 @@ interface StatusBadgeProps {
 
 const statusConfig: Record<StatusType, { label: string; className: string }> = {
   draft: { label: 'Nháp', className: 'status-draft' },
+  pending: { label: 'Chờ xử lý', className: 'status-draft' },
   confirmed: { label: 'Đã xác nhận', className: 'status-confirmed' },
   in_progress: { label: 'Đang thực hiện', className: 'status-in-progress' },
   completed: { label: 'Hoàn thành', className: 'status-completed' },

@@ -1,14 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { expenseAdapter } from '@/lib/data-adapter';
-// Supabase types removed for offline mode
 import { useToast } from '@/hooks/use-toast';
+import type { Expense, ExpenseAllocation } from '@/shared/types/domain';
 
-
-export type Expense = any;
-export type NewExpense = any;
-export type UpdateExpense = any;
-export type ExpenseAllocation = any;
-export type NewExpenseAllocation = any;
+export type NewExpense = Omit<Expense, 'id' | 'created_at' | 'updated_at' | 'is_deleted'>;
+export type UpdateExpense = Partial<Omit<Expense, 'id'>>;
+export type NewExpenseAllocation = Omit<ExpenseAllocation, 'id' | 'created_at'>;
 
 /**
  * Hook to fetch all expenses (excluding soft-deleted)

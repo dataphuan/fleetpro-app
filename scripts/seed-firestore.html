@@ -321,6 +321,33 @@ async function runSeed() {
   const tenant = getTenant();
   log(`🚀 Starting seed for tenant: ${tenant} ...\n`);
   try {
+    const tripById = new Map(TRIPS.map(t => [t.id, t]));
+    const expenseTotals = {};
+
+    EXPENSES.forEach((e) => {
+      if (e.trip_id && e.status === 'confirmed') {
+        const amount = Number(e.amount || 0);
+        expenseTotals[e.trip_id] = (expenseTotals[e.trip_id] || 0) + amount;
+      }
+    });
+
+    TRIPS.forEach((t) => {
+      if (typeof t.freight_revenue === 'undefined') t.freight_revenue = t.total_revenue || 0;
+      if (typeof t.additional_charges === 'undefined') t.additional_charges = 0;
+      if (typeof t.total_expenses === 'undefined') t.total_expenses = expenseTotals[t.id] || 0;
+    });
+
+    EXPENSES.forEach((e) => {
+      const trip = tripById.get(e.trip_id);
+      if (!trip) return;
+      if (!e.driver_id) e.driver_id = trip.driver_id;
+      if (!e.driver_name) e.driver_name = trip.driver_name;
+      if (!e.vehicle_id) e.vehicle_id = trip.vehicle_id;
+      if (!e.vehicle_plate) e.vehicle_plate = trip.vehicle_plate;
+      if (!e.customer_id) e.customer_id = trip.customer_id;
+      if (!e.route_id) e.route_id = trip.route_id;
+    });
+
     await ensureCurrentUserProfile();
     const results = [];
     results.push(await safeSeedCollection('vehicles', VEHICLES));

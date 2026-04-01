@@ -31,24 +31,11 @@ import { getDocs, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 
 ---
 
-### 🟡 **PHẦN CÒN LEGACY (Environment Config)**
+### ✅ **ĐÃ LOẠI BỎ LEGACY (Apps Script/GAS)**
 
-**Vẫn còn reference Google Apps Script webhook:**
-
-| File | Reference | Mục Đích |
-|------|-----------|---------|
-| `.env` | `VITE_GOOGLE_APPS_SCRIPT_WEBHOOK_URL` | Legacy? |
-| `.env.local` | `VITE_GOOGLE_APPS_SCRIPT_WEBHOOK_URL` | Phát triển? |
-| Audit Docs | script.google.com URLs | Testing? |
-
-**Nhưng:** Frontend code **KHÔNG GỌI** nó
-
-```typescript
-// ✅ Không tìm thấy gọi webhook trong src/
-// No matches: VITE_GOOGLE_APPS_SCRIPT
-// No matches: fetch(webhook)
-// No matches: script.google.com
-```
+- Không còn biến env GAS trong `.env`.
+- Không còn script/QA gate phụ thuộc Apps Script.
+- Không còn tài liệu yêu cầu Apps Script trong quy trình go-live.
 
 ---
 
@@ -60,8 +47,8 @@ import { getDocs, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 | **Data Storage** | ✅ 100% Firebase | Firestore collection structs |
 | **Authentication** | ✅ 100% Firebase | Firebase Auth |
 | **File Upload** | ✅ 100% Firebase | Firebase Storage |
-| **Environment Vars** | 🟡 80% | Còn webhook URL (unused) |
-| **Overall App** | **✅ 95% Firebase** | ~5% legacy config |
+| **Environment Vars** | ✅ 100% | Không còn webhook GAS |
+| **Overall App** | **✅ 100% Firebase** | Không còn legacy config |
 
 ---
 
@@ -89,22 +76,7 @@ Theo [ONLINE_ARCHITECTURE_CLOUDFLARE_FIREBASE.md](ONLINE_ARCHITECTURE_CLOUDFLARE
 
 ## 🔧 VẬN ĐỀ CÒN LẠI
 
-### 1️⃣ Webhook URLs Trong Env
-```bash
-# Vẫn có nhưng không dùng:
-VITE_GOOGLE_APPS_SCRIPT_WEBHOOK_URL=https://script.google.com/...
-
-# Nên xóa hoặc chuyển thành comment
-```
-
-### 2️⃣ Docs Còn Reference GAS
-```markdown
-# Audit docs/scripts vẫn reference script.google.com
-# Nhưng đó là cho testing blocking issues
-# Không phải app code dùng
-```
-
-### 3️⃣ Deploy Config
+### 1️⃣ Deploy Config
 ```javascript
 // firebase.json
 // ✅ Chỉ có Firestore rules
@@ -132,14 +104,8 @@ VITE_GOOGLE_APPS_SCRIPT_WEBHOOK_URL=https://script.google.com/...
 
 ## 🚀 KHUYẾN NGHỊ
 
-### Ngay (Before Go-Live):
-- [ ] Xóa `VITE_GOOGLE_APPS_SCRIPT_WEBHOOK_URL` khỏi Cloudflare Pages env
-- [ ] Xóa khỏi `.env` production
-
-### Sau (Cleanup):
-- [ ] Remove @google/clasp từ scripts/
-- [ ] Archive deploy-gas.ps1 scripts
-- [ ] Update docs bỏ GAS references
+- Duy trì tài liệu và script theo Firebase-only.
+- Không reintroduce Apps Script/GAS vào runtime.
 
 ---
 

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { formatCurrency, formatNumber } from "@/lib/formatters";
 import { Badge } from "@/components/ui/badge";
 import { ExcelDataTable, ColumnDef } from "./ExcelDataTable";
@@ -15,8 +15,11 @@ import { DrillDownTripTable } from "./DrillDownTripTable";
 import { exportDriverReportToPDF } from "@/lib/pdf-export";
 import { ReportSummaryCards, SummaryCardProps } from "./ReportSummaryCards";
 import { Users, Truck, Wallet, Activity } from "lucide-react";
+import { googleDriveService } from "@/services/googleDrive";
+import { useToast } from "@/hooks/use-toast";
 
 export function ReportByDriverTable() {
+  const { toast } = useToast();
   const [filters, setFilters] = useState<FilterState>({
     searchPromise: "",
     dateRange: { from: startOfYear(new Date()), to: endOfYear(new Date()) },
@@ -25,9 +28,22 @@ export function ReportByDriverTable() {
     driverIds: []
   });
 
+  const [googleDriveConnected, setGoogleDriveConnected] = useState(false);
+
   const { data: reportCombined, isLoading, refetch } = useDriverReport(filters);
   const reportData = reportCombined?.data || [];
   const summary = reportCombined?.summary;
+
+  useEffect(() => {
+    // Check Google Drive connection status
+    const checkGoogleDriveStatus = async () => {
+      const initialized = await googleDriveService.initialize();
+      if (initialized) {
+        setGoogleDriveConnected(googleDriveService.isAuthenticatedStatus());
+      }
+    };
+    checkGoogleDriveStatus();
+  }, []);
 
   const summaryCards: SummaryCardProps[] = [
     {
@@ -192,6 +208,50 @@ export function ReportByDriverTable() {
     }
   };
 
+  const handleGoogleDriveSync = async () => {
+    if (!googleDriveConnected) {
+      toast({
+        title: "Chưa kết nối Google Drive",
+        description: "Vui lòng kết nối Google Drive trong phần cài đặt.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const reportDataToSync = {
+        reportType: 'driver-report',
+        generatedAt: new Date().toISOString(),
+        filters: filters,
+        data: reportData,
+        summary: summary
+      };
+
+      const result = await googleDriveService.syncFleetData(reportDataToSync, 'current-tenant');
+
+      if (result.success) {
+        toast({
+          title: "Đồng bộ thành công",
+          description: "Báo cáo tài xế đã được đồng bộ với Google Drive.",
+        });
+      } else {
+        throw new Error(result.error || 'Đồng bộ thất bại');
+      }
+    } catch (error: any) {
+      console.error('Google Drive sync failed:', error);
+      toast({
+        title: "Lỗi đồng bộ",
+        description: error.message || "Không thể đồng bộ với Google Drive.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleLocalSave = () => {
+    // Trigger the Excel export as local save
+    handleExport('xlsx');
+  };
+
   return (
     <div className="space-y-3">
       {summary && <ReportSummaryCards cards={summaryCards} />}
@@ -210,7 +270,12 @@ export function ReportByDriverTable() {
               onToggleColumn={toggleColumn}
               onReset={resetColumns}
             />
-            <ExportButtons onExport={handleExport} />
+            <ExportButtons
+              onExport={handleExport}
+              onGoogleDriveSync={handleGoogleDriveSync}
+              onLocalSave={handleLocalSave}
+              googleDriveConnected={googleDriveConnected}
+            />
           </div>
         </ExcelFilterBar>
       </div>

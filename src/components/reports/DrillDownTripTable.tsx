@@ -76,9 +76,9 @@ export function DrillDownTripTable({ trips, isLoading, onTripClick, onCloseDrawe
                                 </button>
                             </TableCell>
                             <TableCell>
-                                {trip.departure_date ? format(new Date(trip.departure_date), 'dd/MM/yyyy') : 'N/A'}
+                                {trip.departure_date ? format(new Date(trip.departure_date), 'dd/MM/yyyy') : '—'}
                             </TableCell>
-                            <TableCell className="max-w-[200px] truncate" title={trip.route?.route_name || 'N/A'}>
+                            <TableCell className="max-w-[200px] truncate" title={trip.route?.route_name || '—'}>
                                 {trip.route?.route_name || '---'}
                             </TableCell>
                             <TableCell className="text-right text-green-600 font-medium">

@@ -2,9 +2,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { tripAdapter } from '@/lib/data-adapter';
 import { useToast } from '@/hooks/use-toast';
 
-type Trip = any;
-type NewTrip = any;
-type UpdateTrip = any;
+import type { Trip } from '@/shared/types/domain';
+
+type NewTrip = Omit<Trip, 'id' | 'created_at' | 'updated_at' | 'is_deleted'>;
+type UpdateTrip = Partial<Omit<Trip, 'id' | 'tenant_id'>>;
 
 // Trip status enum - must match database enum
 export type TripStatus = 'draft' | 'confirmed' | 'dispatched' | 'in_progress' | 'completed' | 'closed' | 'cancelled';

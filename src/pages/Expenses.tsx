@@ -63,6 +63,7 @@ import { useClosedPeriods, isDateInClosedPeriod } from '@/hooks/useAccountingPer
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePermissions } from "@/hooks/usePermissions";
 import { getNextCodeByPrefix } from "@/lib/code-generator";
+import { InvoiceOCRMockDialog, type OCRExpenseDraft } from "@/components/expenses/InvoiceOCRMockDialog";
 
 // Types
 interface Expense {
@@ -144,6 +145,7 @@ export default function Expenses() {
   const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
 
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [ocrDialogOpen, setOcrDialogOpen] = useState(false);
 
   // Import Columns Config
   const importColumns: ImportColumn[] = [
@@ -513,6 +515,36 @@ export default function Expenses() {
     });
   };
 
+  const handleApplyOcrDraft = async (draft: OCRExpenseDraft) => {
+    setSelectedExpense(null);
+    const monthlyPrefix = `CP${format(new Date(), 'yyMM')}`;
+    const nextCode = getNextCodeByPrefix(
+      (expenses || []).map(e => e.expense_code),
+      monthlyPrefix,
+      4
+    );
+
+    form.reset({
+      expense_code: nextCode,
+      expense_date: draft.expense_date,
+      category_id: draft.category_id,
+      amount: draft.amount,
+      description: draft.description,
+      vendor_name: draft.vendor_name,
+      status: 'draft',
+      trip_id: null,
+      vehicle_id: null,
+      driver_id: null,
+      document_number: null,
+    });
+
+    setDialogOpen(true);
+    toast({
+      title: "Da dien form tu OCR",
+      description: "Kiem tra va luu phieu chi de hoan tat.",
+    });
+  };
+
   // Filter data based on all filters
   const filteredExpenses = useMemo(() => {
     return (expenses || []).filter(expense => {
@@ -791,6 +823,13 @@ export default function Expenses() {
           </Button>
 
           {canCreate && (
+            <Button variant="outline" size="sm" onClick={() => setOcrDialogOpen(true)} className="h-8 px-2 lg:px-3">
+              <Fuel className="w-4 h-4 lg:mr-2" />
+              <span className="hidden lg:inline">Scan hóa đơn</span>
+            </Button>
+          )}
+
+          {canCreate && (
             <Button variant="outline" size="sm" onClick={handleImport} className="h-8 px-2 lg:px-3">
               <Upload className="w-4 h-4 lg:mr-2" />
               <span className="hidden lg:inline">Nhập</span>
@@ -843,6 +882,12 @@ export default function Expenses() {
         ]}
         existingCodes={expenses?.map(e => e.expense_code) || []}
         codeField="expense_code"
+      />
+
+      <InvoiceOCRMockDialog
+        open={ocrDialogOpen}
+        onOpenChange={setOcrDialogOpen}
+        onApply={handleApplyOcrDraft}
       />
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>

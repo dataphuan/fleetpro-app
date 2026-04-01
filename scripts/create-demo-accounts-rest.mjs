@@ -10,28 +10,28 @@ const FIREBASE_PROJECT_ID = 'quanlyxe-484904';
 
 const DEMO_ACCOUNTS = [
   {
-    email: 'CEO@demo.tnc.io.vn',
+    email: 'admindemo@tnc.io.vn',
     password: 'Demo@1234',
-    displayName: 'CEO - FleetPro Demo',
-    photoURL: '👨‍💼',
+    displayName: 'Admin - TNC Demo',
+    photoURL: '👑',
   },
   {
-    email: 'Manager@demo.tnc.io.vn',
+    email: 'quanlydemo@tnc.io.vn',
     password: 'Demo@1234',
-    displayName: 'Manager - FleetPro Demo',
+    displayName: 'Quan ly - TNC Demo',
     photoURL: '👔',
   },
   {
-    email: 'Driver@demo.tnc.io.vn',
+    email: 'ketoandemo@tnc.io.vn',
     password: 'Demo@1234',
-    displayName: 'Driver - FleetPro Demo',
-    photoURL: '👨‍✈️',
+    displayName: 'Ke toan - TNC Demo',
+    photoURL: '🧾',
   },
   {
-    email: 'Developer@demo.tnc.io.vn',
+    email: 'taixedemo@tnc.io.vn',
     password: 'Demo@1234',
-    displayName: 'Developer - FleetPro Demo',
-    photoURL: '👨‍💻',
+    displayName: 'Tai xe - TNC Demo',
+    photoURL: '🚚',
   },
 ];
 

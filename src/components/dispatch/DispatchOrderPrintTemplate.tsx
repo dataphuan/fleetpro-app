@@ -36,8 +36,8 @@ export function DispatchOrderPrintTemplate({ trip }: DispatchOrderPrintTemplateP
                         <div className="border-b border-gray-300 pb-2">
                             <h3 className="font-bold text-lg mb-2">📅 THÔNG TIN CHUYẾN ĐI</h3>
                             <div className="space-y-1 text-sm">
-                                <p><span className="font-semibold">Ngày khởi hành:</span> {trip.departure_date ? format(new Date(trip.departure_date), "dd/MM/yyyy", { locale: vi }) : "N/A"}</p>
-                                <p><span className="font-semibold">Giờ xuất phát:</span> {trip.departure_time || "N/A"}</p>
+                                <p><span className="font-semibold">Ngày khởi hành:</span> {trip.departure_date ? format(new Date(trip.departure_date), "dd/MM/yyyy", { locale: vi }) : "—"}</p>
+                                <p><span className="font-semibold">Giờ xuất phát:</span> {trip.departure_time || "—"}</p>
                                 <p><span className="font-semibold">Trạng thái:</span> {trip.status === 'draft' ? 'Nháp' : trip.status === 'completed' ? 'Hoàn thành' : 'Đã đóng'}</p>
                             </div>
                         </div>
@@ -45,18 +45,18 @@ export function DispatchOrderPrintTemplate({ trip }: DispatchOrderPrintTemplateP
                         <div className="border-b border-gray-300 pb-2">
                             <h3 className="font-bold text-lg mb-2">🚛 THÔNG TIN XE</h3>
                             <div className="space-y-1 text-sm">
-                                <p><span className="font-semibold">Biển số:</span> <span className="text-xl font-bold">{vehicle?.license_plate || "N/A"}</span></p>
-                                <p><span className="font-semibold">Loại xe:</span> {vehicle?.vehicle_type || "N/A"}</p>
-                                <p><span className="font-semibold">Tải trọng:</span> {vehicle?.capacity ? `${vehicle.capacity} tấn` : "N/A"}</p>
+                                <p><span className="font-semibold">Biển số:</span> <span className="text-xl font-bold">{vehicle?.license_plate || "—"}</span></p>
+                                <p><span className="font-semibold">Loại xe:</span> {vehicle?.vehicle_type || "—"}</p>
+                                <p><span className="font-semibold">Tải trọng:</span> {vehicle?.capacity ? `${vehicle.capacity} tấn` : "—"}</p>
                             </div>
                         </div>
 
                         <div className="border-b border-gray-300 pb-2">
                             <h3 className="font-bold text-lg mb-2">👤 THÔNG TIN TÀI XẾ</h3>
                             <div className="space-y-1 text-sm">
-                                <p><span className="font-semibold">Họ tên:</span> <span className="font-bold">{driver?.full_name || "N/A"}</span></p>
-                                <p><span className="font-semibold">SĐT:</span> {driver?.phone || "N/A"}</p>
-                                <p><span className="font-semibold">Bằng lái:</span> {driver?.license_class || "N/A"}</p>
+                                <p><span className="font-semibold">Họ tên:</span> <span className="font-bold">{driver?.full_name || "—"}</span></p>
+                                <p><span className="font-semibold">SĐT:</span> {driver?.phone || "—"}</p>
+                                <p><span className="font-semibold">Bằng lái:</span> {driver?.license_class || "—"}</p>
                             </div>
                         </div>
                     </div>
@@ -66,9 +66,9 @@ export function DispatchOrderPrintTemplate({ trip }: DispatchOrderPrintTemplateP
                         <div className="border-b border-gray-300 pb-2">
                             <h3 className="font-bold text-lg mb-2">🏢 KHÁCH HÀNG</h3>
                             <div className="space-y-1 text-sm">
-                                <p><span className="font-semibold">Tên:</span> {customer?.name || "N/A"}</p>
-                                <p><span className="font-semibold">SĐT:</span> {customer?.phone || "N/A"}</p>
-                                <p><span className="font-semibold">Địa chỉ:</span> {customer?.address || "N/A"}</p>
+                                <p><span className="font-semibold">Tên:</span> {customer?.name || "—"}</p>
+                                <p><span className="font-semibold">SĐT:</span> {customer?.phone || "—"}</p>
+                                <p><span className="font-semibold">Địa chỉ:</span> {customer?.address || "—"}</p>
                             </div>
                         </div>
 
@@ -76,9 +76,9 @@ export function DispatchOrderPrintTemplate({ trip }: DispatchOrderPrintTemplateP
                             <h3 className="font-bold text-lg mb-2">🗺️ TUYẾN ĐƯỜNG</h3>
                             <div className="space-y-1 text-sm">
                                 <p><span className="font-semibold">Tên tuyến:</span> {route?.route_name || "Chưa định tuyến"}</p>
-                                <p><span className="font-semibold">Từ:</span> {route?.origin || "N/A"}</p>
-                                <p><span className="font-semibold">Đến:</span> {route?.destination || "N/A"}</p>
-                                <p><span className="font-semibold">Khoảng cách:</span> {route?.distance_km ? `${route.distance_km} km` : "N/A"}</p>
+                                <p><span className="font-semibold">Từ:</span> {route?.origin || "—"}</p>
+                                <p><span className="font-semibold">Đến:</span> {route?.destination || "—"}</p>
+                                <p><span className="font-semibold">Khoảng cách:</span> {route?.distance_km ? `${route.distance_km} km` : "—"}</p>
                             </div>
                         </div>
 
@@ -86,7 +86,7 @@ export function DispatchOrderPrintTemplate({ trip }: DispatchOrderPrintTemplateP
                             <h3 className="font-bold text-lg mb-2">📦 HÀNG HÓA</h3>
                             <div className="space-y-1 text-sm">
                                 <p><span className="font-semibold">Mô tả:</span> {trip.cargo_description || "Không có thông tin"}</p>
-                                <p><span className="font-semibold">Khối lượng:</span> {trip.cargo_weight ? `${trip.cargo_weight} tấn` : "N/A"}</p>
+                                <p><span className="font-semibold">Khối lượng:</span> {trip.cargo_weight ? `${trip.cargo_weight} tấn` : "—"}</p>
                             </div>
                         </div>
                     </div>

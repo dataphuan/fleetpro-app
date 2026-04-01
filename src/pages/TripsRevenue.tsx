@@ -10,6 +10,7 @@ import { formatNumber, formatDate, formatCurrency } from "@/lib/formatters";
 import { ExcelImportDialog, ImportColumn } from "@/components/shared/ExcelImportDialog";
 import { importFromFile, exportToCSV } from "@/lib/export";
 import { generateTripCode } from "@/lib/utils";
+import { QuickTripModal } from "@/components/trips/QuickTripModal";
 import { Button } from "@/components/ui/button";
 import { DateFilter } from "@/components/shared/DateFilter";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -1039,6 +1040,7 @@ export default function TripsRevenue() {
             <PageHeader
                 title="Nhập Liệu Doanh Thu"
                 description="Danh sách chuyến & doanh thu – phục vụ tính lợi nhuận"
+                actions={canCreate ? <QuickTripModal triggerLabel="+ Tạo Chuyến" /> : undefined}
             />
 
             {/* KPI Summary Bar */}

@@ -42,6 +42,7 @@ export function GeminiChat() {
     const inputRef = useRef<HTMLInputElement>(null);
     const [isListening, setIsListening] = useState(false);
     const [isSpeaking, setIsSpeaking] = useState(false);
+    const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const recognitionRef = useRef<any>(null);
 
@@ -186,16 +187,25 @@ export function GeminiChat() {
         }
     };
 
-    const speak = (text: string) => {
+    const speak = (text: string, messageId?: string) => {
         if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
             window.speechSynthesis.cancel();
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = 'vi-VN';
             utterance.rate = 1.0;
             utterance.pitch = 1.0;
-            utterance.onstart = () => setIsSpeaking(true);
-            utterance.onend = () => setIsSpeaking(false);
-            utterance.onerror = () => setIsSpeaking(false);
+            utterance.onstart = () => {
+                setIsSpeaking(true);
+                setSpeakingMessageId(messageId || null);
+            };
+            utterance.onend = () => {
+                setIsSpeaking(false);
+                setSpeakingMessageId(null);
+            };
+            utterance.onerror = () => {
+                setIsSpeaking(false);
+                setSpeakingMessageId(null);
+            };
             window.speechSynthesis.speak(utterance);
         }
     };
@@ -204,6 +214,7 @@ export function GeminiChat() {
         if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
             window.speechSynthesis.cancel();
             setIsSpeaking(false);
+            setSpeakingMessageId(null);
         }
     };
 
@@ -262,7 +273,7 @@ export function GeminiChat() {
                 </CardHeader>
 
                 {/* Chat Content */}
-                <CardContent className="flex-1 p-0 overflow-hidden relative bg-slate-50">
+                <CardContent className="flex-1 min-h-0 p-0 overflow-hidden relative bg-slate-50">
                     {messages.length === 0 ? (
                         <div className="h-full flex flex-col items-center justify-center text-muted-foreground p-8 text-center opacity-70">
                             <div className="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mb-6 animate-bounce">
@@ -288,23 +299,50 @@ export function GeminiChat() {
                             </div>
                         </div>
                     ) : (
-                        <ScrollArea className="h-full p-4 pr-5">
+                        <ScrollArea className="h-full min-h-0 p-4 pr-5">
                             <div className="flex flex-col gap-6 pb-4">
                                 {messages.map((msg) => (
                                     <div
                                         key={msg.id}
                                         className={cn(
-                                            "flex w-max max-w-[85%] flex-col gap-2 rounded-2xl px-4 py-3 text-sm shadow-sm",
+                                            "flex w-full max-w-[85%] flex-col gap-2 rounded-2xl px-4 py-3 text-sm shadow-sm break-words",
                                             msg.role === "user"
                                                 ? "ml-auto bg-blue-600 text-white rounded-br-none"
                                                 : "bg-white border border-slate-100 text-slate-800 rounded-bl-none"
                                         )}
                                     >
-                                        <div className={cn("prose prose-sm max-w-none break-words leading-relaxed", msg.role === "user" ? "prose-invert" : "prose-slate")}>
+                                        <div className={cn("prose prose-sm max-w-none break-words whitespace-pre-wrap leading-relaxed", msg.role === "user" ? "prose-invert" : "prose-slate")}>
                                             <ReactMarkdown remarkPlugins={[remarkGfm]}>
                                                 {msg.text}
                                             </ReactMarkdown>
                                         </div>
+                                        {msg.role === "model" && (
+                                            <div className="flex items-center justify-end">
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className={cn(
+                                                        "h-7 w-7 text-slate-500 hover:text-blue-600 hover:bg-blue-50",
+                                                        speakingMessageId === msg.id && "text-blue-600"
+                                                    )}
+                                                    onClick={() => {
+                                                        if (speakingMessageId === msg.id) {
+                                                            stopSpeaking();
+                                                        } else {
+                                                            speak(msg.text, msg.id);
+                                                        }
+                                                    }}
+                                                    title={speakingMessageId === msg.id ? "Dừng đọc" : "Đọc nội dung"}
+                                                >
+                                                    {speakingMessageId === msg.id ? (
+                                                        <VolumeX className="w-4 h-4" />
+                                                    ) : (
+                                                        <Volume2 className="w-4 h-4" />
+                                                    )}
+                                                </Button>
+                                            </div>
+                                        )}
                                         <span className={cn("text-[10px] opacity-70 block text-right mt-1", msg.role === "user" ? "text-blue-100" : "text-slate-400")}>
                                             {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                         </span>
