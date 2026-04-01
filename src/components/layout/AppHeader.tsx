@@ -16,9 +16,10 @@ import { Badge } from "@/components/ui/badge";
 
 interface AppHeaderProps {
   onOpenMobileSidebar?: () => void;
+  forceShowMenuButton?: boolean;
 }
 
-export function AppHeader({ onOpenMobileSidebar }: AppHeaderProps) {
+export function AppHeader({ onOpenMobileSidebar, forceShowMenuButton = false }: AppHeaderProps) {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { data: alertsSummary } = useAlertsSummary();
@@ -39,7 +40,7 @@ export function AppHeader({ onOpenMobileSidebar }: AppHeaderProps) {
           type="button"
           variant="ghost"
           size="icon"
-          className="lg:hidden"
+          className={forceShowMenuButton ? "" : "lg:hidden"}
           onClick={onOpenMobileSidebar}
           aria-label="Mở menu"
         >

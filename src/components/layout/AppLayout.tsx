@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useEffect, useMemo, useState } from "react";
 import { AppSidebar } from "./AppSidebar";
 import { AppHeader } from "./AppHeader";
 import { GeminiChat } from "@/components/chat/GeminiChat";
@@ -10,6 +10,29 @@ interface AppLayoutProps {
 
 export function AppLayout({ children }: AppLayoutProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [viewportWidth, setViewportWidth] = useState(() => {
+    if (typeof window === "undefined") return 1280;
+    return window.innerWidth;
+  });
+
+  const isTouchMobileDevice = useMemo(() => {
+    if (typeof navigator === "undefined") return false;
+    return /Android|iPhone|iPad|iPod|Mobile|Windows Phone/i.test(navigator.userAgent);
+  }, []);
+
+  const useMobileShell = viewportWidth < 1024 || isTouchMobileDevice;
+
+  useEffect(() => {
+    const handleResize = () => setViewportWidth(window.innerWidth);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (!useMobileShell && mobileSidebarOpen) {
+      setMobileSidebarOpen(false);
+    }
+  }, [useMobileShell, mobileSidebarOpen]);
 
   const closeMobileSidebar = () => setMobileSidebarOpen(false);
 
@@ -17,27 +40,30 @@ export function AppLayout({ children }: AppLayoutProps) {
     <PaywallGuard>
       <div className="flex h-screen overflow-hidden bg-background relative">
         {/* Desktop sidebar */}
-        <div className="hidden lg:block">
+        <div className={useMobileShell ? "hidden" : "block"}>
           <AppSidebar />
         </div>
 
         {/* Mobile sidebar drawer */}
-        {mobileSidebarOpen && (
+        {useMobileShell && mobileSidebarOpen && (
           <button
             type="button"
-            className="fixed inset-0 z-30 bg-slate-900/50 backdrop-blur-[1px] lg:hidden"
+            className="fixed inset-0 z-30 bg-slate-900/50 backdrop-blur-[1px]"
             onClick={closeMobileSidebar}
             aria-label="Đóng menu"
           />
         )}
         <div
-          className={`fixed left-0 top-0 z-40 h-screen transition-transform duration-300 lg:hidden ${mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
+          className={`fixed left-0 top-0 z-40 h-screen transition-transform duration-300 ${useMobileShell ? "" : "hidden"} ${mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
         >
           <AppSidebar onNavigate={closeMobileSidebar} />
         </div>
 
         <div className="flex min-w-0 flex-col flex-1 overflow-hidden">
-          <AppHeader onOpenMobileSidebar={() => setMobileSidebarOpen(true)} />
+          <AppHeader
+            onOpenMobileSidebar={() => setMobileSidebarOpen(true)}
+            forceShowMenuButton={useMobileShell}
+          />
           <main className="flex-1 overflow-auto px-3 py-3 sm:px-4 sm:py-4 lg:px-6 lg:py-6">
             {children}
           </main>
