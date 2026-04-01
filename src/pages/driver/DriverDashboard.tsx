@@ -3,7 +3,7 @@ import { useTrips, useUpdateTrip } from "@/hooks/useTrips";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Navigation, AlertTriangle, CheckCircle2, Package, Play, Camera, Loader2, LocateFixed } from "lucide-react";
+import { MapPin, Navigation, AlertTriangle, CheckCircle2, Package, Play, Camera, Loader2, LocateFixed, Wifi, WifiOff, PhoneCall } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Label } from "@/components/ui/label";
@@ -35,6 +35,8 @@ const FEATURE_GATES = {
 
 type FeatureState = 'idle' | 'loading' | 'success' | 'error';
 
+const DRIVER_DRAFTS_STORAGE_KEY = 'driver_dashboard_trip_drafts';
+
 export default function DriverDashboard() {
     const { user, tenantId, role } = useAuth();
     const { data: trips = [], isLoading } = useTrips();
@@ -50,6 +52,7 @@ export default function DriverDashboard() {
     const [startStateByTrip, setStartStateByTrip] = useState<Record<string, FeatureState>>({});
     const [finishStateByTrip, setFinishStateByTrip] = useState<Record<string, FeatureState>>({});
     const [incidentStateByTrip, setIncidentStateByTrip] = useState<Record<string, FeatureState>>({});
+    const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
     
     // e-POD states
     const [signatureDialogOpen, setSignatureDialogOpen] = useState(false);
@@ -64,6 +67,19 @@ export default function DriverDashboard() {
     const lastPointByTripRef = useRef<Record<string, DriverGeoPoint>>({});
     const lastFraudToastRef = useRef<number>(0);
     const lastAlertByTripRef = useRef<Record<string, number>>({});
+
+    useEffect(() => {
+        const onOnline = () => setIsOnline(true);
+        const onOffline = () => setIsOnline(false);
+
+        window.addEventListener('online', onOnline);
+        window.addEventListener('offline', onOffline);
+
+        return () => {
+            window.removeEventListener('online', onOnline);
+            window.removeEventListener('offline', onOffline);
+        };
+    }, []);
 
     const buildReleaseSafeCreatePayload = (feature: string, payload: Record<string, any>) => {
         if (!tenantId) {
@@ -93,9 +109,41 @@ export default function DriverDashboard() {
         ['draft', 'confirmed', 'dispatched', 'in_progress'].includes(t.status)
     );
 
+    const primaryTripForAction = useMemo(() => {
+        if (!myActiveTrips.length) return null;
+        const inProgress = myActiveTrips.find((trip: any) => trip.status === 'in_progress');
+        if (inProgress) return inProgress;
+        return myActiveTrips[0];
+    }, [myActiveTrips]);
+
     const activeTrackingTrip = useMemo(() => {
         return myActiveTrips.find((trip: any) => trip.status === 'in_progress') || null;
     }, [myActiveTrips]);
+
+    const storageScope = `${tenantId || 'no-tenant'}:${user?.id || user?.email || 'no-user'}`;
+
+    useEffect(() => {
+        try {
+            const raw = localStorage.getItem(`${DRIVER_DRAFTS_STORAGE_KEY}:${storageScope}`);
+            if (!raw) return;
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === 'object') {
+                setTripInputs(parsed);
+            }
+        } catch {
+            // Keep clean runtime even when browser storage has invalid data.
+        }
+        // Load once for current session scope.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [storageScope]);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem(`${DRIVER_DRAFTS_STORAGE_KEY}:${storageScope}`, JSON.stringify(tripInputs));
+        } catch {
+            // Best effort only.
+        }
+    }, [tripInputs, storageScope]);
 
     const vehicleById = useMemo(() => {
         const map = new Map<string, any>();
@@ -272,6 +320,13 @@ export default function DriverDashboard() {
             return;
         }
 
+        if (!isOnline) {
+            handleInputChange(tripId, 'uploadState', 'error');
+            handleInputChange(tripId, 'uploadError', 'Thiết bị đang offline. Vui lòng kết nối mạng để tải biên nhận.');
+            toast({ title: 'Mất kết nối mạng', description: 'Chưa thể tải biên nhận khi offline.', variant: 'destructive' });
+            return;
+        }
+
         const file = e.target.files?.[0];
         if (!file) return;
 
@@ -311,6 +366,11 @@ export default function DriverDashboard() {
     const handleStartTrip = async (trip: any) => {
         if (!isDriverRole) {
             toast({ title: 'Không có quyền', description: 'Chỉ tài xế mới được bắt đầu chuyến.', variant: 'destructive' });
+            return;
+        }
+
+        if (!isOnline) {
+            toast({ title: 'Mất kết nối mạng', description: 'Vui lòng bật mạng trước khi check-in chuyến.', variant: 'destructive' });
             return;
         }
 
@@ -391,6 +451,11 @@ export default function DriverDashboard() {
         const trip = activeTripForSignature;
         const inputs = tripInputs[trip.id];
 
+        if (!isOnline) {
+            toast({ title: 'Mất kết nối mạng', description: 'Không thể chốt chuyến khi offline. Vui lòng bật mạng.', variant: 'destructive' });
+            return;
+        }
+
         setIsUpdating(true);
         setSignatureDialogOpen(false);
         setFinishStateByTrip((prev) => ({ ...prev, [trip.id]: 'loading' }));
@@ -446,6 +511,11 @@ export default function DriverDashboard() {
             return;
         }
 
+        if (!isOnline) {
+            toast({ title: 'Mất kết nối mạng', description: 'Không thể gửi báo sự cố khi offline.', variant: 'destructive' });
+            return;
+        }
+
         if (!FEATURE_GATES.incidentReport) {
             toast({ title: 'Tính năng tạm khóa', description: 'Báo sự cố sẽ bật khi backend hoàn thiện.', variant: 'destructive' });
             return;
@@ -489,12 +559,32 @@ export default function DriverDashboard() {
                 </div>
                 <h2 className="text-xl font-bold text-slate-700">Chưa có chuyến</h2>
                 <p className="text-slate-500 mt-2">Tuyệt vời! Hiện tại bạn không có chuyến đi nào được phân công. Hãy nghỉ ngơi.</p>
+                <a
+                    href="tel:0989890022"
+                    className="mt-4 inline-flex items-center gap-2 rounded-md border border-blue-300 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700"
+                >
+                    <PhoneCall className="w-4 h-4" />
+                    Liên hệ điều phối
+                </a>
             </div>
         );
     }
 
     return (
         <div className="p-4 pb-24 space-y-4">
+            <Card className={isOnline ? "border-emerald-200 bg-emerald-50/70" : "border-red-200 bg-red-50/80"}>
+                <CardContent className="pt-3 pb-3">
+                    <div className="flex items-center gap-2 text-sm">
+                        {isOnline ? <Wifi className="w-4 h-4 text-emerald-700" /> : <WifiOff className="w-4 h-4 text-red-700" />}
+                        <span className={isOnline ? "text-emerald-800" : "text-red-800"}>
+                            {isOnline
+                                ? 'Đang online: dữ liệu chuyến được đồng bộ thời gian thực.'
+                                : 'Đang offline: chỉ xem dữ liệu cũ, các thao tác gửi dữ liệu tạm bị khóa.'}
+                        </span>
+                    </div>
+                </CardContent>
+            </Card>
+
             <div className="mb-6">
                 <h2 className="text-2xl font-bold text-slate-800">Chuyến đi của bạn</h2>
                 <p className="text-sm text-slate-500">Kéo xuống để xem tất cả ({myActiveTrips.length} chuyến)</p>
@@ -673,6 +763,33 @@ export default function DriverDashboard() {
                     />
                 </DialogContent>
             </Dialog>
+
+            {isDriverRole && primaryTripForAction && (
+                <div className="fixed bottom-[82px] left-1/2 z-30 w-[min(92vw,430px)] -translate-x-1/2 rounded-xl border border-slate-200 bg-white/95 p-2 shadow-xl backdrop-blur">
+                    {primaryTripForAction.status === 'in_progress' ? (
+                        <Button
+                            className="h-12 w-full bg-green-600 text-base font-bold hover:bg-green-700"
+                            disabled={isUpdating || !isOnline || tripInputs[primaryTripForAction.id]?.isUploading}
+                            onClick={() => handleFinishTripWithSignature(primaryTripForAction)}
+                        >
+                            <CheckCircle2 className="mr-2 h-5 w-5" />
+                            Chốt chuyến nhanh ({primaryTripForAction.trip_code})
+                        </Button>
+                    ) : (
+                        <Button
+                            className="h-12 w-full bg-blue-600 text-base font-bold hover:bg-blue-700"
+                            disabled={isUpdating || !isOnline || isCheckingInTripId === primaryTripForAction.id}
+                            onClick={() => handleStartTrip(primaryTripForAction)}
+                        >
+                            {isCheckingInTripId === primaryTripForAction.id ? (
+                                <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Đang check-in...</>
+                            ) : (
+                                <><Play className="mr-2 h-5 w-5" /> Bắt đầu chuyến nhanh ({primaryTripForAction.trip_code})</>
+                            )}
+                        </Button>
+                    )}
+                </div>
+            )}
         </div>
     );
 }

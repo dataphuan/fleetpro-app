@@ -168,6 +168,14 @@
   body {
     @apply bg-background text-foreground font-sans antialiased;
     font-family: 'Inter', system-ui, sans-serif;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    line-height: 1.5;
+  }
+
+  #root {
+    @apply min-h-screen;
   }
 
   /* Monospace for codes and numbers */
@@ -224,7 +232,7 @@
 
   /* Data grid styles */
   .data-grid {
-    @apply w-full border-collapse;
+    @apply w-full border-collapse rounded-lg overflow-hidden;
   }
 
   .data-grid th {
@@ -232,7 +240,7 @@
   }
 
   .data-grid td {
-    @apply px-4 py-3 text-sm border-b border-[hsl(var(--table-border))];
+    @apply px-4 py-3 text-sm border-b border-[hsl(var(--table-border))] align-middle;
   }
 
   .data-grid tr:hover td {
@@ -245,7 +253,7 @@
 
   /* Card stats */
   .stat-card {
-    @apply rounded-xl border bg-card p-6 shadow-sm transition-all hover:shadow-md;
+    @apply rounded-xl border bg-card p-5 sm:p-6 shadow-sm transition-all hover:shadow-md hover:-translate-y-[1px];
   }
 
   .stat-value {
@@ -276,6 +284,60 @@
 
   .nav-item-inactive {
     @apply text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground;
+  }
+}
+
+@layer base {
+  h1 {
+    @apply text-2xl sm:text-[1.75rem] font-bold tracking-tight;
+  }
+
+  h2 {
+    @apply text-xl sm:text-2xl font-semibold tracking-tight;
+  }
+
+  h3 {
+    @apply text-lg font-semibold;
+  }
+}
+
+@layer components {
+  /* Better content rhythm for page sections */
+  .page-shell {
+    @apply mx-auto w-full max-w-[1440px];
+  }
+
+  /* Mobile-first form ergonomics */
+  .form-grid {
+    @apply grid grid-cols-1 gap-3 sm:gap-4;
+  }
+
+  /* Horizontal table wrapper for small screens */
+  .table-wrap {
+    @apply w-full overflow-x-auto rounded-lg border;
+  }
+
+  .table-wrap table {
+    @apply min-w-[760px];
+  }
+}
+
+@media (max-width: 640px) {
+  .data-grid th,
+  .data-grid td {
+    padding-left: 0.65rem;
+    padding-right: 0.65rem;
+  }
+
+  .data-grid th {
+    font-size: 11px;
+  }
+
+  button,
+  [role="button"],
+  .btn,
+  a.nav-item {
+    min-height: 40px;
   }
 }
 

@@ -1,4 +1,4 @@
-import { Bell, User, LogOut, Settings } from "lucide-react";
+import { Bell, User, LogOut, Settings, Menu, Building } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -8,72 +8,82 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
 import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAlertsSummary } from "@/hooks/useAlerts";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { Badge } from "@/components/ui/badge";
-import { Crown, Building } from "lucide-react";
 
-export function AppHeader() {
+interface AppHeaderProps {
+  onOpenMobileSidebar?: () => void;
+}
+
+export function AppHeader({ onOpenMobileSidebar }: AppHeaderProps) {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const { data: alertsSummary } = useAlertsSummary();
   const { data: companySettings } = useCompanySettings();
 
   const handleLogout = () => {
-    // Fire and forget logout to avoid hanging if server is unreachable
     signOut();
     navigate("/auth");
   };
 
   const displayName = user?.full_name || user?.email?.split("@")[0] || "Người dùng";
-
-  // Calculate generic alerts count from backend
   const totalWarnings = alertsSummary?.criticalCount || 0;
 
   return (
-    <header className="flex items-center justify-between h-16 px-6 border-b bg-card">
-      {/* Branding */}
-      <div className="flex items-center gap-3 w-80">
-        <div className="p-1.5 bg-primary/5 rounded-lg">
-          <Building className="w-5 h-5 text-primary/70" />
+    <header className="sticky top-0 z-20 flex h-14 sm:h-16 items-center justify-between border-b bg-card/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-card/85 sm:px-4 lg:px-6">
+      <div className="flex min-w-0 items-center gap-2 sm:gap-3 lg:w-80">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="lg:hidden"
+          onClick={onOpenMobileSidebar}
+          aria-label="Mở menu"
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
+
+        <div className="rounded-lg bg-primary/5 p-1.5">
+          <Building className="h-5 w-5 text-primary/70" />
         </div>
-        <div className="flex flex-col">
-          <span className="text-sm font-bold text-slate-800 truncate max-w-[280px]">
+
+        <div className="flex min-w-0 flex-col">
+          <span className="max-w-[140px] truncate text-xs font-bold text-slate-800 sm:max-w-[220px] sm:text-sm lg:max-w-[280px]">
             {companySettings?.company_name || "Hệ thống quản lý"}
           </span>
-          <div className="flex items-center gap-1.5 mt-0.5">
-             <Badge variant="outline" className="text-[9px] h-4 px-1 bg-blue-50/50 text-blue-600 border-blue-200 uppercase font-black tracking-tighter">
-                {companySettings?.subscription?.plan || 'trial'}
-             </Badge>
+          <div className="mt-0.5 flex items-center gap-1.5">
+            <Badge
+              variant="outline"
+              className="h-4 border-blue-200 bg-blue-50/50 px-1 text-[9px] font-black uppercase tracking-tighter text-blue-600"
+            >
+              {companySettings?.subscription?.plan || "trial"}
+            </Badge>
           </div>
         </div>
       </div>
 
-      {/* Right actions */}
-      <div className="flex items-center gap-2">
-        {/* Notifications */}
+      <div className="flex items-center gap-1.5 sm:gap-2">
         <Button variant="ghost" size="icon" className="relative" asChild>
           <Link to="/?tab=alerts">
-            <Bell className="w-5 h-5" />
+            <Bell className="h-5 w-5" />
             {totalWarnings > 0 && (
-              <span className="absolute top-1.5 right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
-                {totalWarnings > 99 ? '99+' : totalWarnings}
+              <span className="absolute right-1.5 top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] text-white">
+                {totalWarnings > 99 ? "99+" : totalWarnings}
               </span>
             )}
           </Link>
         </Button>
 
-        {/* User menu */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="gap-2">
-              <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
-                <User className="w-4 h-4 text-primary-foreground" />
+            <Button variant="ghost" className="gap-2 px-2 sm:px-3">
+              <div className="h-8 w-8 shrink-0 rounded-full bg-primary flex items-center justify-center">
+                <User className="h-4 w-4 text-primary-foreground" />
               </div>
-              <span className="text-sm font-medium">{displayName}</span>
+              <span className="hidden max-w-[140px] truncate text-sm font-medium sm:inline">{displayName}</span>
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-48">
@@ -85,17 +95,14 @@ export function AppHeader() {
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <Link to="/settings" className="flex items-center gap-2 cursor-pointer">
-                <Settings className="w-4 h-4" />
+              <Link to="/settings" className="flex cursor-pointer items-center gap-2">
+                <Settings className="h-4 w-4" />
                 Cài đặt
               </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              onClick={handleLogout}
-              className="text-destructive cursor-pointer flex items-center gap-2"
-            >
-              <LogOut className="w-4 h-4" />
+            <DropdownMenuItem onClick={handleLogout} className="flex cursor-pointer items-center gap-2 text-destructive">
+              <LogOut className="h-4 w-4" />
               Đăng xuất
             </DropdownMenuItem>
           </DropdownMenuContent>

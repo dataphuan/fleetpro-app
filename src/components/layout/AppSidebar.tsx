@@ -109,7 +109,11 @@ const navSections: NavSection[] = [
   },
 ];
 
-export function AppSidebar() {
+interface AppSidebarProps {
+  onNavigate?: () => void;
+}
+
+export function AppSidebar({ onNavigate }: AppSidebarProps) {
   const location = useLocation();
   const [collapsed, setCollapsed] = useState(false);
   const { toast } = useToast();
@@ -195,6 +199,8 @@ export function AppSidebar() {
                           } else if (isMissingDependency) {
                             e.preventDefault();
                             toast({ title: "Chưa đủ dữ liệu nền", description: "Vui lòng nhập danh sách Xe, Tài xế, Tuyến đường và Khách hàng", variant: "default" });
+                          } else {
+                            onNavigate?.();
                           }
                         }}
                         className={cn(
@@ -240,25 +246,25 @@ export function AppSidebar() {
         {!collapsed ? (
           <div className="flex items-center gap-0.5">
             {hasAccess("/profile") && (
-              <Link to="/profile" className={cn("flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-[11px] font-medium transition-colors", location.pathname === '/profile' ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/30')} title="Hồ Sơ">
+              <Link to="/profile" className={cn("flex-1 flex min-h-10 items-center justify-center gap-1 rounded text-[11px] font-medium transition-colors", location.pathname === '/profile' ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/30')} title="Hồ Sơ">
                 <UserCircle className="w-3.5 h-3.5" />
                 <span>Hồ Sơ</span>
               </Link>
             )}
             {hasAccess("/settings") && (
-              <Link to="/settings" className={cn("flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-[11px] font-medium transition-colors", location.pathname === '/settings' ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/30')} title="Cài Đặt">
+              <Link to="/settings" className={cn("flex-1 flex min-h-10 items-center justify-center gap-1 rounded text-[11px] font-medium transition-colors", location.pathname === '/settings' ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/30')} title="Cài Đặt">
                 <Settings className="w-3.5 h-3.5" />
                 <span>Cài Đặt</span>
               </Link>
             )}
             {hasAccess("/members") && (
-              <Link to="/members" className={cn("flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-[11px] font-medium transition-colors", location.pathname === '/members' ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/30')} title="Thành Viên">
+              <Link to="/members" className={cn("flex-1 flex min-h-10 items-center justify-center gap-1 rounded text-[11px] font-medium transition-colors", location.pathname === '/members' ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/30')} title="Thành Viên">
                 <Users className="w-3.5 h-3.5" />
                 <span>Team</span>
               </Link>
             )}
             {hasAccess("/logs") && (
-              <Link to="/logs" className={cn("flex-1 flex items-center justify-center gap-1 py-1.5 rounded text-[11px] font-medium transition-colors", location.pathname === '/logs' ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/30')} title="Nhật Ký">
+              <Link to="/logs" className={cn("flex-1 flex min-h-10 items-center justify-center gap-1 rounded text-[11px] font-medium transition-colors", location.pathname === '/logs' ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/30')} title="Nhật Ký">
                 <Lock className="w-3.5 h-3.5" />
                 <span>Logs</span>
               </Link>
@@ -277,7 +283,7 @@ export function AppSidebar() {
               href={guideUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-1.5 px-2 py-1.5 rounded text-[10px] font-medium text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/30 transition-colors border border-sidebar-border/50"
+              className="flex min-h-10 items-center justify-center gap-1.5 rounded border border-sidebar-border/50 px-2 text-[10px] font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/30 hover:text-sidebar-foreground"
               title="Hướng dẫn theo vai trò"
             >
               <ExternalLink className="w-3 h-3" />
@@ -293,7 +299,7 @@ export function AppSidebar() {
                   toast({ title: "Video đang cập nhật", description: "Chưa cấu hình VITE_SUPPORT_VIDEO_URL.", variant: "default" });
                 }
               }}
-              className="flex items-center justify-center gap-1.5 px-2 py-1.5 rounded text-[10px] font-medium text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent/30 transition-colors border border-sidebar-border/50"
+              className="flex min-h-10 items-center justify-center gap-1.5 rounded border border-sidebar-border/50 px-2 text-[10px] font-medium text-sidebar-foreground/70 transition-colors hover:bg-sidebar-accent/30 hover:text-sidebar-foreground"
               title="Xem video"
             >
               <ExternalLink className="w-3 h-3" />

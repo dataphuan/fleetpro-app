@@ -25,6 +25,27 @@ interface Message {
     timestamp: number;
 }
 
+function normalizeTextForSpeech(input: string): string {
+    if (!input) return "";
+
+    return input
+        // Remove fenced code blocks
+        .replace(/```[\s\S]*?```/g, "")
+        // Remove inline code markers
+        .replace(/`([^`]+)`/g, "$1")
+        // Remove markdown headings/blockquote/list prefixes
+        .replace(/^\s{0,3}(#{1,6}|>|[-*+]\s|\d+\.\s)/gm, "")
+        // Remove emphasis markers
+        .replace(/(\*\*|__|\*|_)/g, "")
+        // Remove markdown links/images syntax but keep text label
+        .replace(/!\[([^\]]*)\]\(([^)]+)\)/g, "$1")
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1")
+        // Collapse excessive whitespace
+        .replace(/\n{3,}/g, "\n\n")
+        .replace(/[ \t]{2,}/g, " ")
+        .trim();
+}
+
 const SUGGESTED_QUESTIONS = [
     "Có bao nhiêu xe đang hoạt động?",
     "Tài xế nào có nhiều chuyến nhất tháng này?",
@@ -190,7 +211,8 @@ export function GeminiChat() {
     const speak = (text: string, messageId?: string) => {
         if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
             window.speechSynthesis.cancel();
-            const utterance = new SpeechSynthesisUtterance(text);
+            const cleanText = normalizeTextForSpeech(text);
+            const utterance = new SpeechSynthesisUtterance(cleanText);
             utterance.lang = 'vi-VN';
             utterance.rate = 1.0;
             utterance.pitch = 1.0;

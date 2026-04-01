@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,8 +39,23 @@ const VALIDATION_MESSAGES = {
 
 export default function Auth() {
     const navigate = useNavigate();
+    const location = useLocation();
     const { toast } = useToast();
     const { refreshAuth } = useAuth();
+
+    const getPostLoginPath = (role?: string) => {
+        const fromPath = (location.state as any)?.from?.pathname as string | undefined;
+
+        if (role === 'driver') {
+            return '/driver';
+        }
+
+        if (fromPath && fromPath !== '/auth') {
+            return fromPath;
+        }
+
+        return '/';
+    };
     
     // 📋 State
     const [loading, setLoading] = useState(false);
@@ -111,7 +126,8 @@ export default function Auth() {
                 title: `Chào mừng ${demoAccount.role}!`,
                 description: "Đã đăng nhập với tài khoản demo thành công."
             });
-            navigate("/");
+            const userRole = result?.data?.user?.role;
+            navigate(getPostLoginPath(userRole));
         } catch (error: any) {
             toast({
                 title: "Lỗi đăng nhập Demo",
@@ -154,7 +170,8 @@ export default function Auth() {
 
             await refreshAuth();
             toast({ title: "Đăng nhập thành công", description: `Chào mừng trở lại!` });
-            navigate("/");
+            const userRole = result?.data?.user?.role;
+            navigate(getPostLoginPath(userRole));
         } catch (error: any) {
             // 🔴 Check for Firebase API key issues
             if (error.message.includes("auth/api-key-not-valid")) {
