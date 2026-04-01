@@ -41,7 +41,7 @@ export default function Dashboard() {
       )}
       <PageHeader
         title="Bảng Điều Khiển PRO"
-        description={`Tổng quan hoạt động vận tải - Tháng ${now.getMonth() + 1}/${now.getFullYear()}`}
+        description={`Tổng quan vận tải - Tháng ${now.getMonth() + 1}/${now.getFullYear()}`}
         actions={<QuickTripModal triggerLabel="+ Tạo Chuyến" />}
       />
 
