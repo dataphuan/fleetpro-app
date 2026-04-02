@@ -26,7 +26,12 @@ export const TENANT_DEMO_SEED = {
       "partners": 2,
       "users": 5,
       "companySettings": 1
-    }
+    },
+    "modified_at": "2026-04-02T05:59:40.153Z",
+    "enriched_fields": [
+      "address",
+      "health_check_expiry"
+    ]
   },
   "collections": {
     "vehicles": [
@@ -835,7 +840,9 @@ export const TENANT_DEMO_SEED = {
         "assigned_vehicle_id": "XE0009",
         "base_salary": 12000000,
         "status": "active",
-        "notes": "Kinh nghiệm 11 năm"
+        "notes": "Kinh nghiệm 11 năm",
+        "address": "606 QL1A, Buôn Ma Thuột, Đắk Lắk",
+        "health_check_expiry": "2027-09-15"
       },
       {
         "id": "TX0010",
@@ -856,7 +863,9 @@ export const TENANT_DEMO_SEED = {
         "assigned_vehicle_id": "XE0010",
         "base_salary": 16000000,
         "status": "active",
-        "notes": "Kinh nghiệm 10 năm"
+        "notes": "Kinh nghiệm 10 năm",
+        "address": "707 QL1A, Gia Nghĩa, Đắk Nông",
+        "health_check_expiry": "2027-10-15"
       },
       {
         "id": "TX0011",
@@ -877,7 +886,9 @@ export const TENANT_DEMO_SEED = {
         "assigned_vehicle_id": "XE0011",
         "base_salary": 16000000,
         "status": "active",
-        "notes": "Kinh nghiệm 9 năm"
+        "notes": "Kinh nghiệm 9 năm",
+        "address": "808 QL1A, Đà Nẵng",
+        "health_check_expiry": "2027-11-15"
       },
       {
         "id": "TX0012",
@@ -898,7 +909,9 @@ export const TENANT_DEMO_SEED = {
         "assigned_vehicle_id": "XE0012",
         "base_salary": 18000000,
         "status": "active",
-        "notes": "Kinh nghiệm 11 năm"
+        "notes": "Kinh nghiệm 11 năm",
+        "address": "909 QL1A, Huế, Thừa Thiên Huế",
+        "health_check_expiry": "2027-12-15"
       },
       {
         "id": "TX0013",
@@ -919,7 +932,9 @@ export const TENANT_DEMO_SEED = {
         "assigned_vehicle_id": "XE0013",
         "base_salary": 18000000,
         "status": "active",
-        "notes": "Kinh nghiệm 14 năm"
+        "notes": "Kinh nghiệm 14 năm",
+        "address": "1010 QL1A, Đồng Nai",
+        "health_check_expiry": "2028-01-15"
       },
       {
         "id": "TX0014",
@@ -940,7 +955,9 @@ export const TENANT_DEMO_SEED = {
         "assigned_vehicle_id": "XE0014",
         "base_salary": 16000000,
         "status": "active",
-        "notes": "Kinh nghiệm 15 năm"
+        "notes": "Kinh nghiệm 15 năm",
+        "address": "1111 QL1A, TP.HCM",
+        "health_check_expiry": "2028-02-15"
       },
       {
         "id": "TX0015",
@@ -961,7 +978,9 @@ export const TENANT_DEMO_SEED = {
         "assigned_vehicle_id": "XE0015",
         "base_salary": 14000000,
         "status": "active",
-        "notes": "Kinh nghiệm 14 năm"
+        "notes": "Kinh nghiệm 14 năm",
+        "address": "1212 QL1A, Bình Dương",
+        "health_check_expiry": "2028-03-15"
       },
       {
         "id": "TX0016",
@@ -982,7 +1001,9 @@ export const TENANT_DEMO_SEED = {
         "assigned_vehicle_id": "XE0016",
         "base_salary": 15000000,
         "status": "active",
-        "notes": "Kinh nghiệm 12 năm"
+        "notes": "Kinh nghiệm 12 năm",
+        "address": "123 QL1A, Ninh Hòa, Khánh Hòa",
+        "health_check_expiry": "2028-04-15"
       },
       {
         "id": "TX0017",
@@ -1003,7 +1024,9 @@ export const TENANT_DEMO_SEED = {
         "assigned_vehicle_id": "XE0017",
         "base_salary": 16000000,
         "status": "active",
-        "notes": "Kinh nghiệm 12 năm"
+        "notes": "Kinh nghiệm 12 năm",
+        "address": "456 QL1A, Cam Ranh, Khánh Hòa",
+        "health_check_expiry": "2028-05-15"
       },
       {
         "id": "TX0018",
@@ -1024,7 +1047,9 @@ export const TENANT_DEMO_SEED = {
         "assigned_vehicle_id": "XE0018",
         "base_salary": 13000000,
         "status": "active",
-        "notes": "Kinh nghiệm 8 năm"
+        "notes": "Kinh nghiệm 8 năm",
+        "address": "789 QL1A, Nha Trang, Khánh Hòa",
+        "health_check_expiry": "2028-06-15"
       },
       {
         "id": "TX0019",
@@ -1045,7 +1070,9 @@ export const TENANT_DEMO_SEED = {
         "assigned_vehicle_id": "XE0019",
         "base_salary": 17000000,
         "status": "active",
-        "notes": "Kinh nghiệm 11 năm"
+        "notes": "Kinh nghiệm 11 năm",
+        "address": "101 QL1A, Phan Rang, Ninh Thuận",
+        "health_check_expiry": "2028-07-15"
       },
       {
         "id": "TX0020",
@@ -1066,7 +1093,9 @@ export const TENANT_DEMO_SEED = {
         "assigned_vehicle_id": "XE0020",
         "base_salary": 13000000,
         "status": "active",
-        "notes": "Kinh nghiệm 11 năm"
+        "notes": "Kinh nghiệm 11 năm",
+        "address": "202 QL1A, Tuy Hòa, Phú Yên",
+        "health_check_expiry": "2028-08-15"
       },
       {
         "id": "TX0021",
@@ -1087,7 +1116,9 @@ export const TENANT_DEMO_SEED = {
         "assigned_vehicle_id": "XE0001",
         "base_salary": 14000000,
         "status": "active",
-        "notes": "Kinh nghiệm 8 năm"
+        "notes": "Kinh nghiệm 8 năm",
+        "address": "303 QL1A, Quy Nhơn, Bình Định",
+        "health_check_expiry": "2028-09-15"
       },
       {
         "id": "TX0022",
@@ -1108,7 +1139,9 @@ export const TENANT_DEMO_SEED = {
         "assigned_vehicle_id": "XE0002",
         "base_salary": 15000000,
         "status": "active",
-        "notes": "Kinh nghiệm 11 năm"
+        "notes": "Kinh nghiệm 11 năm",
+        "address": "404 QL1A, Pleiku, Gia Lai",
+        "health_check_expiry": "2028-10-15"
       },
       {
         "id": "TX0023",
@@ -1129,7 +1162,9 @@ export const TENANT_DEMO_SEED = {
         "assigned_vehicle_id": "XE0003",
         "base_salary": 16000000,
         "status": "active",
-        "notes": "Kinh nghiệm 13 năm"
+        "notes": "Kinh nghiệm 13 năm",
+        "address": "505 QL1A, Kon Tum, Kon Tum",
+        "health_check_expiry": "2028-11-15"
       },
       {
         "id": "TX0024",
@@ -1150,7 +1185,9 @@ export const TENANT_DEMO_SEED = {
         "assigned_vehicle_id": "XE0004",
         "base_salary": 14000000,
         "status": "active",
-        "notes": "Kinh nghiệm 5 năm"
+        "notes": "Kinh nghiệm 5 năm",
+        "address": "606 QL1A, Buôn Ma Thuột, Đắk Lắk",
+        "health_check_expiry": "2028-12-15"
       },
       {
         "id": "TX0025",
@@ -1171,7 +1208,9 @@ export const TENANT_DEMO_SEED = {
         "assigned_vehicle_id": "XE0005",
         "base_salary": 15000000,
         "status": "active",
-        "notes": "Kinh nghiệm 10 năm"
+        "notes": "Kinh nghiệm 10 năm",
+        "address": "707 QL1A, Gia Nghĩa, Đắk Nông",
+        "health_check_expiry": "2029-01-15"
       }
     ],
     "customers": [
