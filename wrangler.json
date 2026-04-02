@@ -1,34 +1,5 @@
 {
   "name": "fleetpro-app",
-  "type": "javascript",
-  "main": "dist/index.html",
-  "build": {
-    "command": "npm run build",
-    "cwd": "./",
-    "root": "."
-  },
-  "env": {
-    "production": {
-      "routes": [
-        {
-          "pattern": "*.css",
-          "zone_name": "tnc.io.vn",
-          "custom_domain": true
-        },
-        {
-          "pattern": "*.js",
-          "zone_name": "tnc.io.vn",
-          "custom_domain": true
-        },
-        {
-          "pattern": "tnc.io.vn/assets/*",
-          "zone_name": "tnc.io.vn",
-          "custom_domain": true
-        }
-      ]
-    }
-  },
-  "observability": {
-    "enabled": true
-  }
+  "compatibility_date": "2026-04-02",
+  "pages_build_output_dir": "dist"
 }

@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "deploy:cf": "wrangler pages deploy dist --project-name fleetpro-app",
+    "deploy:cf:prod": "npm run build && npm run deploy:cf",
     "preview": "vite preview",
     "lint": "eslint .",
     "qa:menu-audit": "node scripts/qa-audit-menu-coverage.mjs",

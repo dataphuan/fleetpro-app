@@ -3,9 +3,9 @@
  * Provides interface for data access to Firebase Firestore
  */
 
-import { db, auth, firebaseConfig, functions } from './firebase';
+import { app, db, auth, firebaseConfig, functions } from './firebase';
 import { collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, addDoc, writeBatch } from 'firebase/firestore';
-import { httpsCallable } from 'firebase/functions';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { signInWithEmailAndPassword, signOut as firebaseSignOut, getAuth, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { initializeApp, deleteApp } from 'firebase/app';
 import { normalizeUserRole } from './rbac';
@@ -65,6 +65,73 @@ const getTenantId = () => {
     }
     
     return ''; // No tenant = No data for security
+};
+
+const US_CENTRAL1_FUNCTIONS = getFunctions(app, 'us-central1');
+
+const shouldRetryCallableInFallbackRegion = (error: any) => {
+    const code = String(error?.code || '').toLowerCase();
+    const message = String(error?.message || '').toLowerCase();
+    return (
+        code.includes('not-found')
+        || code.includes('unavailable')
+        || code.includes('internal')
+        || message.includes('not found')
+        || message.includes('internal')
+    );
+};
+
+const callCallableWithRegionFallback = async (name: string, payload: any) => {
+    try {
+        const primaryFn = httpsCallable(functions, name);
+        return await primaryFn(payload);
+    } catch (error: any) {
+        if (!shouldRetryCallableInFallbackRegion(error)) {
+            throw error;
+        }
+
+        const fallbackFn = httpsCallable(US_CENTRAL1_FUNCTIONS, name);
+        return await fallbackFn(payload);
+    }
+};
+
+const buildTripFinancialFields = (row: any) => {
+    const grossRevenue = Number(row?.freight_revenue || 0)
+        + Number(row?.actual_revenue || 0)
+        + Number(row?.additional_charges || 0);
+    const totalCost = Number(row?.fuel_cost || 0)
+        + Number(row?.driver_advance || 0)
+        + Number(row?.toll_cost || 0);
+    return {
+        gross_revenue: grossRevenue,
+        total_cost: totalCost,
+        gross_profit: grossRevenue - totalCost,
+    };
+};
+
+const createTripDirectWrite = async (validatedData: any, tenantId: string) => {
+    const nowIso = new Date().toISOString();
+    const payload = {
+        ...validatedData,
+        tenant_id: tenantId,
+        created_at: nowIso,
+        updated_at: nowIso,
+        ...buildTripFinancialFields(validatedData),
+    };
+
+    const docRef = await addDoc(collection(db, 'trips'), payload);
+    return { id: docRef.id, payload };
+};
+
+const updateTripDirectWrite = async (id: string, oldData: any, validatedData: any) => {
+    const merged = { ...oldData, ...validatedData };
+    const patch = {
+        ...validatedData,
+        updated_at: new Date().toISOString(),
+        ...buildTripFinancialFields(merged),
+    };
+    await updateDoc(doc(db, 'trips', id), patch);
+    return patch;
 };
 
 /**
@@ -468,6 +535,15 @@ const createFirestoreAdapter = (collectionName: string) => ({
         const snapshot = await getDocs(q);
         let rows = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
+        // Fallback: Use demo seed data if Firestore is empty (development mode)
+        if (rows.length === 0 && import.meta.env.DEV) {
+            const demoCollection = (TENANT_DEMO_SEED.collections as any)[collectionName];
+            if (demoCollection && Array.isArray(demoCollection)) {
+                rows = JSON.parse(JSON.stringify(demoCollection)).map((item: any) => ({ ...item }));
+                console.log(`📊 [Demo Data] Loaded ${rows.length} items from ${collectionName} seed (Firestore empty)`);
+            }
+        }
+
         if (collectionName === 'vehicles') {
             rows = rows.map((row: any) => {
                 const mapped = { ...row };
@@ -569,11 +645,20 @@ const createFirestoreAdapter = (collectionName: string) => ({
         
         // ---- SECURITY HARDENING: Use Cloud Functions for Trips ----
         if (collectionName === 'trips') {
-            const secureCreateTrip = httpsCallable(functions, 'secureCreateTrip');
-            const result = await secureCreateTrip(validatedData);
-            const tripId = (result.data as any).id;
-            await logActivity('CREATE', 'trips', tripId, { payload: validatedData });
-            return { id: tripId, ...validatedData, tenant_id: tenantId };
+            try {
+                const result = await callCallableWithRegionFallback('secureCreateTrip', validatedData);
+                const tripId = (result.data as any).id;
+                await logActivity('CREATE', 'trips', tripId, { payload: validatedData, via: 'callable' });
+                return { id: tripId, ...validatedData, tenant_id: tenantId };
+            } catch (error: any) {
+                if (!shouldRetryCallableInFallbackRegion(error)) {
+                    throw error;
+                }
+
+                const created = await createTripDirectWrite(validatedData, tenantId);
+                await logActivity('CREATE', 'trips', created.id, { payload: created.payload, via: 'direct-write-fallback' });
+                return { id: created.id, ...created.payload };
+            }
         }
         // -----------------------------------------------------------
 
@@ -631,13 +716,27 @@ const createFirestoreAdapter = (collectionName: string) => ({
         
         // ---- SECURITY HARDENING: Use Cloud Functions for Trips ----
         if (collectionName === 'trips') {
-            const secureUpdateTrip = httpsCallable(functions, 'secureUpdateTrip');
-            await secureUpdateTrip({ id, ...validatedData });
-            await logActivity('UPDATE', 'trips', id, { 
-                previous: oldData, 
-                changes: validatedData 
-            });
-            return true;
+            try {
+                await callCallableWithRegionFallback('secureUpdateTrip', { id, ...validatedData });
+                await logActivity('UPDATE', 'trips', id, {
+                    previous: oldData,
+                    changes: validatedData,
+                    via: 'callable',
+                });
+                return true;
+            } catch (error: any) {
+                if (!shouldRetryCallableInFallbackRegion(error)) {
+                    throw error;
+                }
+
+                const directPatch = await updateTripDirectWrite(id, oldData, validatedData);
+                await logActivity('UPDATE', 'trips', id, {
+                    previous: oldData,
+                    changes: directPatch,
+                    via: 'direct-write-fallback',
+                });
+                return true;
+            }
         }
         // -----------------------------------------------------------
 
@@ -1319,6 +1418,24 @@ type TenantSeedOptions = {
     adminName: string;
 };
 
+type EnsureDemoReadinessPayload = {
+    tenantId: string;
+    role: string;
+    email: string;
+    full_name?: string;
+    uid?: string;
+    company_name?: string;
+};
+
+type StartRealDataModePayload = {
+    tenantId: string;
+    role: string;
+    keepUserId?: string;
+    email?: string;
+    full_name?: string;
+    company_name?: string;
+};
+
 const classifyExpenseTypeByKeyword = (text: string) => {
     const s = String(text || '').toLowerCase();
     if (s.includes('dầu') || s.includes('nhiên liệu') || s.includes('xăng')) return 'Nhiên liệu';
@@ -1426,8 +1543,15 @@ const seedNewTenantDemoData = async (options: TenantSeedOptions) => {
     const { tenantId, companyName, adminUid, adminEmail, adminName } = options;
     const nowIso = new Date().toISOString();
 
-    const existingVehicles = await getDocs(query(collection(db, 'vehicles'), where("tenant_id", "==", tenantId)));
-    if (!existingVehicles.empty) return;
+    try {
+        // Check if demo data already exists
+        const existingVehicles = await getDocs(query(collection(db, 'vehicles'), where("tenant_id", "==", tenantId)));
+        if (!existingVehicles.empty) {
+            console.log(`✅ [seedNewTenantDemoData] Demo data already exists for tenant: ${tenantId}`);
+            return;
+        }
+        
+        console.log(`🔄 [seedNewTenantDemoData] Starting demo data seed for tenant: ${tenantId}, company: ${companyName}`);
 
     const toDocId = (collectionName: string, sourceId: string) => `${tenantId}_${collectionName}_${sourceId}`;
     const withAudit = (row: Record<string, any>) => ({
@@ -1550,17 +1674,14 @@ const seedNewTenantDemoData = async (options: TenantSeedOptions) => {
         ],
     });
 
-
-const createTenantDemoAccounts = async (tenantId: string, companyName: string) => {
-    const createDemoAccounts = httpsCallable(functions, 'createTenantDemoAccounts');
-    await createDemoAccounts({ tenantId, companyName });
-};
     const writes: Array<{ collectionName: string; docId: string; data: Record<string, any> }> = [];
     allCollections.forEach(({ collectionName, rows }) => {
         rows.forEach((row) => writes.push({ collectionName, ...row }));
     });
 
     const chunkSize = 450;
+    const totalRecords = writes.length;
+    
     for (let i = 0; i < writes.length; i += chunkSize) {
         const batch = writeBatch(db);
         const chunk = writes.slice(i, i + chunkSize);
@@ -1568,7 +1689,288 @@ const createTenantDemoAccounts = async (tenantId: string, companyName: string) =
             batch.set(doc(db, collectionName, docId), data, { merge: true });
         });
         await batch.commit();
+        console.log(`✅ [seedNewTenantDemoData] Batch written (${Math.min(i + chunkSize, totalRecords)}/${totalRecords})`);
     }
+    
+    console.log(`✅ [seedNewTenantDemoData] COMPLETE: ${totalRecords} records seeded for tenant: ${tenantId}`);
+    } catch (error) {
+        console.error(`❌ [seedNewTenantDemoData] FAILED for tenant ${tenantId}:`, error);
+        throw error;
+    }
+};
+
+const createTenantDemoAccounts = async (tenantId: string, companyName: string) => {
+    await callCallableWithRegionFallback('createTenantDemoAccounts', { tenantId, companyName });
+};
+
+const isTenantDemoDataInsufficient = async (tenantId: string) => {
+    const collectionsToCheck: Record<string, number> = {
+        vehicles: 10,
+        drivers: 10,
+        trips: 20,
+        expenses: 50,
+        customers: 5,
+        routes: 8,
+    };
+
+    for (const [collectionName, minExpected] of Object.entries(collectionsToCheck)) {
+        const snapshot = await getDocs(
+            query(collection(db, collectionName), where('tenant_id', '==', tenantId))
+        );
+        if (snapshot.size < minExpected) {
+            return true;
+        }
+    }
+
+    return false;
+};
+
+const ensureTenantDemoReadiness = async (payload: EnsureDemoReadinessPayload) => {
+    const tenantId = String(payload?.tenantId || '').trim();
+    const normalizedRole = normalizeUserRole(payload?.role);
+
+    if (!tenantId) {
+        return { success: false, skipped: true, reason: 'missing_tenant' };
+    }
+
+    const insufficient = await isTenantDemoDataInsufficient(tenantId);
+    if (!insufficient) {
+        return { success: true, seeded: false, message: 'Demo data already sufficient' };
+    }
+
+    const user = auth.currentUser;
+    if (!user) {
+        return { success: false, skipped: true, reason: 'missing_auth_user' };
+    }
+
+    const companyName = String(payload?.company_name || '').trim() || 'FleetPro Demo Company';
+
+    let adminUid = user.uid;
+    let adminEmail = String(payload?.email || '').trim() || user.email || '';
+    let adminName = String(payload?.full_name || '').trim() || user.displayName || user.email || 'Admin';
+
+    if (normalizedRole !== 'admin') {
+        // Non-admin demo users (manager/accountant/driver) should still get full demo readiness.
+        const adminSnap = await getDocs(
+            query(collection(db, 'users'), where('tenant_id', '==', tenantId), where('role', '==', 'admin'))
+        );
+
+        if (adminSnap.empty) {
+            return {
+                success: false,
+                seeded: false,
+                skipped: true,
+                reason: 'requires_admin',
+                message: 'Tenant thiếu dữ liệu demo và không tìm thấy admin tenant để tự động khởi tạo.',
+            };
+        }
+
+        const adminDoc = adminSnap.docs[0];
+        const adminData: any = adminDoc.data() || {};
+        adminUid = adminDoc.id;
+        adminEmail = adminData.email || adminEmail;
+        adminName = adminData.full_name || adminName;
+    }
+
+    await seedNewTenantDemoData({
+        tenantId,
+        companyName,
+        adminUid,
+        adminEmail,
+        adminName,
+    });
+
+    if (normalizedRole === 'admin') {
+        try {
+            await createTenantDemoAccounts(tenantId, companyName);
+        } catch (error) {
+            console.warn('[ensureTenantDemoReadiness] createTenantDemoAccounts failed:', error);
+        }
+    }
+
+    return { success: true, seeded: true, message: 'Demo data has been auto-provisioned' };
+};
+
+const isProtectedSharedDemoTenant = (tenantId: string) => {
+    if (!tenantId) return false;
+    if (tenantId === 'internal-tenant-1' || tenantId === 'internal-tenant-2') return true;
+    if (tenantId.startsWith('internal-tenant-')) return true;
+    return false;
+};
+
+const createIsolatedTenantWorkspace = async (payload: {
+    sourceTenantId: string;
+    keepUserId: string;
+    email?: string;
+    full_name?: string;
+    company_name?: string;
+}) => {
+    const { sourceTenantId, keepUserId } = payload;
+    if (!keepUserId) {
+        throw new Error('Thiếu thông tin người dùng để tạo workspace riêng.');
+    }
+
+    const shortId = Math.random().toString(36).slice(2, 10);
+    const newTenantId = `tenant-${shortId}`;
+    const nowIso = new Date().toISOString();
+
+    // Try to keep company naming continuity from existing tenant settings.
+    let baseCompanyName = payload.company_name || '';
+    try {
+        const sourceSettings = await getDocs(
+            query(collection(db, 'companySettings'), where('tenant_id', '==', sourceTenantId))
+        );
+        if (!sourceSettings.empty) {
+            const first = sourceSettings.docs[0].data() as any;
+            baseCompanyName = first.company_name || first.name || baseCompanyName;
+        }
+    } catch (error) {
+        console.warn('[createIsolatedTenantWorkspace] Cannot read source company settings:', error);
+    }
+
+    if (!baseCompanyName) {
+        baseCompanyName = 'Workspace Mới Của Bạn';
+    }
+
+    const finalCompanyName = `${baseCompanyName} - Dữ liệu thật`;
+
+    await setDoc(doc(db, 'company_settings', newTenantId), {
+        company_name: finalCompanyName,
+        admin_id: keepUserId,
+        created_at: nowIso,
+        subscription: { plan: 'trial', status: 'active' },
+    }, { merge: true });
+
+    await setDoc(doc(db, 'companySettings', `${newTenantId}_companySettings_main`), {
+        tenant_id: newTenantId,
+        company_name: finalCompanyName,
+        email: payload.email || '',
+        created_at: nowIso,
+        updated_at: nowIso,
+        is_deleted: 0,
+    }, { merge: true });
+
+    await setDoc(doc(db, 'users', keepUserId), {
+        tenant_id: newTenantId,
+        role: 'admin',
+        full_name: payload.full_name || payload.email || 'Admin',
+        email: payload.email || '',
+        updated_at: nowIso,
+    }, { merge: true });
+
+    setRuntimeTenantId(newTenantId);
+
+    return {
+        success: true,
+        migrated: true,
+        newTenantId,
+        message: 'Đã tách workspace riêng để nhập dữ liệu thật. Dữ liệu demo gốc vẫn giữ cho khách mới.',
+    };
+};
+
+const clearTenantOperationalData = async (payload: { tenantId: string; keepUserId?: string }) => {
+    const tenantId = String(payload?.tenantId || '').trim();
+    const keepUserId = String(payload?.keepUserId || '').trim();
+
+    if (!tenantId) {
+        throw new Error('Thiếu tenantId để xóa dữ liệu demo.');
+    }
+
+    if (isProtectedSharedDemoTenant(tenantId)) {
+        throw new Error('Tenant demo dùng chung được bảo vệ. Hãy dùng chế độ tách workspace riêng để nhập dữ liệu thật.');
+    }
+
+    const operationalCollections = [
+        'vehicles',
+        'drivers',
+        'customers',
+        'routes',
+        'trips',
+        'expenses',
+        'tripExpenses',
+        'transportOrders',
+        'maintenance',
+        'inventory',
+        'inventoryTransactions',
+        'tires',
+        'purchaseOrders',
+        'alerts',
+        'tripLocationLogs',
+        'expenseCategories',
+        'accountingPeriods',
+        'partners',
+    ];
+
+    let deleted = 0;
+    for (const collName of operationalCollections) {
+        const snap = await getDocs(query(collection(db, collName), where('tenant_id', '==', tenantId)));
+        if (snap.empty) continue;
+
+        const docs = snap.docs;
+        const chunkSize = 400;
+        for (let i = 0; i < docs.length; i += chunkSize) {
+            const batch = writeBatch(db);
+            docs.slice(i, i + chunkSize).forEach((d) => batch.delete(d.ref));
+            await batch.commit();
+        }
+        deleted += docs.length;
+    }
+
+    // Keep admin currently using the system, remove other users in this tenant for a clean real-data start.
+    const usersSnap = await getDocs(query(collection(db, 'users'), where('tenant_id', '==', tenantId)));
+    if (!usersSnap.empty) {
+        const removable = usersSnap.docs.filter((d) => d.id !== keepUserId);
+        if (removable.length > 0) {
+            const chunkSize = 400;
+            for (let i = 0; i < removable.length; i += chunkSize) {
+                const batch = writeBatch(db);
+                removable.slice(i, i + chunkSize).forEach((d) => batch.delete(d.ref));
+                await batch.commit();
+            }
+            deleted += removable.length;
+        }
+    }
+
+    return {
+        success: true,
+        deleted,
+        message: 'Đã xóa dữ liệu demo. Bạn có thể nhập dữ liệu thật ngay trong giai đoạn dùng thử.',
+    };
+};
+
+const startRealDataMode = async (payload: StartRealDataModePayload) => {
+    const tenantId = String(payload?.tenantId || '').trim();
+    const role = normalizeUserRole(payload?.role);
+
+    if (!tenantId) {
+        throw new Error('Thiếu tenantId. Vui lòng đăng nhập lại.');
+    }
+
+    if (role !== 'admin') {
+        throw new Error('Chỉ admin mới có thể chuyển sang chế độ dữ liệu thật.');
+    }
+
+    if (isProtectedSharedDemoTenant(tenantId)) {
+        return createIsolatedTenantWorkspace({
+            sourceTenantId: tenantId,
+            keepUserId: String(payload?.keepUserId || ''),
+            email: payload?.email,
+            full_name: payload?.full_name,
+            company_name: payload?.company_name,
+        });
+    }
+
+    const cleared = await clearTenantOperationalData({
+        tenantId,
+        keepUserId: payload?.keepUserId,
+    });
+
+    return {
+        ...cleared,
+        migrated: false,
+        newTenantId: tenantId,
+        message: 'Đã xóa dữ liệu demo trong tenant hiện tại. Bạn có thể nhập dữ liệu thật ngay.',
+    };
 };
 
 /**
@@ -1598,13 +2000,28 @@ const webDataAdapters: Record<string, any> = {
                 const userCredential = await signInWithEmailAndPassword(auth, payload.email, payload.password);
                 const user = userCredential.user;
                 
-                // Fetch user document from Firestore to get tenant_id and role
+                // Fetch user document from Firestore to get tenant_id and role.
+                // Self-heal path: if users/{uid} missing, resolve by email and mirror to users/{uid}.
+                let userData: any = null;
                 const userDoc = await getDoc(doc(db, 'users', user.uid));
-                if (!userDoc.exists()) {
+                if (userDoc.exists()) {
+                    userData = userDoc.data();
+                } else if (user.email) {
+                    const userByEmail = await getDocs(query(collection(db, 'users'), where('email', '==', user.email)));
+                    if (!userByEmail.empty) {
+                        userData = userByEmail.docs[0].data();
+                        await setDoc(doc(db, 'users', user.uid), {
+                            ...userData,
+                            email: user.email,
+                            updated_at: new Date().toISOString(),
+                        }, { merge: true });
+                    }
+                }
+
+                if (!userData) {
                     throw new Error('User record not found in system (collection users). Contact support.');
                 }
-                
-                const userData = userDoc.data();
+
                 const tenantId = userData.tenant_id;
                 const role = normalizeUserRole(userData.role);
                 const fullName = userData.full_name || user.email;
@@ -1718,6 +2135,43 @@ const webDataAdapters: Record<string, any> = {
                 
                 console.error('🔴 Registration Error:', { code: error.code, message: error.message });
                 return { success: false, error: errorMessage };
+            }
+        },
+        ensureTenantDemoReadiness: async (payload: EnsureDemoReadinessPayload) => {
+            try {
+                return await ensureTenantDemoReadiness(payload);
+            } catch (error: any) {
+                console.error('[auth.ensureTenantDemoReadiness] error:', error);
+                return {
+                    success: false,
+                    seeded: false,
+                    error: error?.message || 'Không thể kiểm tra/khởi tạo dữ liệu demo.',
+                };
+            }
+        },
+        clearTenantOperationalData: async (payload: { tenantId: string; keepUserId?: string }) => {
+            try {
+                return await clearTenantOperationalData(payload);
+            } catch (error: any) {
+                console.error('[auth.clearTenantOperationalData] error:', error);
+                return {
+                    success: false,
+                    deleted: 0,
+                    error: error?.message || 'Không thể xóa dữ liệu demo.',
+                };
+            }
+        },
+        startRealDataMode: async (payload: StartRealDataModePayload) => {
+            try {
+                return await startRealDataMode(payload);
+            } catch (error: any) {
+                console.error('[auth.startRealDataMode] error:', error);
+                return {
+                    success: false,
+                    migrated: false,
+                    deleted: 0,
+                    error: error?.message || 'Không thể chuyển sang chế độ dữ liệu thật.',
+                };
             }
         },
         resetPassword: async (email: string) => {

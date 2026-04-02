@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useTrips } from '@/hooks/useTrips';
+import { useDrivers } from '@/hooks/useDrivers';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,9 +16,29 @@ import { formatDate } from '@/lib/formatters';
 
 export default function DriverMenuPage() {
   const { data: trips = [], isLoading } = useTrips();
+  const { data: drivers = [] } = useDrivers();
   const { user } = useAuth();
   const [selectedTrip, setSelectedTrip] = useState<any | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
+
+  const linkedDriver = (drivers || []).find((d: any) =>
+    d.id === user?.id
+    || d.user_id === user?.id
+    || (user?.email && d.email === user.email)
+    || (user?.email && d.driver_email === user.email)
+  ) || (drivers || []).find((d: any) => d.status === 'active') || (drivers || [])[0] || null;
+
+  const myTrips = (trips || []).filter((trip: any) => {
+    return (
+      trip.driver_id === user?.email
+      || trip.driver_id === user?.id
+      || (trip.driver?.email && trip.driver?.email === user?.email)
+      || (linkedDriver && trip.driver_id === linkedDriver.id)
+      || (linkedDriver && trip.driver_id === linkedDriver.driver_code)
+      || (linkedDriver && trip.driver?.id === linkedDriver.id)
+      || (linkedDriver && trip.driver?.driver_code === linkedDriver.driver_code)
+    );
+  });
 
   if (isLoading) {
     return (
@@ -27,7 +48,7 @@ export default function DriverMenuPage() {
     );
   }
 
-  if (!trips || trips.length === 0) {
+  if (!myTrips || myTrips.length === 0) {
     return (
       <div className="p-4 space-y-4">
         <h2 className="text-xl font-bold">📋 Báo Cáo & Tài Liệu</h2>
@@ -56,7 +77,7 @@ export default function DriverMenuPage() {
       </p>
 
       <div className="space-y-3">
-        {trips.map((trip) => (
+        {myTrips.map((trip) => (
           <Card
             key={trip.id}
             className="cursor-pointer hover:shadow-md transition-shadow"

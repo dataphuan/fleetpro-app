@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useState, useCallback } from "rea
 import type { User } from "@/shared/types/domain";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged, signOut as firebaseSignOut } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { collection, doc, getDoc, getDocs, query, setDoc, where } from "firebase/firestore";
 import { setRuntimeTenantId } from "@/lib/data-adapter";
 
 import { UserRole } from "@/shared/types/domain";
@@ -70,6 +70,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 currentRole = normalizeUserRole(data.role);
                 fullName = data.full_name || fullName;
                 avatarUrl = data.avatar_url || avatarUrl;
+            } else if (firebaseUser.email) {
+                // Self-heal user mapping: resolve by email when uid document is missing.
+                const byEmail = await getDocs(query(collection(db, 'users'), where('email', '==', firebaseUser.email)));
+                if (!byEmail.empty) {
+                    const data = byEmail.docs[0].data();
+                    currentTenantId = data.tenant_id || '';
+                    currentRole = normalizeUserRole(data.role);
+                    fullName = data.full_name || fullName;
+                    avatarUrl = data.avatar_url || avatarUrl;
+
+                    await setDoc(doc(db, 'users', firebaseUser.uid), {
+                        ...data,
+                        email: firebaseUser.email,
+                        updated_at: new Date().toISOString(),
+                    }, { merge: true });
+                }
             }
 
             setUserId(firebaseUser.uid);

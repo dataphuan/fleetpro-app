@@ -1,5 +1,6 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useTrips, useUpdateTrip } from "@/hooks/useTrips";
+import { useDrivers } from "@/hooks/useDrivers";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -43,6 +44,7 @@ const DRIVER_EXPENSES_STORAGE_KEY = 'driver_expense_docs';
 export default function DriverDashboard() {
     const { user, tenantId, role } = useAuth();
     const { data: trips = [], isLoading } = useTrips();
+    const { data: drivers = [] } = useDrivers();
     const { data: vehicles = [] } = useVehicles();
     const { mutateAsync: updateTrip } = useUpdateTrip();
     const { toast } = useToast();
@@ -113,10 +115,32 @@ export default function DriverDashboard() {
         };
     };
 
-    // Here we filter trips that are NOT closed/cancelled and assigned to this driver's email or ID.
+    const linkedDriver = useMemo(() => {
+        const byIdentity = (drivers || []).find((d: any) =>
+            d.id === user?.id
+            || d.user_id === user?.id
+            || (user?.email && d.email === user.email)
+            || (user?.email && d.driver_email === user.email)
+        );
+        if (byIdentity) return byIdentity;
+
+        // Demo fallback: pick first active driver in tenant so driver role can always experience workflow.
+        return (drivers || []).find((d: any) => d.status === 'active') || (drivers || [])[0] || null;
+    }, [drivers, user?.email, user?.id]);
+
+    // Filter trips assigned to this driver using uid/email/driver-id/driver-code matching.
     const myActiveTrips = trips.filter((t: any) => 
         (!tenantId || !t.tenant_id || t.tenant_id === tenantId) &&
-        (t.driver_id === user?.email || t.driver_id === (user as any)?.uid || t.driver?.email === user?.email) &&
+        (
+            t.driver_id === user?.email
+            || t.driver_id === (user as any)?.uid
+            || t.driver_id === user?.id
+            || (linkedDriver && t.driver_id === linkedDriver.id)
+            || (linkedDriver && t.driver_id === linkedDriver.driver_code)
+            || (linkedDriver && t.driver?.id === linkedDriver.id)
+            || (linkedDriver && t.driver?.driver_code === linkedDriver.driver_code)
+            || t.driver?.email === user?.email
+        ) &&
         ['draft', 'confirmed', 'dispatched', 'in_progress'].includes(t.status)
     );
 

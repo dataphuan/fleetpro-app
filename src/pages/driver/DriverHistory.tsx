@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTrips } from '@/hooks/useTrips';
+import { useDrivers } from '@/hooks/useDrivers';
 import { useTripLocationLogs, useTripPathSummary } from '@/hooks/useTripLocationLogs';
 import { TripReplayMap } from '@/components/tracking/TripReplayMap';
 import { exportToCSV } from '@/lib/export';
@@ -13,15 +14,34 @@ import { Download } from 'lucide-react';
 export default function DriverHistory() {
   const { user } = useAuth();
   const { data: trips = [] } = useTrips();
+  const { data: drivers = [] } = useDrivers();
   const [selectedTripId, setSelectedTripId] = useState<string>('');
   const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
   const [fromDate, setFromDate] = useState<string>('');
   const [toDate, setToDate] = useState<string>('');
 
+  const linkedDriver = useMemo(() => {
+    const byIdentity = (drivers || []).find((d: any) =>
+      d.id === user?.id
+      || d.user_id === user?.id
+      || (user?.email && d.email === user.email)
+      || (user?.email && d.driver_email === user.email)
+    );
+    if (byIdentity) return byIdentity;
+    return (drivers || []).find((d: any) => d.status === 'active') || (drivers || [])[0] || null;
+  }, [drivers, user?.email, user?.id]);
+
   const completedTrips = useMemo(() => {
     let rows = trips
       .filter((trip: any) => {
-        const mine = trip.driver_id === user?.email || trip.driver?.email === user?.email || trip.driver_id === user?.id;
+        const mine =
+          trip.driver_id === user?.email
+          || trip.driver?.email === user?.email
+          || trip.driver_id === user?.id
+          || (linkedDriver && trip.driver_id === linkedDriver.id)
+          || (linkedDriver && trip.driver_id === linkedDriver.driver_code)
+          || (linkedDriver && trip.driver?.id === linkedDriver.id)
+          || (linkedDriver && trip.driver?.driver_code === linkedDriver.driver_code);
         const isDone = ['completed', 'closed', 'cancelled'].includes(trip.status);
         return mine && isDone;
       })
@@ -39,7 +59,7 @@ export default function DriverHistory() {
     }
 
     return rows;
-  }, [trips, user?.email, user?.id, fromDate, toDate]);
+  }, [trips, user?.email, user?.id, linkedDriver, fromDate, toDate]);
 
   const effectiveTripId = selectedTripId || completedTrips[0]?.id || '';
   const { data: logs = [], isLoading } = useTripLocationLogs(effectiveTripId);

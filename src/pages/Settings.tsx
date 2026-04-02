@@ -26,6 +26,7 @@ import { useSecuritySettings, useSaveSecuritySettings } from "@/hooks/useSecurit
 import { useDataExport, useDataBackup, useBackupsList, useHealthCheck, usePurgeData } from "@/hooks/useDataManagement";
 import { useUsers, useAddUser, useUpdateUserRole, useDeleteUser } from "@/hooks/useUsers";
 import { useAuth } from "@/hooks/use-auth";
+import { dataAdapter } from "@/lib/data-adapter";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   Building2,
@@ -54,7 +55,7 @@ export default function Settings() {
   const location = useLocation();
   const navigate = useNavigate();
   const hasElectronApi = typeof window !== 'undefined' && !!(window as any).electronAPI;
-  const { role, userId } = useAuth();
+  const { role, userId, tenantId, user } = useAuth();
   const searchParams = new URLSearchParams(location.search);
   const currentTab = searchParams.get('tab') || 'company';
 
@@ -91,6 +92,7 @@ export default function Settings() {
   const [purgeDialogOpen, setPurgeDialogOpen] = useState(false);
   const [purgeConfirmText, setPurgeConfirmText] = useState('');
   const [purging, setPurging] = useState(false);
+  const [demoActionLoading, setDemoActionLoading] = useState(false);
 
   const [companyForm, setCompanyForm] = useState({
     company_name: '', tax_code: '', address: '', phone: '', email: '', website: '',
@@ -534,6 +536,87 @@ export default function Settings() {
 
         <TabsContent value="data">
           <DataOwnershipExportCard />
+
+          {role === 'admin' && (
+            <Card className="border-blue-200 bg-blue-50/40 dark:bg-blue-950/20">
+              <CardHeader>
+                <CardTitle className="text-blue-700 dark:text-blue-300">Chế độ dùng thử: Demo hoặc Dữ liệu thật</CardTitle>
+                <CardDescription>
+                  1 chạm để nạp đủ dữ liệu demo full tính năng, hoặc xóa dữ liệu demo để nhập dữ liệu thật của công ty ngay trong trial.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button
+                  className="w-full"
+                  disabled={demoActionLoading}
+                  onClick={async () => {
+                    if (!tenantId) {
+                      toast({ title: 'Không xác định tenant', description: 'Vui lòng đăng nhập lại.', variant: 'destructive' });
+                      return;
+                    }
+
+                    setDemoActionLoading(true);
+                    const res = await dataAdapter.auth.ensureTenantDemoReadiness({
+                      tenantId,
+                      role: role || 'viewer',
+                      email: user?.email || '',
+                      full_name: user?.full_name || '',
+                      uid: userId || '',
+                      company_name: companyForm.company_name || 'FleetPro Demo Company',
+                    });
+                    setDemoActionLoading(false);
+
+                    if (res?.success) {
+                      toast({ title: '✅ Sẵn sàng demo full tính năng', description: res?.message || 'Dữ liệu demo đã được chuẩn bị xong.' });
+                    } else {
+                      toast({ title: 'Không thể nạp dữ liệu demo', description: res?.error || 'Vui lòng thử lại.', variant: 'destructive' });
+                    }
+                  }}
+                >
+                  {demoActionLoading ? 'Đang nạp dữ liệu demo...' : 'Nạp lại dữ liệu demo đầy đủ (full tính năng)'}
+                </Button>
+
+                <Button
+                  variant="destructive"
+                  className="w-full"
+                  disabled={demoActionLoading}
+                  onClick={async () => {
+                    if (!tenantId) {
+                      toast({ title: 'Không xác định tenant', description: 'Vui lòng đăng nhập lại.', variant: 'destructive' });
+                      return;
+                    }
+
+                    const ok = window.confirm('Chuyển sang chế độ dữ liệu thật?\n\nNếu đang ở tenant demo dùng chung, hệ thống sẽ tự tách workspace riêng cho bạn để không ảnh hưởng demo của khách mới.');
+                    if (!ok) return;
+
+                    setDemoActionLoading(true);
+                    const res = await dataAdapter.auth.startRealDataMode({
+                      tenantId,
+                      role: role || 'viewer',
+                      keepUserId: userId || undefined,
+                      email: user?.email || '',
+                      full_name: user?.full_name || '',
+                      company_name: companyForm.company_name || '',
+                    });
+                    setDemoActionLoading(false);
+
+                    if (res?.success) {
+                      toast({
+                        title: res?.migrated ? '✅ Đã tách workspace dữ liệu thật' : '✅ Đã xóa dữ liệu demo',
+                        description: res?.migrated
+                          ? `Workspace mới (${res?.newTenantId}) đã sẵn sàng. Vui lòng đăng nhập lại để tiếp tục nhập dữ liệu thật.`
+                          : `Đã xóa ${res?.deleted || 0} bản ghi. Bạn có thể nhập dữ liệu thật ngay bây giờ.`,
+                      });
+                    } else {
+                      toast({ title: 'Không thể chuyển sang dữ liệu thật', description: res?.error || 'Vui lòng thử lại.', variant: 'destructive' });
+                    }
+                  }}
+                >
+                  {demoActionLoading ? 'Đang xử lý chuyển đổi dữ liệu...' : 'Chuyển sang dữ liệu thật (an toàn tenant demo)'}
+                </Button>
+              </CardContent>
+            </Card>
+          )}
 
           <Card>
             <CardHeader>

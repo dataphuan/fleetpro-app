@@ -13,10 +13,38 @@ import { useAuth } from "@/contexts/AuthContext";
 import { dataAdapter } from "@/lib/data-adapter";
 
 const DEMO_ACCOUNTS = [
-    { role: "👑 Admin", email: "admindemo@tnc.io.vn", password: "Demo@1234", color: "text-red-500" },
-    { role: "👔 Quản lý", email: "quanlydemo@tnc.io.vn", password: "Demo@1234", color: "text-orange-500" },
-    { role: "🧾 Kế toán", email: "ketoandemo@tnc.io.vn", password: "Demo@1234", color: "text-emerald-500" },
-    { role: "🚚 Tài xế", email: "taixedemo@tnc.io.vn", password: "Demo@1234", color: "text-blue-500" },
+    { 
+        role: "👑 Admin", 
+        email: "admindemo@tnc.io.vn", 
+        password: "Demo@1234", 
+        color: "text-red-500",
+        description: "Quản lý toàn bộ hệ thống",
+        badge: "Full Access"
+    },
+    { 
+        role: "👔 Quản lý", 
+        email: "quanlydemo@tnc.io.vn", 
+        password: "Demo@1234", 
+        color: "text-orange-500",
+        description: "Điều phối xe & chuyến đi",
+        badge: "Dispatch"
+    },
+    { 
+        role: "🧾 Kế toán", 
+        email: "ketoandemo@tnc.io.vn", 
+        password: "Demo@1234", 
+        color: "text-emerald-500",
+        description: "Chi phí & báo cáo tài chính",
+        badge: "Finance"
+    },
+    { 
+        role: "🚚 Tài xế", 
+        email: "taixedemo@tnc.io.vn", 
+        password: "Demo@1234", 
+        color: "text-blue-500",
+        description: "Giao diện di động (PWA)",
+        badge: "Mobile"
+    },
 ];
 
 // 🟡 Vietnamese Validation Schema
@@ -59,7 +87,7 @@ export default function Auth() {
     
     // 📋 State
     const [loading, setLoading] = useState(false);
-    const [showDemo, setShowDemo] = useState(false);
+    const [showDemo, setShowDemo] = useState(true);
     const [tabValue, setTabValue] = useState("login");
     
     // 🔑 Login States
@@ -112,21 +140,80 @@ export default function Auth() {
 
         try {
             // Auto-login with demo credentials
-            const result = await dataAdapter.auth.login({
+            let activeLoginResult = await dataAdapter.auth.login({
                 email: demoAccount.email,
                 password: demoAccount.password
             });
             
-            if (!result || !result.success) {
-                throw new Error(result?.error || 'Demo account đăng nhập không thành công');
+            if (!activeLoginResult || !activeLoginResult.success) {
+                throw new Error(activeLoginResult?.error || 'Demo account đăng nhập không thành công');
             }
 
             await refreshAuth();
+
+            const ensureResult = await dataAdapter.auth.ensureTenantDemoReadiness?.({
+                tenantId: activeLoginResult?.data?.user?.tenantId,
+                role: activeLoginResult?.data?.user?.role,
+                email: activeLoginResult?.data?.user?.email,
+                full_name: activeLoginResult?.data?.user?.full_name,
+            });
+
+            const adminDemoAccount = DEMO_ACCOUNTS[0];
+            const isNotAdminDemo = demoAccount.email !== adminDemoAccount.email;
+
+            if (ensureResult?.reason === 'requires_admin' && isNotAdminDemo) {
+                const adminLogin = await dataAdapter.auth.login({
+                    email: adminDemoAccount.email,
+                    password: adminDemoAccount.password,
+                });
+
+                if (adminLogin?.success) {
+                    await refreshAuth();
+                    const adminEnsureResult = await dataAdapter.auth.ensureTenantDemoReadiness?.({
+                        tenantId: adminLogin?.data?.user?.tenantId,
+                        role: adminLogin?.data?.user?.role,
+                        email: adminLogin?.data?.user?.email,
+                        full_name: adminLogin?.data?.user?.full_name,
+                    });
+
+                    if (adminEnsureResult?.seeded) {
+                        toast({
+                            title: '✅ Đã sửa dữ liệu demo tự động',
+                            description: 'Hệ thống dùng Admin Demo để nạp đủ dữ liệu, đang quay lại tài khoản bạn chọn.',
+                        });
+                    }
+
+                    // Login back to the originally selected demo account
+                    activeLoginResult = await dataAdapter.auth.login({
+                        email: demoAccount.email,
+                        password: demoAccount.password,
+                    });
+
+                    if (!activeLoginResult?.success) {
+                        throw new Error(activeLoginResult?.error || 'Không thể đăng nhập lại tài khoản demo sau khi nạp dữ liệu.');
+                    }
+                    await refreshAuth();
+                }
+            }
+
+            if (ensureResult?.seeded) {
+                toast({
+                    title: '✅ Đã nạp dữ liệu demo tự động',
+                    description: 'Tenant thiếu dữ liệu đã được bổ sung để trải nghiệm full tính năng.',
+                });
+            } else if (ensureResult?.reason === 'requires_admin') {
+                toast({
+                    title: '⚠️ Cần tài khoản Admin Demo',
+                    description: 'Tenant này thiếu dữ liệu. Hãy đăng nhập Admin để hệ thống tự nạp dữ liệu đầy đủ.',
+                    variant: 'destructive',
+                });
+            }
+
             toast({
                 title: `Chào mừng ${demoAccount.role}!`,
                 description: "Đã đăng nhập với tài khoản demo thành công."
             });
-            const userRole = result?.data?.user?.role;
+            const userRole = activeLoginResult?.data?.user?.role;
             navigate(getPostLoginPath(userRole));
         } catch (error: any) {
             toast({
@@ -134,6 +221,7 @@ export default function Auth() {
                 description: error.message,
                 variant: "destructive"
             });
+        } finally {
             setLoading(false);
         }
     };
@@ -169,6 +257,21 @@ export default function Auth() {
             if (!result || !result.success) throw new Error(result?.error || 'Sai email hoặc mật khẩu');
 
             await refreshAuth();
+
+            const ensureResult = await dataAdapter.auth.ensureTenantDemoReadiness?.({
+                tenantId: result?.data?.user?.tenantId,
+                role: result?.data?.user?.role,
+                email: result?.data?.user?.email,
+                full_name: result?.data?.user?.full_name,
+            });
+
+            if (ensureResult?.seeded) {
+                toast({
+                    title: '✅ Không gian dùng thử đã sẵn sàng',
+                    description: 'Hệ thống vừa tự động nạp dữ liệu đầy đủ cho tenant mới/thiếu dữ liệu.',
+                });
+            }
+
             toast({ title: "Đăng nhập thành công", description: `Chào mừng trở lại!` });
             const userRole = result?.data?.user?.role;
             navigate(getPostLoginPath(userRole));
@@ -337,6 +440,30 @@ export default function Auth() {
 
                             {/* LOGIN TAB */}
                             <TabsContent value="login">
+                                <div className="mb-4 rounded-xl border border-primary/30 bg-gradient-to-r from-primary/10 to-blue-50 p-3">
+                                    <div className="text-xs font-bold text-slate-800 mb-2">⚡ Trải nghiệm nhanh (1 chạm)</div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            className="h-10 justify-start border-blue-300 bg-white hover:bg-blue-50"
+                                            onClick={() => handleDemoAccountClick(DEMO_ACCOUNTS[0])}
+                                            disabled={loading}
+                                        >
+                                            🖥️ Demo PC (Admin)
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant="outline"
+                                            className="h-10 justify-start border-emerald-300 bg-white hover:bg-emerald-50"
+                                            onClick={() => handleDemoAccountClick(DEMO_ACCOUNTS[3])}
+                                            disabled={loading}
+                                        >
+                                            📱 Demo Mobile (Tài xế)
+                                        </Button>
+                                    </div>
+                                </div>
+
                                 <form onSubmit={handleLogin} className="space-y-5">
                                     <div className="space-y-4">
                                         <div className="space-y-2">
@@ -534,50 +661,92 @@ export default function Auth() {
                             className="flex items-center gap-2 text-[10px] font-bold text-slate-400 hover:text-primary transition-colors w-full justify-center"
                         >
                             {showDemo ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                            TÀI KHOẢN DÙNG THỬ (DEMO MODE) - CLICK ĐỂ ĐĂNG NHẬP NGAY
+                            🎁 TÀI KHOẢN DÙNG THỬ (1,340+ BẢN GHI DEMO) - CLICK ĐỂ TRẢI NGHIỆM
                         </button>
                         
                         {showDemo && (
-                            <div className="bg-gradient-to-br from-blue-50 to-primary/5 border border-primary/20 rounded-lg p-3 animate-in fade-in slide-in-from-top-1 duration-300 space-y-2">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <Key className="h-4 w-4 text-primary" />
-                                    <span className="text-xs font-bold text-primary">Nhấp vào tài khoản bạn muốn dùng thử</span>
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                    {DEMO_ACCOUNTS.map((acc, idx) => (
-                                        <div
-                                            key={idx}
-                                            className={`p-2.5 rounded-lg border border-slate-200 hover:border-primary/50 hover:bg-white transition-all text-left text-xs font-medium ${acc.color}`}
-                                        >
-                                            <div className="font-bold">{acc.role}</div>
-                                            <div className="text-slate-600 font-mono text-[10px] mt-0.5 mb-2">{acc.email}</div>
-                                            <div className="flex items-center gap-1.5">
-                                                <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    onClick={() => handleDemoAccountClick(acc)}
-                                                    disabled={loading}
-                                                    className="h-7 px-2 text-[10px] font-semibold"
-                                                >
-                                                    Đăng nhập nhanh
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    size="sm"
-                                                    variant="outline"
-                                                    onClick={() => handleCopyDemoEmail(acc.email)}
-                                                    disabled={loading}
-                                                    className="h-7 px-2 text-[10px]"
-                                                >
-                                                    <Copy className="w-3 h-3 mr-1" />
-                                                    Copy email
-                                                </Button>
+                            <div className="bg-gradient-to-br from-blue-50 to-primary/5 border-2 border-primary/30 rounded-lg p-4 animate-in fade-in slide-in-from-top-1 duration-300 space-y-3">
+                                {/* Demo Data Summary */}
+                                <div className="bg-white rounded-lg p-3 border border-primary/20">
+                                    <div className="flex items-start gap-3">
+                                        <div className="text-xl">✨</div>
+                                        <div className="flex-1">
+                                            <div className="text-xs font-bold text-slate-900 mb-2">
+                                                DEMO DATA READY - TOÀN BỘ TÍNH NĂNG ĐƯỢC MỞ KHÓA
+                                            </div>
+                                            <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-600">
+                                                <div>✅ 20 chiếc xe</div>
+                                                <div>✅ 25 tài xế</div>
+                                                <div>✅ 50 chuyến đi</div>
+                                                <div>✅ 100+ chi phí</div>
+                                                <div>✅ 10 khách hàng</div>
+                                                <div>✅ Báo cáo đầy đủ</div>
                                             </div>
                                         </div>
-                                    ))}
+                                    </div>
                                 </div>
-                                <div className="text-center text-[9px] text-slate-400 p-2 bg-white rounded border border-slate-100 mt-2">
-                                    ✨ <span className="italic">Mật khẩu:</span> <span className="font-mono font-bold text-slate-700">Demo@1234</span>
+
+                                {/* Demo Accounts */}
+                                <div className="space-y-2">
+                                    <div className="flex items-center gap-2">
+                                        <Key className="h-4 w-4 text-primary" />
+                                        <span className="text-xs font-bold text-primary">Chọn tài khoản bạn muốn dùng thử</span>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                        {DEMO_ACCOUNTS.map((acc, idx) => (
+                                            <div
+                                                key={idx}
+                                                className={`p-3 rounded-lg border-2 border-slate-200 hover:border-primary/50 hover:bg-white transition-all text-left text-xs font-medium bg-white hover:shadow-md`}
+                                            >
+                                                <div className="flex items-start justify-between mb-2">
+                                                    <div>
+                                                        <div className="font-bold text-slate-900">{acc.role}</div>
+                                                        <div className="text-slate-600 text-[10px] mt-0.5">{acc.description}</div>
+                                                    </div>
+                                                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                                                        {acc.badge}
+                                                    </span>
+                                                </div>
+                                                <div className="text-slate-600 font-mono text-[9px] mb-2 break-all">{acc.email}</div>
+                                                <div className="flex items-center gap-1.5">
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        onClick={() => handleDemoAccountClick(acc)}
+                                                        disabled={loading}
+                                                        className="h-7 px-2 text-[10px] font-semibold flex-1"
+                                                    >
+                                                        {loading ? "⏳" : "🚀 Login"}
+                                                    </Button>
+                                                    <Button
+                                                        type="button"
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={() => handleCopyDemoEmail(acc.email)}
+                                                        disabled={loading}
+                                                        className="h-7 px-2 text-[10px]"
+                                                    >
+                                                        <Copy className="w-3 h-3" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Password Info */}
+                                <div className="text-center text-[9px] text-slate-600 p-2 bg-white rounded border border-slate-100">
+                                    🔐 Mật khẩu: <span className="font-mono font-bold text-slate-900">Demo@1234</span>
+                                </div>
+
+                                {/* Tips */}
+                                <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-[9px] text-amber-900">
+                                    <div className="font-bold mb-1">💡 Bắt đầu từ đây:</div>
+                                    <ul className="space-y-1 ml-4 list-disc">
+                                        <li>Login với Admin để xem toàn bộ hệ thống</li>
+                                        <li>Kéo xuống "Xe" để thấy 20 chiếc xe ví dụ</li>
+                                        <li>Thu thập dữ liệu (20 xe, 25 tài xế, 50 chuyến...)</li>
+                                    </ul>
                                 </div>
                             </div>
                         )}

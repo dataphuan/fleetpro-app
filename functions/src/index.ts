@@ -1,8 +1,47 @@
-import * as functions from "firebase-functions";
+import * as functions from "firebase-functions/v1";
 import * as admin from "firebase-admin";
 
 admin.initializeApp();
 const db = admin.firestore();
+const callableRegion = functions.region('asia-southeast1');
+
+async function resolveTenantIdFromContext(context: any): Promise<string> {
+  if (!context?.auth?.uid) {
+    throw new functions.https.HttpsError("unauthenticated", "Yêu cầu đăng nhập.");
+  }
+
+  const uid = context.auth.uid as string;
+  const directSnap = await db.collection("users").doc(uid).get();
+  if (directSnap.exists) {
+    const directTenantId = String(directSnap.data()?.tenant_id || "").trim();
+    if (directTenantId) return directTenantId;
+  }
+
+  const email = String(context.auth.token?.email || "").trim().toLowerCase();
+  if (!email) {
+    throw new functions.https.HttpsError("permission-denied", "Người dùng không thuộc tenant nào.");
+  }
+
+  const byEmailSnap = await db.collection("users").where("email", "==", email).limit(1).get();
+  if (byEmailSnap.empty) {
+    throw new functions.https.HttpsError("permission-denied", "Người dùng không thuộc tenant nào.");
+  }
+
+  const data = byEmailSnap.docs[0].data() || {};
+  const tenantId = String(data.tenant_id || "").trim();
+  if (!tenantId) {
+    throw new functions.https.HttpsError("permission-denied", "Người dùng không thuộc tenant nào.");
+  }
+
+  // Self-heal by creating users/{uid} for future direct lookups.
+  await db.collection("users").doc(uid).set({
+    ...data,
+    email,
+    updated_at: new Date().toISOString(),
+  }, { merge: true });
+
+  return tenantId;
+}
 
 /**
  * R47: Kiểm tra giấy phép lái xe và trạng thái tài xế
@@ -58,12 +97,8 @@ async function checkOverlap(tripId: string | undefined, vehicleId: string, drive
 /**
  * TẠO CHUYẾN ĐI (Server-side Secure)
  */
-export const secureCreateTrip = functions.https.onCall(async (data: any, context) => {
-  if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Yêu cầu đăng nhập.");
-  
-  const userSnap = await db.collection("users").doc(context.auth.uid).get();
-  const tenantId = userSnap.data()?.tenant_id;
-  if (!tenantId) throw new functions.https.HttpsError("permission-denied", "Người dùng không thuộc tenant nào.");
+export const secureCreateTrip = callableRegion.https.onCall(async (data: any, context: functions.https.CallableContext) => {
+  const tenantId = await resolveTenantIdFromContext(context);
 
   const isOperational = data.status && !["draft", "cancelled"].includes(data.status);
 
@@ -94,8 +129,7 @@ export const secureCreateTrip = functions.https.onCall(async (data: any, context
 /**
  * CẬP NHẬT CHUYẾN ĐI (Server-side Secure)
  */
-export const secureUpdateTrip = functions.https.onCall(async (data: any, context) => {
-  if (!context.auth) throw new functions.https.HttpsError("unauthenticated", "Yêu cầu đăng nhập.");
+export const secureUpdateTrip = callableRegion.https.onCall(async (data: any, context: functions.https.CallableContext) => {
   const { id, ...updates } = data;
   if (!id) throw new functions.https.HttpsError("invalid-argument", "Thiếu Trip ID.");
 
@@ -105,8 +139,7 @@ export const secureUpdateTrip = functions.https.onCall(async (data: any, context
   
   const oldData = tripSnap.data()!;
   
-  const userSnap = await db.collection("users").doc(context.auth.uid).get();
-  const tenantId = userSnap.data()?.tenant_id;
+  const tenantId = await resolveTenantIdFromContext(context);
   if (oldData.tenant_id !== tenantId) throw new functions.https.HttpsError("permission-denied", "Truy cập bị từ chối.");
 
   // Immutability Check (R44)
@@ -137,7 +170,7 @@ export const secureUpdateTrip = functions.https.onCall(async (data: any, context
   return { success: true };
 });
 
-export const createTenantDemoAccounts = functions.https.onCall(async (data: any, context) => {
+export const createTenantDemoAccounts = callableRegion.https.onCall(async (data: any, context: functions.https.CallableContext) => {
   if (!context.auth) {
     throw new functions.https.HttpsError("unauthenticated", "Yêu cầu đăng nhập.");
   }
