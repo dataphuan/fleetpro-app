@@ -26,6 +26,33 @@ if (!m) {
 const payload = JSON.parse(m[1]);
 const c = payload.collections || {};
 
+const fallbackDriverAddresses = [
+  '123 QL1A, Ninh Hòa, Khánh Hòa',
+  '456 QL1A, Cam Ranh, Khánh Hòa',
+  '789 QL1A, Nha Trang, Khánh Hòa',
+  '101 QL1A, Phan Rang, Ninh Thuận',
+  '202 QL1A, Tuy Hòa, Phú Yên',
+  '303 QL1A, Quy Nhơn, Bình Định',
+  '404 QL1A, Pleiku, Gia Lai',
+  '505 QL1A, Kon Tum, Kon Tum',
+  '606 QL1A, Buôn Ma Thuột, Đắk Lắk',
+  '707 QL1A, Gia Nghĩa, Đắk Nông',
+  '808 QL1A, Đà Nẵng',
+  '909 QL1A, Huế, Thừa Thiên Huế',
+  '1010 QL1A, Đồng Nai',
+  '1111 QL1A, TP.HCM',
+  '1212 QL1A, Bình Dương',
+];
+
+const addYearsIso = (isoDate, years) => {
+  const d = new Date(isoDate || Date.now());
+  if (Number.isNaN(d.getTime())) {
+    return new Date(Date.now() + years * 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  }
+  d.setFullYear(d.getFullYear() + years);
+  return d.toISOString().slice(0, 10);
+};
+
 // Enhancement 1: Add Admin User
 console.log('1️⃣  Adding Admin User...');
 const hasAdmin = (c.users || []).some((u) => u.role === 'admin');
@@ -65,9 +92,31 @@ if (c.companySettings && c.companySettings.length > 0) {
   }
 }
 
+// Enhancement 2.1: Backfill critical driver profile fields
+console.log('\n2.1️⃣  Backfilling Driver Profile Fields...');
+const drivers = c.drivers || [];
+let backfilledAddressCount = 0;
+let backfilledHealthCheckCount = 0;
+
+drivers.forEach((driver, idx) => {
+  if (!driver.address || String(driver.address).trim() === '') {
+    driver.address = fallbackDriverAddresses[idx % fallbackDriverAddresses.length];
+    backfilledAddressCount++;
+  }
+
+  if (!driver.health_check_expiry || String(driver.health_check_expiry).trim() === '') {
+    const baseDate = driver.license_expiry || driver.license_issue_date || new Date().toISOString().slice(0, 10);
+    driver.health_check_expiry = addYearsIso(baseDate, -1);
+    backfilledHealthCheckCount++;
+  }
+});
+
+console.log(`   ✓ Drivers scanned: ${drivers.length}`);
+console.log(`   ✓ Backfilled address: ${backfilledAddressCount}`);
+console.log(`   ✓ Backfilled health_check_expiry: ${backfilledHealthCheckCount}`);
+
 // Enhancement 3: Ensure all drivers have trips
 console.log('\n3️⃣  Trip Distribution Audit...');
-const drivers = c.drivers || [];
 const trips = c.trips || [];
 const tripsPerDriver = {};
 for (const trip of trips) {

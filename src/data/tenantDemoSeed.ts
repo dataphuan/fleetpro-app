@@ -4,14 +4,14 @@
 
 export const TENANT_DEMO_SEED = {
   "metadata": {
-    "generated_at": "2026-04-01T01:27:27.718Z",
+    "generated_at": "2026-04-02T07:57:29.695Z",
     "source": "DATA-DEMO/*.xlsx + tab supplements",
     "counts": {
       "vehicles": 20,
       "drivers": 25,
       "customers": 10,
       "routes": 15,
-      "trips": 53,
+      "trips": 50,
       "expenses": 967,
       "expenseCategories": 4,
       "maintenance": 2,
@@ -26,12 +26,7 @@ export const TENANT_DEMO_SEED = {
       "partners": 2,
       "users": 5,
       "companySettings": 1
-    },
-    "modified_at": "2026-04-02T05:59:40.153Z",
-    "enriched_fields": [
-      "address",
-      "health_check_expiry"
-    ]
+    }
   },
   "collections": {
     "vehicles": [
@@ -651,14 +646,14 @@ export const TENANT_DEMO_SEED = {
         "license_class": "E",
         "license_issue_date": "2022-05-20",
         "license_expiry": "2027-11-02",
-        "health_check_expiry": "2027-04-02",
         "contract_type": "toan_thoi_gian",
         "id_issue_date": "2005-12-25",
-        "address": "123 QL1A, Ninh Hòa, Khánh Hòa",
         "assigned_vehicle_id": "XE0001",
         "base_salary": 13000000,
         "status": "active",
-        "notes": "Kinh nghiệm 15 năm"
+        "notes": "Kinh nghiệm 15 năm",
+        "address": "123 QL1A, Ninh Hòa, Khánh Hòa",
+        "health_check_expiry": "2026-11-02"
       },
       {
         "id": "TX0002",
@@ -674,14 +669,14 @@ export const TENANT_DEMO_SEED = {
         "license_class": "FC",
         "license_issue_date": "2021-12-26",
         "license_expiry": "2029-01-19",
-        "health_check_expiry": "2027-06-15",
         "contract_type": "toan_thoi_gian",
         "id_issue_date": "2006-06-13",
-        "address": "456 QL1A, Cam Ranh, Khánh Hòa",
         "assigned_vehicle_id": "XE0002",
         "base_salary": 16000000,
         "status": "active",
-        "notes": "Kinh nghiệm 9 năm"
+        "notes": "Kinh nghiệm 9 năm",
+        "address": "456 QL1A, Cam Ranh, Khánh Hòa",
+        "health_check_expiry": "2028-01-19"
       },
       {
         "id": "TX0003",
@@ -697,14 +692,14 @@ export const TENANT_DEMO_SEED = {
         "license_class": "E",
         "license_issue_date": "2023-08-12",
         "license_expiry": "2029-12-04",
-        "health_check_expiry": "2027-12-05",
         "contract_type": "toan_thoi_gian",
         "id_issue_date": "2006-11-30",
-        "address": "789 QL1A, Nha Trang, Khánh Hòa",
         "assigned_vehicle_id": "XE0003",
         "base_salary": 12000000,
         "status": "active",
-        "notes": "Kinh nghiệm 7 năm"
+        "notes": "Kinh nghiệm 7 năm",
+        "address": "789 QL1A, Nha Trang, Khánh Hòa",
+        "health_check_expiry": "2028-12-04"
       },
       {
         "id": "TX0004",
@@ -720,14 +715,14 @@ export const TENANT_DEMO_SEED = {
         "license_class": "D",
         "license_issue_date": "2019-09-02",
         "license_expiry": "2027-11-02",
-        "health_check_expiry": "2026-05-24",
         "contract_type": "toan_thoi_gian",
         "id_issue_date": "2007-05-19",
-        "address": "101 QL1A, Phan Rang, Ninh Thuận",
         "assigned_vehicle_id": "XE0004",
         "base_salary": 18000000,
         "status": "active",
-        "notes": "Kinh nghiệm 9 năm"
+        "notes": "Kinh nghiệm 9 năm",
+        "address": "101 QL1A, Phan Rang, Ninh Thuận",
+        "health_check_expiry": "2026-11-02"
       },
       {
         "id": "TX0005",
@@ -743,14 +738,14 @@ export const TENANT_DEMO_SEED = {
         "license_class": "E",
         "license_issue_date": "2020-03-06",
         "license_expiry": "2028-04-07",
-        "health_check_expiry": "2026-11-10",
         "contract_type": "toan_thoi_gian",
         "id_issue_date": "2007-11-05",
-        "address": "202 QL1A, Tuy Hòa, Phú Yên",
         "assigned_vehicle_id": "XE0005",
         "base_salary": 17000000,
         "status": "active",
-        "notes": "Kinh nghiệm 11 năm"
+        "notes": "Kinh nghiệm 11 năm",
+        "address": "202 QL1A, Tuy Hòa, Phú Yên",
+        "health_check_expiry": "2027-04-07"
       },
       {
         "id": "TX0006",
@@ -766,14 +761,14 @@ export const TENANT_DEMO_SEED = {
         "license_class": "D",
         "license_issue_date": "2022-03-16",
         "license_expiry": "2026-08-31",
-        "health_check_expiry": "2027-04-29",
         "contract_type": "toan_thoi_gian",
         "id_issue_date": "2008-04-23",
-        "address": "303 QL1A, Quy Nhơn, Bình Định",
         "assigned_vehicle_id": "XE0006",
         "base_salary": 13000000,
         "status": "active",
-        "notes": "Kinh nghiệm 6 năm"
+        "notes": "Kinh nghiệm 6 năm",
+        "address": "303 QL1A, Quy Nhơn, Bình Định",
+        "health_check_expiry": "2025-08-31"
       },
       {
         "id": "TX0007",
@@ -789,14 +784,14 @@ export const TENANT_DEMO_SEED = {
         "license_class": "C",
         "license_issue_date": "2020-10-01",
         "license_expiry": "2029-09-02",
-        "health_check_expiry": "2027-10-16",
         "contract_type": "toan_thoi_gian",
         "id_issue_date": "2008-10-10",
-        "address": "404 QL1A, Pleiku, Gia Lai",
         "assigned_vehicle_id": "XE0007",
         "base_salary": 14000000,
         "status": "active",
-        "notes": "Kinh nghiệm 9 năm"
+        "notes": "Kinh nghiệm 9 năm",
+        "address": "404 QL1A, Pleiku, Gia Lai",
+        "health_check_expiry": "2028-09-02"
       },
       {
         "id": "TX0008",
@@ -812,14 +807,14 @@ export const TENANT_DEMO_SEED = {
         "license_class": "FC",
         "license_issue_date": "2020-07-27",
         "license_expiry": "2028-12-20",
-        "health_check_expiry": "2027-04-04",
         "contract_type": "toan_thoi_gian",
         "id_issue_date": "2009-03-29",
-        "address": "505 QL1A, Kon Tum, Kon Tum",
         "assigned_vehicle_id": "XE0008",
         "base_salary": 18000000,
         "status": "active",
-        "notes": "Kinh nghiệm 10 năm"
+        "notes": "Kinh nghiệm 10 năm",
+        "address": "505 QL1A, Kon Tum, Kon Tum",
+        "health_check_expiry": "2027-12-20"
       },
       {
         "id": "TX0009",
@@ -842,7 +837,7 @@ export const TENANT_DEMO_SEED = {
         "status": "active",
         "notes": "Kinh nghiệm 11 năm",
         "address": "606 QL1A, Buôn Ma Thuột, Đắk Lắk",
-        "health_check_expiry": "2027-09-15"
+        "health_check_expiry": "2027-12-17"
       },
       {
         "id": "TX0010",
@@ -865,7 +860,7 @@ export const TENANT_DEMO_SEED = {
         "status": "active",
         "notes": "Kinh nghiệm 10 năm",
         "address": "707 QL1A, Gia Nghĩa, Đắk Nông",
-        "health_check_expiry": "2027-10-15"
+        "health_check_expiry": "2027-08-18"
       },
       {
         "id": "TX0011",
@@ -888,7 +883,7 @@ export const TENANT_DEMO_SEED = {
         "status": "active",
         "notes": "Kinh nghiệm 9 năm",
         "address": "808 QL1A, Đà Nẵng",
-        "health_check_expiry": "2027-11-15"
+        "health_check_expiry": "2025-11-04"
       },
       {
         "id": "TX0012",
@@ -911,7 +906,7 @@ export const TENANT_DEMO_SEED = {
         "status": "active",
         "notes": "Kinh nghiệm 11 năm",
         "address": "909 QL1A, Huế, Thừa Thiên Huế",
-        "health_check_expiry": "2027-12-15"
+        "health_check_expiry": "2029-05-04"
       },
       {
         "id": "TX0013",
@@ -934,7 +929,7 @@ export const TENANT_DEMO_SEED = {
         "status": "active",
         "notes": "Kinh nghiệm 14 năm",
         "address": "1010 QL1A, Đồng Nai",
-        "health_check_expiry": "2028-01-15"
+        "health_check_expiry": "2030-10-18"
       },
       {
         "id": "TX0014",
@@ -957,7 +952,7 @@ export const TENANT_DEMO_SEED = {
         "status": "active",
         "notes": "Kinh nghiệm 15 năm",
         "address": "1111 QL1A, TP.HCM",
-        "health_check_expiry": "2028-02-15"
+        "health_check_expiry": "2027-08-11"
       },
       {
         "id": "TX0015",
@@ -980,7 +975,7 @@ export const TENANT_DEMO_SEED = {
         "status": "active",
         "notes": "Kinh nghiệm 14 năm",
         "address": "1212 QL1A, Bình Dương",
-        "health_check_expiry": "2028-03-15"
+        "health_check_expiry": "2029-04-15"
       },
       {
         "id": "TX0016",
@@ -1003,7 +998,7 @@ export const TENANT_DEMO_SEED = {
         "status": "active",
         "notes": "Kinh nghiệm 12 năm",
         "address": "123 QL1A, Ninh Hòa, Khánh Hòa",
-        "health_check_expiry": "2028-04-15"
+        "health_check_expiry": "2028-08-27"
       },
       {
         "id": "TX0017",
@@ -1026,7 +1021,7 @@ export const TENANT_DEMO_SEED = {
         "status": "active",
         "notes": "Kinh nghiệm 12 năm",
         "address": "456 QL1A, Cam Ranh, Khánh Hòa",
-        "health_check_expiry": "2028-05-15"
+        "health_check_expiry": "2025-11-26"
       },
       {
         "id": "TX0018",
@@ -1049,7 +1044,7 @@ export const TENANT_DEMO_SEED = {
         "status": "active",
         "notes": "Kinh nghiệm 8 năm",
         "address": "789 QL1A, Nha Trang, Khánh Hòa",
-        "health_check_expiry": "2028-06-15"
+        "health_check_expiry": "2025-11-22"
       },
       {
         "id": "TX0019",
@@ -1072,7 +1067,7 @@ export const TENANT_DEMO_SEED = {
         "status": "active",
         "notes": "Kinh nghiệm 11 năm",
         "address": "101 QL1A, Phan Rang, Ninh Thuận",
-        "health_check_expiry": "2028-07-15"
+        "health_check_expiry": "2028-12-26"
       },
       {
         "id": "TX0020",
@@ -1095,7 +1090,7 @@ export const TENANT_DEMO_SEED = {
         "status": "active",
         "notes": "Kinh nghiệm 11 năm",
         "address": "202 QL1A, Tuy Hòa, Phú Yên",
-        "health_check_expiry": "2028-08-15"
+        "health_check_expiry": "2027-12-11"
       },
       {
         "id": "TX0021",
@@ -1118,7 +1113,7 @@ export const TENANT_DEMO_SEED = {
         "status": "active",
         "notes": "Kinh nghiệm 8 năm",
         "address": "303 QL1A, Quy Nhơn, Bình Định",
-        "health_check_expiry": "2028-09-15"
+        "health_check_expiry": "2025-09-03"
       },
       {
         "id": "TX0022",
@@ -1141,7 +1136,7 @@ export const TENANT_DEMO_SEED = {
         "status": "active",
         "notes": "Kinh nghiệm 11 năm",
         "address": "404 QL1A, Pleiku, Gia Lai",
-        "health_check_expiry": "2028-10-15"
+        "health_check_expiry": "2026-03-16"
       },
       {
         "id": "TX0023",
@@ -1164,7 +1159,7 @@ export const TENANT_DEMO_SEED = {
         "status": "active",
         "notes": "Kinh nghiệm 13 năm",
         "address": "505 QL1A, Kon Tum, Kon Tum",
-        "health_check_expiry": "2028-11-15"
+        "health_check_expiry": "2029-02-13"
       },
       {
         "id": "TX0024",
@@ -1187,7 +1182,7 @@ export const TENANT_DEMO_SEED = {
         "status": "active",
         "notes": "Kinh nghiệm 5 năm",
         "address": "606 QL1A, Buôn Ma Thuột, Đắk Lắk",
-        "health_check_expiry": "2028-12-15"
+        "health_check_expiry": "2030-12-16"
       },
       {
         "id": "TX0025",
@@ -1210,7 +1205,7 @@ export const TENANT_DEMO_SEED = {
         "status": "active",
         "notes": "Kinh nghiệm 10 năm",
         "address": "707 QL1A, Gia Nghĩa, Đắk Nông",
-        "health_check_expiry": "2029-01-15"
+        "health_check_expiry": "2027-06-08"
       }
     ],
     "customers": [
@@ -1868,54 +1863,6 @@ export const TENANT_DEMO_SEED = {
       }
     ],
     "trips": [
-      {
-        "id": "CD2604001",
-        "trip_code": "CD2604001",
-        "vehicle_id": "XE0001",
-        "driver_id": "TX0001",
-        "route_id": "TD0004",
-        "customer_id": "KH0001",
-        "departure_date": "2026-04-02",
-        "cargo_weight_tons": 18,
-        "actual_distance_km": 35,
-        "freight_revenue": 1500000,
-        "additional_charges": 300000,
-        "total_revenue": 1800000,
-        "status": "confirmed",
-        "notes": "Chuyến Ninh Hòa - Nha Trang - Hôm nay"
-      },
-      {
-        "id": "CD2604002",
-        "trip_code": "CD2604002",
-        "vehicle_id": "XE0001",
-        "driver_id": "TX0001",
-        "route_id": "TD0005",
-        "customer_id": "KH0002",
-        "departure_date": "2026-04-01",
-        "cargo_weight_tons": 20,
-        "actual_distance_km": 105,
-        "freight_revenue": 4500000,
-        "additional_charges": 100000,
-        "total_revenue": 4600000,
-        "status": "completed",
-        "notes": "Chuyến Ninh Hòa - Phan Rang - Hoàn thành"
-      },
-      {
-        "id": "CD2604003",
-        "trip_code": "CD2604003",
-        "vehicle_id": "XE0001",
-        "driver_id": "TX0001",
-        "route_id": "TD0001",
-        "customer_id": "KH0003",
-        "departure_date": "2026-03-31",
-        "cargo_weight_tons": 15,
-        "actual_distance_km": 100,
-        "freight_revenue": 3800000,
-        "additional_charges": 200000,
-        "total_revenue": 4000000,
-        "status": "completed",
-        "notes": "Chuyến Ninh Hòa - Tuy Hòa - Hôm qua"
-      },
       {
         "id": "CD2602020",
         "trip_code": "CD2602020",
