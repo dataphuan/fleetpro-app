@@ -23,6 +23,8 @@
     "qa:release-mobile": "npm run typecheck && npm run qa:mobile-ui",
     "qa:release-mobile-pro": "npm run typecheck && npm run qa:mobile-menu-detailed",
     "qa:demo-data": "node scripts/qa-demo-data-coverage.mjs",
+    "qa:demo-seed-full": "node scripts/qa-demo-seed-full-experience.mjs",
+    "seed:enrich-full": "node scripts/enrich-demo-seed-full.mjs",
     "seed:generate": "node scripts/generate-tenant-demo-seed.mjs",
     "seed:reset:tenant": "node scripts/reset-demo-tenant-admin.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",

@@ -15526,6 +15526,13 @@ export const TENANT_DEMO_SEED = {
     ],
     "users": [
       {
+        "id": "member_admin",
+        "email": "demo.admin@fleetpro.vn",
+        "full_name": "Demo Admin",
+        "role": "admin",
+        "status": "active"
+      },
+      {
         "id": "member_manager",
         "email": "demo.manager@fleetpro.vn",
         "full_name": "Demo Manager",
@@ -15564,12 +15571,12 @@ export const TENANT_DEMO_SEED = {
     "companySettings": [
       {
         "id": "default",
-        "company_name": "Cong ty Van tai Demo",
-        "tax_code": "",
+        "company_name": "TNC Vận Tải Logistics",
+        "tax_code": "6000223334",
         "address": "TP.HCM",
-        "phone": "",
+        "phone": "(84-258) 825-0000",
         "email": "demo@fleetpro.vn",
-        "website": "",
+        "website": "https://tnc.io.vn",
         "logo_url": "",
         "currency": "VND",
         "date_format": "DD/MM/YYYY",
