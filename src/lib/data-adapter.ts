@@ -1464,13 +1464,40 @@ const seedNewTenantDemoData = async (options: TenantSeedOptions) => {
     };
 
     const seedRowsByCollection = Object.fromEntries(
-        Object.entries(TENANT_DEMO_SEED.collections).map(([collectionName, rows]) => [
-            collectionName,
-            (rows as unknown as Array<Record<string, any>>).map((row) => ({ ...row })),
-        ])
+        Object.entries(TENANT_DEMO_SEED.collections)
+            .filter(([collectionName]) => collectionName !== 'users')
+            .map(([collectionName, rows]) => [
+                collectionName,
+                (rows as unknown as Array<Record<string, any>>).map((row) => ({ ...row })),
+            ])
     ) as Record<string, Array<Record<string, any>>>;
 
     normalizeSeedRows(seedRowsByCollection);
+
+    const demoDriver = seedRowsByCollection.drivers?.[0];
+    if (demoDriver) {
+        demoDriver.email = `demo.driver+${tenantId}@fleetpro.vn`;
+    }
+
+    const demoDriverId = demoDriver?.id || demoDriver?.driver_code;
+    const demoVehicleId = demoDriver?.assigned_vehicle_id;
+    const demoTrips = seedRowsByCollection.trips || [];
+    if (demoDriverId && demoTrips.length > 0) {
+        const dispatchedTrip = demoTrips[0];
+        dispatchedTrip.driver_id = demoDriverId;
+        if (demoVehicleId) dispatchedTrip.vehicle_id = demoVehicleId;
+        dispatchedTrip.status = 'dispatched';
+        dispatchedTrip.dispatched_at = dispatchedTrip.dispatched_at || nowIso;
+
+        const inProgressTrip = demoTrips[1];
+        if (inProgressTrip) {
+            inProgressTrip.driver_id = demoDriverId;
+            if (demoVehicleId) inProgressTrip.vehicle_id = demoVehicleId;
+            inProgressTrip.status = 'in_progress';
+            inProgressTrip.dispatched_at = inProgressTrip.dispatched_at || nowIso;
+            inProgressTrip.actual_departure_time = inProgressTrip.actual_departure_time || nowIso;
+        }
+    }
 
     const allCollections = Object.entries(seedRowsByCollection).map(([collectionName, rows]) => {
         const mappedRows = rows.map((row) => {
@@ -1523,6 +1550,11 @@ const seedNewTenantDemoData = async (options: TenantSeedOptions) => {
         ],
     });
 
+
+const createTenantDemoAccounts = async (tenantId: string, companyName: string) => {
+    const createDemoAccounts = httpsCallable(functions, 'createTenantDemoAccounts');
+    await createDemoAccounts({ tenantId, companyName });
+};
     const writes: Array<{ collectionName: string; docId: string; data: Record<string, any> }> = [];
     allCollections.forEach(({ collectionName, rows }) => {
         rows.forEach((row) => writes.push({ collectionName, ...row }));
@@ -1656,6 +1688,12 @@ const webDataAdapters: Record<string, any> = {
                     adminEmail: payload.email,
                     adminName: payload.full_name,
                 });
+
+                try {
+                    await createTenantDemoAccounts(tenantId, payload.company_name);
+                } catch (error) {
+                    console.warn('[Register] Demo account provisioning failed:', error);
+                }
                 
                 await logActivity('CREATE', 'users', uid, { type: 'registration', company: payload.company_name });
 

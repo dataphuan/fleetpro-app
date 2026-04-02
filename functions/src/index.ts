@@ -136,3 +136,67 @@ export const secureUpdateTrip = functions.https.onCall(async (data: any, context
   await tripRef.update(finalData);
   return { success: true };
 });
+
+export const createTenantDemoAccounts = functions.https.onCall(async (data: any, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError("unauthenticated", "Yêu cầu đăng nhập.");
+  }
+
+  const tenantId = String(data?.tenantId || '').trim();
+  const companyName = String(data?.companyName || '').trim();
+  if (!tenantId || !companyName) {
+    throw new functions.https.HttpsError("invalid-argument", "Thiếu tenantId hoặc companyName.");
+  }
+
+  const requesterSnap = await db.collection("users").doc(context.auth.uid).get();
+  if (!requesterSnap.exists) {
+    throw new functions.https.HttpsError("permission-denied", "Không tìm thấy người dùng.");
+  }
+
+  const requester = requesterSnap.data() || {};
+  if (requester.tenant_id !== tenantId || requester.role !== 'admin') {
+    throw new functions.https.HttpsError("permission-denied", "Chỉ admin của tenant mới được tạo tài khoản demo.");
+  }
+
+  const demoPassword = "Demo@1234";
+  const roles = [
+    { role: 'manager', localPart: 'demo.manager', fullName: 'Demo Manager' },
+    { role: 'dispatcher', localPart: 'demo.dispatcher', fullName: 'Demo Dispatcher' },
+    { role: 'accountant', localPart: 'demo.accountant', fullName: 'Demo Accountant' },
+    { role: 'driver', localPart: 'demo.driver', fullName: 'Demo Driver' },
+  ];
+
+  const results: Array<{ role: string; email: string; uid: string }> = [];
+  for (const item of roles) {
+    const email = `${item.localPart}+${tenantId}@fleetpro.vn`;
+    let userRecord: admin.auth.UserRecord;
+
+    try {
+      userRecord = await admin.auth().getUserByEmail(email);
+    } catch (error: any) {
+      if (error?.code !== 'auth/user-not-found') {
+        throw new functions.https.HttpsError("internal", "Không thể kiểm tra tài khoản demo.");
+      }
+      userRecord = await admin.auth().createUser({
+        email,
+        password: demoPassword,
+        displayName: item.fullName,
+      });
+    }
+
+    await db.collection('users').doc(userRecord.uid).set({
+      email,
+      full_name: item.fullName,
+      company_name: companyName,
+      role: item.role,
+      tenant_id: tenantId,
+      status: 'active',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }, { merge: true });
+
+    results.push({ role: item.role, email, uid: userRecord.uid });
+  }
+
+  return { success: true, accounts: results, password: demoPassword };
+});
