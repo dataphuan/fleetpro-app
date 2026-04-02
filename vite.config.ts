@@ -14,15 +14,26 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       sourcemap: false,
-      minify: false,
-      target: 'es2015', // Try different target
-      chunkSizeWarningLimit: 1000,
+      minify: 'esbuild',
+      target: 'es2020',
+      chunkSizeWarningLimit: 2000,
+      outDir: 'dist',
       rollupOptions: {
         output: {
-          manualChunks: {
-            vendor: ['react', 'react-dom', 'react-router-dom'],
-            firebase: ['firebase/app', 'firebase/firestore', 'firebase/auth'],
-            ui: ['lucide-react', 'date-fns', 'zod', 'react-hook-form', '@tanstack/react-query']
+          entryFileNames: 'assets/[name]-[hash].js',
+          chunkFileNames: 'assets/[name]-[hash].js',
+          assetFileNames: 'assets/[name]-[hash][extname]',
+          manualChunks: (id) => {
+            if (id.includes('node_modules')) {
+              if (id.includes('firebase')) return 'firebase';
+              if (id.includes('react')) return 'vendor';
+              if (id.includes('lucide')) return 'ui';
+              return 'vendor';
+            }
+            if (id.includes('pages')) {
+              const match = id.match(/pages\/([^/]+)/);
+              if (match) return `page-${match[1]}`;
+            }
           }
         }
       }
