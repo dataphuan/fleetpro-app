@@ -17,6 +17,7 @@
     "qa:phase6": "node scripts/qa-phase6-nonfunctional-audit.mjs",
     "qa:phase7": "node scripts/qa-phase7-release-gate.mjs",
     "qa:phase-audit": "node scripts/qa-audit-phased-runner.mjs",
+    "qa:pre-push": "node scripts/qa-pre-push.js",
     "qa:mobile-ui": "node scripts/qa-mobile-ui-audit.mjs",
     "qa:mobile-menu-detailed": "node scripts/qa-mobile-menu-detailed-audit.mjs",
     "qa:release-mobile": "npm run typecheck && npm run qa:mobile-ui",
