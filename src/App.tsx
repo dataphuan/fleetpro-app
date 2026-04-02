@@ -109,6 +109,10 @@ const DriverHistory = lazy(() => import("./pages/driver/DriverHistory").catch(er
   console.error('Failed to load DriverHistory:', err);
   return { default: () => <div>Driver History failed to load</div> };
 }));
+const DriverMenu = lazy(() => import("./pages/driver/DriverMenu").catch(err => {
+  console.error('Failed to load DriverMenu:', err);
+  return { default: () => <div>Driver Menu failed to load</div> };
+}));
 
 // Customer B2B Portal Routes
 const CustomerPortal = lazy(() => import("./pages/portal/CustomerPortal").catch(err => {
@@ -192,6 +196,7 @@ const App = () => {
                 >
                   <Route index element={<DriverDashboard />} />
                   <Route path="history" element={<DriverHistory />} />
+                  <Route path="menu" element={<DriverMenu />} />
                   <Route path="profile" element={<UserProfilePage />} />
                 </Route>
 

@@ -1,7 +1,7 @@
 import { Outlet, Navigate, useLocation, Link } from "react-router-dom";
 import { Suspense } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Truck, Home, User, Bell } from "lucide-react";
+import { Truck, Home, User, Bell, Menu } from "lucide-react";
 import { PaywallGuard } from "@/components/shared/PaywallGuard";
 import { normalizeUserRole } from "@/lib/rbac";
 import { InstallAppPrompt } from "@/components/pwa/InstallAppPrompt";
@@ -64,6 +64,11 @@ export function DriverLayout() {
                     <Link to="/driver/history" className={`flex flex-col items-center p-2 min-w-[72px] transition-colors ${location.pathname === '/driver/history' ? 'text-blue-600' : 'text-slate-500 hover:text-slate-900'}`}>
                         <Truck className="w-6 h-6 mb-1" />
                         <span className="text-[10px] font-medium">Lịch Sử</span>
+                    </Link>
+
+                    <Link to="/driver/menu" className={`flex flex-col items-center p-2 min-w-[72px] transition-colors ${location.pathname === '/driver/menu' ? 'text-blue-600' : 'text-slate-500 hover:text-slate-900'}`}>
+                        <Menu className="w-6 h-6 mb-1" />
+                        <span className="text-[10px] font-medium">Báo Cáo</span>
                     </Link>
 
                     <Link to="/driver/profile" className={`flex flex-col items-center p-2 min-w-[72px] transition-colors ${location.pathname === '/driver/profile' ? 'text-blue-600' : 'text-slate-500 hover:text-slate-900'}`}>
