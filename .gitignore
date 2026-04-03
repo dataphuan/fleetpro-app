@@ -27,6 +27,7 @@ logs/
 fleetpro-app-service-account.json
 service-account*.json
 credentials*.json
+scripts/cloudflare-pages-secrets.production.json
 
 # Build and IDE
 node_modules
