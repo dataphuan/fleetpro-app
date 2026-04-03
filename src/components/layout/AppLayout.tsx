@@ -11,28 +11,14 @@ interface AppLayoutProps {
 export function AppLayout({ children }: AppLayoutProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(1280);
-  const [isTouchMobileDevice, setIsTouchMobileDevice] = useState(false);
 
-  const useMobileShell = viewportWidth < 1024 || isTouchMobileDevice;
+  // UI mode follows viewport to keep desktop UX stable on touch-capable laptops.
+  const useMobileShell = viewportWidth < 1024;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     setViewportWidth(window.innerWidth);
-
-    let detectedMobile = false;
-    try {
-      const ua = typeof navigator !== "undefined" ? navigator.userAgent || "" : "";
-      detectedMobile = /Android|iPhone|iPad|iPod|Mobile|Windows Phone/i.test(ua);
-    } catch {
-      detectedMobile = false;
-    }
-
-    if (!detectedMobile && typeof window.matchMedia === "function") {
-      detectedMobile = window.matchMedia("(pointer: coarse)").matches;
-    }
-
-    setIsTouchMobileDevice(detectedMobile);
 
     const handleResize = () => setViewportWidth(window.innerWidth);
     window.addEventListener("resize", handleResize);

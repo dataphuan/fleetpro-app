@@ -32,7 +32,7 @@ export function DriverLayout() {
 
     return (
         <PaywallGuard>
-            <div className="flex flex-col h-screen bg-slate-100 max-w-md mx-auto relative shadow-2xl overflow-hidden">
+            <div className="flex flex-col h-screen bg-slate-100 w-full max-w-md md:max-w-5xl mx-auto relative shadow-2xl overflow-hidden md:my-3 md:h-[calc(100vh-1.5rem)] md:rounded-2xl md:border md:border-slate-200">
                 {/* Mobile Header */}
                 <header className="bg-blue-600 text-white p-4 shadow-md flex justify-between items-center z-10">
                     <div>
