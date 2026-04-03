@@ -108,11 +108,13 @@ export function TrackingPlaceholderFleetMap({ markers }: TrackingPlaceholderFlee
           </Badge>
         </div>
       </CardHeader>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-3 p-4">
         <div className="rounded-lg border border-blue-100 bg-blue-50/60 p-2 text-xs text-blue-700">
           Dang phat trien - GPS realtime sap ra mat. Hien tai map su dung marker mock theo du lieu xe tai Nha Trang.
         </div>
-        <div ref={mapRef} className="h-[340px] w-full rounded-lg border" />
+        <div className="relative h-[340px] w-full overflow-hidden rounded-lg border">
+          <div ref={mapRef} className="absolute inset-0 h-full w-full" />
+        </div>
       </CardContent>
     </Card>
   );

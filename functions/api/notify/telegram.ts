@@ -1,4 +1,18 @@
 // Using 'any' for context to align with existing Cloudflare function style in this project.
+const corsHeaders = {
+  'Content-Type': 'application/json',
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+};
+
+export const onRequestOptions = async () => {
+  return new Response(null, {
+    status: 204,
+    headers: corsHeaders,
+  });
+};
+
 export const onRequestPost = async (context: any) => {
   const { request, env } = context;
 
@@ -37,7 +51,7 @@ export const onRequestPost = async (context: any) => {
     if (!text) {
       return new Response(JSON.stringify({ ok: false, message: 'Missing text payload' }), {
         status: 400,
-        headers: { 'Content-Type': 'application/json' },
+        headers: corsHeaders,
       });
     }
 
@@ -46,7 +60,7 @@ export const onRequestPost = async (context: any) => {
     if (!token || !chatId) {
       return new Response(JSON.stringify({ ok: false, message: 'Server telegram credentials are missing' }), {
         status: 500,
-        headers: { 'Content-Type': 'application/json' },
+        headers: corsHeaders,
       });
     }
 
@@ -61,7 +75,7 @@ export const onRequestPost = async (context: any) => {
       if (!mediaUrl) {
         return new Response(JSON.stringify({ ok: false, message: 'Missing mediaUrl for photo payload' }), {
           status: 400,
-          headers: { 'Content-Type': 'application/json' },
+          headers: corsHeaders,
         });
       }
       telegramMethod = 'sendPhoto';
@@ -76,7 +90,7 @@ export const onRequestPost = async (context: any) => {
       if (!mediaUrl) {
         return new Response(JSON.stringify({ ok: false, message: 'Missing mediaUrl for video payload' }), {
           status: 400,
-          headers: { 'Content-Type': 'application/json' },
+          headers: corsHeaders,
         });
       }
       telegramMethod = 'sendVideo';
@@ -102,18 +116,18 @@ export const onRequestPost = async (context: any) => {
         }),
         {
           status: 502,
-          headers: { 'Content-Type': 'application/json' },
+          headers: corsHeaders,
         },
       );
     }
 
     return new Response(JSON.stringify({ ok: true, mode: telegramMethod }), {
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     });
   } catch (error: any) {
     return new Response(JSON.stringify({ ok: false, message: error?.message || 'Unknown error' }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json' },
+      headers: corsHeaders,
     });
   }
 };

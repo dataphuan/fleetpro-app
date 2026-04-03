@@ -9,10 +9,13 @@ import { useTrips } from '@/hooks/useTrips';
 import { useTripLocationLogs, useTripPathSummary } from '@/hooks/useTripLocationLogs';
 import { TripReplayMap } from '@/components/tracking/TripReplayMap';
 import { exportToCSV, exportToJSON } from '@/lib/export';
-import { Download, FileJson, FileText, Loader2, MessageSquare, Image as ImageIcon, Video, Send, CheckCircle2 } from 'lucide-react';
+import { Download, FileJson, FileText, Loader2, MessageSquare, Image as ImageIcon, Video, Send, CheckCircle2, Camera, Mic } from 'lucide-react';
 import { useVehicles } from '@/hooks/useVehicles';
 import { useDrivers } from '@/hooks/useDrivers';
 import { TrackingPlaceholderFleetMap, buildMockMarkers } from '@/components/tracking/TrackingPlaceholderFleetMap';
+import { CameraCapture } from '@/components/tracking/CameraCapture';
+import { VideoRecorder } from '@/components/tracking/VideoRecorder';
+import { AudioRecorder } from '@/components/tracking/AudioRecorder';
 import { useAuth } from '@/contexts/AuthContext';
 import { normalizeUserRole } from '@/lib/rbac';
 import { useToast } from '@/hooks/use-toast';
@@ -50,34 +53,34 @@ const coordinationSteps = [
 
 const rolePlaybook: Record<string, string[]> = {
   driver: [
-    'Xac nhan GPS dau ca tren phone.',
-    'Gui checklist xe + anh/video truoc khi chay.',
-    'Nhan lenh dieu dong trong 3 phut.',
-    'Neu chua co lenh, tao draft va bao Telegram.',
+    'Xác nhận GPS đầu ca trên điện thoại.',
+    'Gửi checklist xe + ảnh/video trước khi chạy.',
+    'Nhận lệnh điều động trong 3 phút.',
+    'Nếu chưa có lệnh, tạo bản nháp và báo Telegram.',
   ],
   dispatcher: [
-    'Nhan trang thai san sang tu tai xe.',
-    'Gan lenh theo khu vuc + tai trong.',
-    'Theo doi timeout xac nhan va escalate.',
-    'Chot phan cong cuoi ngay, khong de treo.',
+    'Nhận trạng thái sẵn sàng từ tài xế.',
+    'Gán lệnh theo khu vực + tải trọng.',
+    'Theo dõi timeout xác nhận và đẩy cảnh báo.',
+    'Chốt phân công cuối ngày, không để treo.',
   ],
   accountant: [
-    'Loc chuyen da hoan thanh trong ngay.',
-    'Doi soat chung tu anh/video.',
-    'Duyet hoac tra lai co ly do.',
-    'Chot trang thai RECONCILED/PENDING.',
+    'Lọc chuyến đã hoàn thành trong ngày.',
+    'Đối soát chứng từ ảnh/video.',
+    'Duyệt hoặc trả lại có lý do.',
+    'Chốt trạng thái RECONCILED/PENDING.',
   ],
   manager: [
-    'Theo doi KPI dau ngay tren dashboard.',
-    'Xu ly escalation qua han 3 phut.',
-    'Phe duyet ngoai le phat sinh.',
-    'Khoa so cuoi ngay va giao viec tiep theo.',
+    'Theo dõi KPI đầu ngày trên dashboard.',
+    'Xử lý cảnh báo quá hạn 3 phút.',
+    'Phê duyệt ngoại lệ phát sinh.',
+    'Khóa sổ cuối ngày và giao việc tiếp theo.',
   ],
   admin: [
-    'Giam sat suc khoe toan bo he thong.',
-    'Xu ly tai khoan/quyen han khi can.',
-    'Can bang tai nguyen va luong dieu phoi.',
-    'Chot bao cao ngay va luu audit log.',
+    'Giám sát sức khỏe toàn bộ hệ thống.',
+    'Xử lý tài khoản/quyền hạn khi cần.',
+    'Cân bằng tài nguyên và luồng điều phối.',
+    'Chốt báo cáo ngày và lưu audit log.',
   ],
 };
 
@@ -98,6 +101,9 @@ export default function TrackingCenter() {
   const [reportMediaUrl, setReportMediaUrl] = useState<string>('');
   const [isUploading, setIsUploading] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [showCameraCapture, setShowCameraCapture] = useState(false);
+  const [showVideoRecorder, setShowVideoRecorder] = useState(false);
+  const [showAudioRecorder, setShowAudioRecorder] = useState(false);
 
   const recentTrips = useMemo(() => {
     let rows = [...trips]
@@ -146,6 +152,9 @@ export default function TrackingCenter() {
 
   const mockFleetMarkers = useMemo(() => buildMockMarkers(vehicles, drivers, trips), [vehicles, drivers, trips]);
   const practicalSteps = rolePlaybook[normalizedRole] || rolePlaybook.manager;
+  const telegramExperienceLink = String(
+    import.meta.env.VITE_CUSTOMER_TELEGRAM_GROUP || import.meta.env.VITE_SUPPORT_TELEGRAM || '',
+  ).trim();
 
   const handleExportReplay = () => {
     if (!filteredLogs.length) return;
@@ -247,6 +256,45 @@ export default function TrackingCenter() {
     }
   };
 
+  const handleDirectMediaCapture = async (blob: Blob, mediaType: 'photo' | 'video' | 'audio') => {
+    setIsUploading(true);
+    try {
+      const extensions: Record<string, { ext: string; mimeType: string }> = {
+        photo: { ext: 'jpg', mimeType: 'image/jpeg' },
+        video: { ext: 'webm', mimeType: 'video/webm' },
+        audio: { ext: 'webm', mimeType: 'audio/webm' },
+      };
+
+      const { ext, mimeType } = extensions[mediaType];
+      const fileName = `${mediaType}_${Date.now()}.${ext}`;
+      const file = new File([blob], fileName, { type: mimeType });
+
+      const folder = mediaType === 'photo' ? 'photos' : mediaType === 'video' ? 'videos' : 'audio';
+      const path = `tracking-reports/${tenantId || 'public'}/${folder}/${Date.now()}_${file.name}`;
+      const storageRef = ref(storage, path);
+
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+
+      setReportMediaUrl(url);
+      setReportMediaType(mediaType);
+
+      const typeLabel = mediaType === 'photo' ? 'ảnh' : mediaType === 'video' ? 'video' : 'âm thanh';
+      toast({
+        title: `Capture ${typeLabel} thành công`,
+        description: `${typeLabel.charAt(0).toUpperCase() + typeLabel.slice(1)} sẵn sàng gửi báo cáo.`,
+      });
+    } catch (error: any) {
+      toast({
+        title: 'Lỗi upload',
+        description: error?.message || 'Không thể upload media lên Firebase Storage.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const handleSendTelegramReport = async () => {
     const text = reportText.trim();
     if (!text) {
@@ -333,7 +381,7 @@ export default function TrackingCenter() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Tracking Replay Center</h1>
-        <p className="text-sm text-slate-600">Xem lai hanh trinh va diem nghi ngo GPS theo tung chuyen.</p>
+        <p className="text-sm text-slate-600">Xem lại hành trình và điểm nghi ngờ GPS theo từng chuyến.</p>
       </div>
 
       <TrackingPlaceholderFleetMap markers={mockFleetMarkers} />
@@ -459,11 +507,59 @@ export default function TrackingCenter() {
             </div>
           ) : null}
 
+          <div className="flex flex-wrap items-center gap-2 mb-3 pb-3 border-b">
+            <Label className="text-xs font-semibold">Chụp/Quay/Ghi trực tiếp:</Label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setReportMediaType('photo');
+                setShowCameraCapture(true);
+              }}
+              disabled={isUploading || isSending}
+              className="gap-2"
+            >
+              <Camera className="w-4 h-4" /> Ảnh
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setReportMediaType('video');
+                setShowVideoRecorder(true);
+              }}
+              disabled={isUploading || isSending}
+              className="gap-2"
+            >
+              <Video className="w-4 h-4" /> Video
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setReportMediaType('audio');
+                setShowAudioRecorder(true);
+              }}
+              disabled={isUploading || isSending}
+              className="gap-2"
+            >
+              <Mic className="w-4 h-4" /> Ghi âm
+            </Button>
+          </div>
+
           <div className="flex flex-wrap items-center gap-2">
             <Button onClick={handleSendTelegramReport} disabled={isSending || isUploading}>
               {isSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
               Gửi về Telegram
             </Button>
+            {telegramExperienceLink ? (
+              <Button variant="outline" onClick={() => window.open(telegramExperienceLink, '_blank', 'noopener,noreferrer')}>
+                Vào nhóm Telegram trải nghiệm
+              </Button>
+            ) : null}
             {isUploading ? <span className="text-xs text-slate-600">Đang upload media...</span> : null}
             {!isUploading && reportMediaUrl ? <span className="text-xs text-emerald-700">Media sẵn sàng gửi</span> : null}
           </div>
@@ -472,12 +568,12 @@ export default function TrackingCenter() {
 
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Bo loc chuyen</CardTitle>
+          <CardTitle className="text-base">Bộ lọc chuyến</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex flex-wrap items-end gap-3">
             <div>
-              <label className="text-xs text-slate-600">Tu ngay</label>
+              <label className="text-xs text-slate-600">Từ ngày</label>
               <input
                 type="date"
                 className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm"
@@ -486,7 +582,7 @@ export default function TrackingCenter() {
               />
             </div>
             <div>
-              <label className="text-xs text-slate-600">Den ngay</label>
+              <label className="text-xs text-slate-600">Đến ngày</label>
               <input
                 type="date"
                 className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm"
@@ -495,7 +591,7 @@ export default function TrackingCenter() {
               />
             </div>
             <Button variant="outline" size="sm" onClick={() => { setFromDate(''); setToDate(''); }}>
-              Xoa loc
+              Xóa lọc
             </Button>
             <Button size="sm" onClick={handleExportReplay} disabled={!filteredLogs.length}>
               <Download className="mr-2 h-4 w-4" /> Export replay
@@ -510,7 +606,7 @@ export default function TrackingCenter() {
 
           <Select value={effectiveTripId || undefined} onValueChange={(value) => setSelectedTripId(value)}>
             <SelectTrigger className="max-w-xl">
-              <SelectValue placeholder="Chon chuyen" />
+              <SelectValue placeholder="Chọn chuyến" />
             </SelectTrigger>
             <SelectContent>
               {recentTrips.map((trip: any) => (
@@ -522,12 +618,12 @@ export default function TrackingCenter() {
           </Select>
 
           <div className="flex flex-wrap gap-2 text-xs">
-            <Badge variant="secondary">Tong diem: {summary.totalPoints}</Badge>
+            <Badge variant="secondary">Tổng điểm: {summary.totalPoints}</Badge>
             <Badge variant={summary.suspiciousPoints > 0 ? 'destructive' : 'secondary'}>
-              Diem nghi ngo: {summary.suspiciousPoints}
+              Điểm nghi ngờ: {summary.suspiciousPoints}
             </Badge>
-            {summary.firstPoint ? <Badge variant="outline">Bat dau: {new Date(summary.firstPoint.recorded_at).toLocaleString()}</Badge> : null}
-            {summary.lastPoint ? <Badge variant="outline">Ket thuc: {new Date(summary.lastPoint.recorded_at).toLocaleString()}</Badge> : null}
+            {summary.firstPoint ? <Badge variant="outline">Bắt đầu: {new Date(summary.firstPoint.recorded_at).toLocaleString()}</Badge> : null}
+            {summary.lastPoint ? <Badge variant="outline">Kết thúc: {new Date(summary.lastPoint.recorded_at).toLocaleString()}</Badge> : null}
           </div>
         </CardContent>
       </Card>
@@ -535,9 +631,9 @@ export default function TrackingCenter() {
       <Card>
         <CardContent className="pt-4">
           {isLoading ? (
-            <div className="text-sm text-slate-600">Dang tai track logs...</div>
+            <div className="text-sm text-slate-600">Đang tải track logs...</div>
           ) : filteredLogs.length === 0 ? (
-            <div className="text-sm text-slate-600">Chuyen nay chua co track logs.</div>
+            <div className="text-sm text-slate-600">Chuyến này chưa có track logs.</div>
           ) : (
             <TripReplayMap logs={filteredLogs} highlightedIndex={highlightedIndex} />
           )}
@@ -547,7 +643,7 @@ export default function TrackingCenter() {
       {filteredLogs.length > 0 ? (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Danh sach diem vi tri</CardTitle>
+            <CardTitle className="text-base">Danh sách điểm vị trí</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 max-h-80 overflow-y-auto">
             {filteredLogs.map((item, index) => {
@@ -577,6 +673,26 @@ export default function TrackingCenter() {
           </CardContent>
         </Card>
       ) : null}
+
+      {/* Media Capture Modals */}
+      {showCameraCapture && (
+        <CameraCapture
+          onCapture={(blob) => handleDirectMediaCapture(blob, 'photo')}
+          onClose={() => setShowCameraCapture(false)}
+        />
+      )}
+      {showVideoRecorder && (
+        <VideoRecorder
+          onCapture={(blob) => handleDirectMediaCapture(blob, 'video')}
+          onClose={() => setShowVideoRecorder(false)}
+        />
+      )}
+      {showAudioRecorder && (
+        <AudioRecorder
+          onCapture={(blob) => handleDirectMediaCapture(blob, 'audio')}
+          onClose={() => setShowAudioRecorder(false)}
+        />
+      )}
     </div>
   );
 }

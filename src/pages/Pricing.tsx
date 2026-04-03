@@ -159,16 +159,17 @@ export default function Pricing() {
                         <CardDescription>Dành cho cá nhân muốn dùng thử</CardDescription>
                         <div className="mt-4">
                             <span className="text-4xl font-bold">0đ</span>
-                            <span className="text-muted-foreground">/ 14 ngày</span>
+                            <span className="text-muted-foreground">/ 5 ngày</span>
                         </div>
                     </CardHeader>
                     <CardContent className="flex-1">
                         <ul className="space-y-3 text-sm">
-                            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500 shrink-0" /> Free: tối đa 5 xe để test đầy đủ luồng</li>
-                            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500 shrink-0" /> Quản lý tối đa 50 chuyến demo/tháng</li>
+                            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500 shrink-0" /> <strong>KHÔNG GIỚI HẠN XE</strong> trong 5 ngày dùng thử</li>
+                            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500 shrink-0" /> Không giới hạn số chuyến</li>
                             <li className="flex items-center gap-2"><Check className="h-4 w-4 text-green-500 shrink-0" /> Tất cả tính năng Cốt lõi</li>
                             <li className="flex items-center gap-2 text-muted-foreground"><X className="h-4 w-4 shrink-0" /> Không hỗ trợ Tài khoản phụ</li>
                             <li className="flex items-center gap-2 text-muted-foreground"><X className="h-4 w-4 shrink-0" /> Không có Trợ lý AI</li>
+                            <li className="flex items-center gap-2 text-amber-600 font-medium"><Info className="h-4 w-4 shrink-0" /> Sau 5 ngày: Hạn chế theo gói đăng ký</li>
                         </ul>
                     </CardContent>
                     <CardFooter>
@@ -186,18 +187,21 @@ export default function Pricing() {
                         </span>
                     </div>
                     <CardHeader>
-                        <CardTitle className="text-xl text-blue-700">Gói Tiêu Chuẩn</CardTitle>
-                        <CardDescription>Dành cho doanh nghiệp vừa và nhỏ</CardDescription>
+                        <CardTitle className="text-xl text-blue-700">Gói Chuyên Nghiệp</CardTitle>
+                        <CardDescription>Dành cho doanh nghiệp vừa</CardDescription>
                         <div className="mt-4">
-                            <span className="text-4xl font-bold">499,000đ</span>
+                            <span className="text-4xl font-bold">567,000đ</span>
                             <span className="text-muted-foreground">/ tháng</span>
+                            <div className="text-xs text-blue-600 mt-1">✓ 6.8M/năm (tiết kiệm ~1M)</div>
                         </div>
                     </CardHeader>
                     <CardContent className="flex-1">
                         <ul className="space-y-3 text-sm">
-                            <li className="flex items-center gap-2 font-medium"><Check className="h-4 w-4 text-blue-500 shrink-0" /> Trả phí định kỳ theo xe - mở full option</li>
-                            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-blue-500 shrink-0" /> Linh hoạt mở rộng theo quy mô đội xe</li>
-                            <li className="flex items-center gap-2 font-medium"><Check className="h-4 w-4 text-blue-500 shrink-0" /> Không giới hạn Chuyến đi</li>
+                            <li className="flex items-center gap-2 font-medium"><Check className="h-4 w-4 text-blue-500 shrink-0" /> Xe: Max 50 chiếc - full option</li>
+                            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-blue-500 shrink-0" /> Không giới hạn Chuyến đi</li>
+                            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-blue-500 shrink-0" /> Cấp 10 tài khoản nhân viên</li>
+                            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-blue-500 shrink-0" /> Trợ lý AI (Gemini Flash)</li>
+                            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-blue-500 shrink-0" /> Hỗ trợ kỹ thuật 24/7</li>
                             <li className="flex items-center gap-2"><Check className="h-4 w-4 text-blue-500 shrink-0" /> Cấp 5 tài khoản nhân viên</li>
                             <li className="flex items-center gap-2"><Check className="h-4 w-4 text-blue-500 shrink-0" /> Trợ lý AI (Gemini Flash)</li>
                             <li className="flex items-center gap-2"><Check className="h-4 w-4 text-blue-500 shrink-0" /> Hỗ trợ kỹ thuật 24/7</li>
@@ -213,10 +217,10 @@ export default function Pricing() {
                                             intent: "CAPTURE",
                                             purchase_units: [
                                                 {
-                                                    description: `FleetPro Gói Tiêu Chuẩn - Tenant: ${tenantId}`,
+                                                    description: `FleetPro Gói Chuyên Nghiệp - Tenant: ${tenantId}`,
                                                     amount: {
                                                         currency_code: "USD",
-                                                        value: "20.00", // $20 MVP approx 499k VND
+                                                        value: "23.00", // ~567k VND per month
                                                     },
                                                 },
                                             ],
@@ -268,33 +272,40 @@ export default function Pricing() {
                     </CardFooter>
                 </Card>
 
-                {/* ENTERPRISE Plan */}
-                <Card className="relative flex flex-col h-full border-slate-200 bg-slate-50">
+                {/* BUSINESS Plan */}
+                <Card className="relative flex flex-col h-full border-amber-300 bg-gradient-to-br from-amber-50 to-orange-50/50">
+                    <div className="absolute -top-2 -right-2 bg-amber-400 text-amber-900 px-3 py-1 rounded-full text-[11px] font-bold uppercase">
+                        VIP
+                    </div>
                     <CardHeader>
-                        <CardTitle className="text-xl">Doanh Nghiệp Cao Cấp</CardTitle>
-                        <CardDescription>Gói chuyển giao độc quyền theo yêu cầu doanh nghiệp</CardDescription>
+                        <CardTitle className="text-xl text-amber-900">Gói Business - Thương Hiệu Riêng</CardTitle>
+                        <CardDescription>Chuyển giao độc quyền + Tư vấn triển khai</CardDescription>
                         <div className="mt-4">
-                            <span className="text-4xl font-bold">Liên hệ</span>
+                            <span className="text-4xl font-bold text-amber-700">Tùy thỏa thuận</span>
+                            <div className="text-xs text-amber-600 mt-2">Dựa trên quy mô doanh nghiệp</div>
                         </div>
                     </CardHeader>
                     <CardContent className="flex-1">
                         <ul className="space-y-3 text-sm">
-                            <li className="flex items-center gap-2 font-medium"><Check className="h-4 w-4 text-indigo-600 shrink-0" /> Không giới hạn Số lượng Xe</li>
-                            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-indigo-600 shrink-0" /> Không giới hạn Tài khoản dùng chung</li>
-                            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-indigo-600 shrink-0" /> Trợ lý AI (Gemini Pro) cao cấp</li>
-                            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-indigo-600 shrink-0" /> Chuyển giao độc quyền (Private Deployment)</li>
-                            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-indigo-600 shrink-0" /> Tích hợp API ERP nội bộ</li>
+                            <li className="flex items-center gap-2 font-medium"><Check className="h-4 w-4 text-amber-600 shrink-0" /> Không giới hạn Số lượng Xe</li>
+                            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-amber-600 shrink-0" /> Unlimited Tài khoản + Custom roles</li>
+                            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-amber-600 shrink-0" /> White Label Branding (tên + logo)</li>
+                            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-amber-600 shrink-0" /> AI (Gemini Pro) không giới hạn</li>
+                            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-amber-600 shrink-0" /> Private Deployment (on-premise)</li>
+                            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-amber-600 shrink-0" /> Tích hợp API ERP + Custom</li>
+                            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-amber-600 shrink-0" /> Dedicated Customer Success Manager</li>
+                            <li className="flex items-center gap-2"><Check className="h-4 w-4 text-amber-600 shrink-0" /> Tư vấn triển khai miễn phí</li>
                         </ul>
                     </CardContent>
                     <CardFooter>
                         <Button 
-                            variant="outline" 
-                            className="w-full text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                            variant="default" 
+                            className="w-full bg-amber-600 hover:bg-amber-700 text-white"
                             data-cal-namespace=""
                             data-cal-link={import.meta.env.VITE_CAL_EVENT_PATH}
                             data-cal-config='{"layout":"month_view"}'
                         >
-                            <Building2 className="w-4 h-4 mr-2" /> Nhận báo giá & Tư vấn
+                            <Building2 className="w-4 h-4 mr-2" /> Liên Hệ Tư Vấn Ngay
                         </Button>
                     </CardFooter>
                 </Card>
