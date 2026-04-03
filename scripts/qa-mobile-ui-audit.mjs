@@ -26,10 +26,18 @@ function statusFromFindings(findings) {
 
 async function login(page, account) {
   await page.goto(`${BASE_URL}/auth`, { waitUntil: 'domcontentloaded' });
-  await page.fill('#email', account.email);
-  await page.fill('#password', account.password);
-  await page.locator('button:has-text("Vào hệ thống ngay")').first().click();
-  await page.waitForURL((url) => !url.pathname.includes('/auth'), { timeout: 30000 });
+
+  const emailInput = page.locator('#email');
+  const loginButton = page.locator('button:has-text("Vào hệ thống ngay")').first();
+
+  // If auth form is visible, perform login. Otherwise continue when session is already active.
+  if (await emailInput.count()) {
+    await emailInput.fill(account.email);
+    await page.fill('#password', account.password);
+    await loginButton.click();
+    await page.waitForURL((url) => !url.pathname.includes('/auth'), { timeout: 30000 });
+  }
+
   await page.waitForTimeout(1400);
 }
 
@@ -140,14 +148,13 @@ async function collectMobileChecks(page, account) {
 
 async function run() {
   const browser = await chromium.launch({ headless: true });
-  const context = await browser.newContext({
-    ...devices['iPhone 12'],
-    viewport: { width: 390, height: 844 },
-  });
-
   const results = [];
 
   for (const account of ACCOUNTS) {
+    const context = await browser.newContext({
+      ...devices['iPhone 12'],
+      viewport: { width: 390, height: 844 },
+    });
     const page = await context.newPage();
     const accountResult = {
       account,
@@ -175,11 +182,11 @@ async function run() {
       accountResult.url = page.url();
     } finally {
       await page.close();
+      await context.close();
       results.push(accountResult);
     }
   }
 
-  await context.close();
   await browser.close();
 
   const passCount = results.filter((x) => x.status === 'PASS').length;
