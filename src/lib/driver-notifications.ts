@@ -1,3 +1,6 @@
+import { collection, addDoc } from 'firebase/firestore';
+import { auth, db } from '@/lib/firebase';
+
 export type DriverDispatchNotificationPayload = {
   tripCode: string;
   driverName: string;
@@ -22,6 +25,28 @@ export type DriverInteractionReportRow = {
   sent: number;
   delivered: number;
   failed: number;
+};
+
+export type OpsEventPayload = {
+  event_type: string;
+  actor_role: string;
+  actor_name: string;
+  action: string;
+  timestamp?: string;
+  trip_code?: string | null;
+  location?: string | null;
+  status_after_action?: string | null;
+  media_url?: string | null;
+  tenant_id?: string | null;
+  extra?: Record<string, unknown> | null;
+};
+
+export type OpsNotifyInput = {
+  event: OpsEventPayload;
+  text?: string;
+  chatId?: string | null;
+  mediaType?: 'photo' | 'video' | null;
+  mediaUrl?: string | null;
 };
 
 const formatDeparture = (input: string) => {
@@ -185,6 +210,97 @@ const sendViaServerEndpoint = async (payload: DriverDispatchNotificationPayload,
       channel: 'none',
       message: error?.message || 'Endpoint unreachable',
     };
+  }
+};
+
+const buildOpsEventText = (event: OpsEventPayload, fallbackText?: string) => {
+  const eventTime = event.timestamp || new Date().toISOString();
+  const extraText = event.extra
+    ? Object.entries(event.extra)
+        .filter(([, value]) => value !== null && value !== undefined && `${value}`.trim() !== '')
+        .map(([key, value]) => `- ${key}: ${value}`)
+        .join('\n')
+    : '';
+
+  const lines = [
+    `[${event.actor_role}] ${event.event_type}`,
+    `Action: ${event.action}`,
+    `By: ${event.actor_name}`,
+    `Trip: ${event.trip_code || 'N/A'}`,
+    `Location: ${event.location || 'N/A'}`,
+    `Status: ${event.status_after_action || 'N/A'}`,
+    `Time: ${eventTime}`,
+  ];
+
+  if (fallbackText && fallbackText.trim()) {
+    lines.push('', fallbackText.trim());
+  }
+  if (extraText) {
+    lines.push('', 'Context:', extraText);
+  }
+
+  return lines.join('\n');
+};
+
+export const sendOpsEventNotification = async (input: OpsNotifyInput): Promise<NotifyResult> => {
+  const endpoint = (import.meta.env.VITE_TELEGRAM_NOTIFY_ENDPOINT || '/api/notify/telegram').trim();
+  if (!endpoint) {
+    return { ok: false, channel: 'none', message: 'Missing endpoint' };
+  }
+
+  const finalText = buildOpsEventText(input.event, input.text);
+
+  const persistOpsEventToSystemLogs = async () => {
+    const tenantId = String(input.event.tenant_id || input.event.extra?.tenant_id || '').trim();
+    if (!tenantId) return;
+
+    await addDoc(collection(db, 'system_logs'), {
+      timestamp: input.event.timestamp || new Date().toISOString(),
+      user_id: auth.currentUser?.uid || 'anonymous',
+      user_email: auth.currentUser?.email || input.event.actor_name || 'unknown',
+      tenant_id: tenantId,
+      action: 'OPS_EVENT',
+      collection_name: 'ops_events',
+      entity_id: input.event.trip_code || input.event.event_type,
+      metadata: {
+        event: input.event,
+        media_type: input.mediaType || null,
+        media_url: input.mediaUrl || input.event.media_url || null,
+      },
+    });
+  };
+
+  try {
+    await persistOpsEventToSystemLogs().catch(() => null);
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: finalText,
+        chatId: input.chatId || null,
+        mediaType: input.mediaType || null,
+        mediaUrl: input.mediaUrl || null,
+        event: {
+          ...input.event,
+          timestamp: input.event.timestamp || new Date().toISOString(),
+          media_url: input.mediaUrl || input.event.media_url || null,
+        },
+      }),
+    });
+
+    const json = await response.json().catch(() => null as any);
+    if (!response.ok || !json?.ok) {
+      return {
+        ok: false,
+        channel: 'none',
+        message: json?.message || `Endpoint error (${response.status})`,
+      };
+    }
+
+    return { ok: true, channel: 'telegram', message: 'sent' };
+  } catch (error: any) {
+    return { ok: false, channel: 'none', message: error?.message || 'Endpoint unreachable' };
   }
 };
 

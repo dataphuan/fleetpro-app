@@ -1,14 +1,14 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { collection, query, where, getDocs, orderBy, limit } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { useAuth } from "@/contexts/AuthContext";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, ShieldAlert, Clock, User, Database, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Search, ShieldAlert, Clock, User, Database, ChevronLeft, ChevronRight, Loader2, MessageSquare, MapPin, BellRing } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
 
@@ -23,25 +23,129 @@ interface AuditLog {
   metadata?: any;
 }
 
+type TimelineSource = 'AUDIT' | 'OPS' | 'ALERT' | 'GPS';
+
+type TimelineRow = {
+  id: string;
+  timestamp: string;
+  source: TimelineSource;
+  user_email?: string;
+  action: string;
+  collection_name?: string;
+  entity_id?: string;
+  description: string;
+};
+
+interface AlertLog {
+  id: string;
+  title?: string;
+  message?: string;
+  date?: string;
+  created_at?: string;
+  driver_id?: string;
+  severity?: string;
+}
+
+interface TripLocationLog {
+  id: string;
+  event_type?: string;
+  trip_code?: string;
+  driver_email?: string;
+  recorded_at?: string;
+  latitude?: number;
+  longitude?: number;
+  integrity_risk_score?: number;
+}
+
 export default function Logs() {
   const { tenantId, role } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 20;
+  const [sourceFilter, setSourceFilter] = useState<'ALL' | TimelineSource>('ALL');
 
-  const { data: logs, isLoading } = useQuery({
-    queryKey: ['system_logs', tenantId, currentPage],
+  const { data: timelineRows = [], isLoading } = useQuery({
+    queryKey: ['timeline_logs', tenantId],
     queryFn: async () => {
-      const q = query(
+      const rows: TimelineRow[] = [];
+
+      const systemLogsQ = query(
         collection(db, 'system_logs'),
-        where("tenant_id", "==", tenantId),
-        orderBy("timestamp", "desc"),
-        limit(100) // Show last 100 logs for now
+        where('tenant_id', '==', tenantId),
+        orderBy('timestamp', 'desc'),
+        limit(120)
       );
-      const snapshot = await getDocs(q);
-      return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as AuditLog));
+      const systemSnap = await getDocs(systemLogsQ);
+      systemSnap.docs.forEach((doc) => {
+        const data = doc.data() as AuditLog;
+        const isOps = data.action === 'OPS_EVENT' || data.collection_name === 'ops_events';
+        const eventType = data.metadata?.event?.event_type || data.action;
+        rows.push({
+          id: `sys-${doc.id}`,
+          timestamp: data.timestamp,
+          source: isOps ? 'OPS' : 'AUDIT',
+          user_email: data.user_email,
+          action: eventType || data.action,
+          collection_name: data.collection_name,
+          entity_id: data.entity_id,
+          description: isOps
+            ? `${data.metadata?.event?.action || 'ops_update'} | ${data.entity_id || 'N/A'}`
+            : `${data.collection_name || 'unknown'} | ${data.entity_id || 'N/A'}`,
+        });
+      });
+
+      try {
+        const alertsQ = query(
+          collection(db, 'alerts'),
+          where('tenant_id', '==', tenantId),
+          orderBy('date', 'desc'),
+          limit(80)
+        );
+        const alertsSnap = await getDocs(alertsQ);
+        alertsSnap.docs.forEach((doc) => {
+          const data = doc.data() as AlertLog;
+          const ts = data.date || data.created_at || new Date().toISOString();
+          rows.push({
+            id: `alert-${doc.id}`,
+            timestamp: ts,
+            source: 'ALERT',
+            user_email: data.driver_id || '',
+            action: data.title || 'ALERT',
+            collection_name: 'alerts',
+            entity_id: doc.id,
+            description: data.message || 'Thông báo vận hành',
+          });
+        });
+      } catch {
+        // Optional source, keep timeline resilient.
+      }
+
+      try {
+        const gpsQ = query(
+          collection(db, 'tripLocationLogs'),
+          where('tenant_id', '==', tenantId),
+          orderBy('recorded_at', 'desc'),
+          limit(80)
+        );
+        const gpsSnap = await getDocs(gpsQ);
+        gpsSnap.docs.forEach((doc) => {
+          const data = doc.data() as TripLocationLog;
+          rows.push({
+            id: `gps-${doc.id}`,
+            timestamp: data.recorded_at || new Date().toISOString(),
+            source: 'GPS',
+            user_email: data.driver_email || '',
+            action: data.event_type || 'track_point',
+            collection_name: 'tripLocationLogs',
+            entity_id: data.trip_code || doc.id,
+            description: `${data.trip_code || 'N/A'} | ${data.latitude ?? ''}, ${data.longitude ?? ''} | risk ${data.integrity_risk_score ?? 0}`,
+          });
+        });
+      } catch {
+        // Optional source, keep timeline resilient.
+      }
+
+      return rows.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     },
-    enabled: !!tenantId && role === 'admin'
+    enabled: !!tenantId && ['admin', 'manager', 'dispatcher', 'accountant'].includes(role)
   });
 
   const getActionBadge = (action: string) => {
@@ -55,13 +159,34 @@ export default function Logs() {
     }
   };
 
-  const filteredLogs = logs?.filter(log => 
-    log.user_email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    log.action?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    log.collection_name?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const getSourceBadge = (source: TimelineSource) => {
+    if (source === 'OPS') return <Badge className="bg-indigo-100 text-indigo-700 border-none">OPS</Badge>;
+    if (source === 'ALERT') return <Badge className="bg-amber-100 text-amber-700 border-none">ALERT</Badge>;
+    if (source === 'GPS') return <Badge className="bg-cyan-100 text-cyan-700 border-none">GPS</Badge>;
+    return <Badge className="bg-slate-100 text-slate-700 border-none">AUDIT</Badge>;
+  };
 
-  if (role !== 'admin') {
+  const sourceStats = useMemo(() => {
+    return {
+      AUDIT: timelineRows.filter((row) => row.source === 'AUDIT').length,
+      OPS: timelineRows.filter((row) => row.source === 'OPS').length,
+      ALERT: timelineRows.filter((row) => row.source === 'ALERT').length,
+      GPS: timelineRows.filter((row) => row.source === 'GPS').length,
+    };
+  }, [timelineRows]);
+
+  const filteredLogs = timelineRows.filter((row) => {
+    const q = searchQuery.toLowerCase();
+    const hitQuery = !q
+      || row.user_email?.toLowerCase().includes(q)
+      || row.action?.toLowerCase().includes(q)
+      || row.collection_name?.toLowerCase().includes(q)
+      || row.description?.toLowerCase().includes(q);
+    const hitSource = sourceFilter === 'ALL' || row.source === sourceFilter;
+    return hitQuery && hitSource;
+  });
+
+  if (!['admin', 'manager', 'dispatcher', 'accountant'].includes(role)) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
         <ShieldAlert className="w-12 h-12 text-destructive" />
@@ -94,6 +219,21 @@ export default function Logs() {
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
+        <div className="flex items-center gap-2">
+          <Button variant={sourceFilter === 'ALL' ? 'default' : 'outline'} size="sm" onClick={() => setSourceFilter('ALL')}>Tất cả</Button>
+          <Button variant={sourceFilter === 'AUDIT' ? 'default' : 'outline'} size="sm" onClick={() => setSourceFilter('AUDIT')}>
+            <Database className="w-3 h-3 mr-1" />{sourceStats.AUDIT}
+          </Button>
+          <Button variant={sourceFilter === 'OPS' ? 'default' : 'outline'} size="sm" onClick={() => setSourceFilter('OPS')}>
+            <MessageSquare className="w-3 h-3 mr-1" />{sourceStats.OPS}
+          </Button>
+          <Button variant={sourceFilter === 'ALERT' ? 'default' : 'outline'} size="sm" onClick={() => setSourceFilter('ALERT')}>
+            <BellRing className="w-3 h-3 mr-1" />{sourceStats.ALERT}
+          </Button>
+          <Button variant={sourceFilter === 'GPS' ? 'default' : 'outline'} size="sm" onClick={() => setSourceFilter('GPS')}>
+            <MapPin className="w-3 h-3 mr-1" />{sourceStats.GPS}
+          </Button>
+        </div>
       </div>
 
       <Card className="border-none shadow-sm bg-white">
@@ -107,16 +247,17 @@ export default function Logs() {
               <TableHeader className="bg-slate-50/50">
                 <TableRow>
                   <TableHead className="w-[200px]"><Clock className="w-4 h-4 inline mr-2" />Thời gian</TableHead>
+                  <TableHead>Nguồn</TableHead>
                   <TableHead><User className="w-4 h-4 inline mr-2" />Người dùng</TableHead>
                   <TableHead>Hành động</TableHead>
                   <TableHead><Database className="w-4 h-4 inline mr-2" />Bảng / Đối tượng</TableHead>
-                  <TableHead>ID Đối tượng</TableHead>
+                  <TableHead>Mô tả</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredLogs?.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
+                    <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
                       Không tìm thấy lịch sử hoạt động nào.
                     </TableCell>
                   </TableRow>
@@ -126,17 +267,18 @@ export default function Logs() {
                       <TableCell className="text-sm font-medium">
                         {format(new Date(log.timestamp), 'dd/MM/yyyy HH:mm:ss', { locale: vi })}
                       </TableCell>
+                      <TableCell>{getSourceBadge(log.source)}</TableCell>
                       <TableCell>
-                        <span className="text-sm text-slate-700">{log.user_email}</span>
+                        <span className="text-sm text-slate-700">{log.user_email || 'system'}</span>
                       </TableCell>
                       <TableCell>
                         {getActionBadge(log.action)}
                       </TableCell>
                       <TableCell className="text-sm text-slate-500 uppercase font-semibold tracking-tighter">
-                        {log.collection_name}
+                        {log.collection_name || '-'}
                       </TableCell>
-                      <TableCell className="text-xs font-mono text-slate-400">
-                        {log.entity_id}
+                      <TableCell className="text-xs text-slate-600">
+                        {log.description}
                       </TableCell>
                     </TableRow>
                   ))
@@ -149,7 +291,7 @@ export default function Logs() {
 
       <div className="flex items-center justify-between">
         <p className="text-xs text-muted-foreground italic">
-          * Nhật ký ghi lại 100 hoạt động gần nhất. Dữ liệu này không thể bị xóa hoặc sửa đổi.
+          * Timeline hợp nhất: Audit + Ops (Telegram) + Alert + GPS. Dữ liệu đọc trực tiếp từ Firestore theo tenant.
         </p>
         <div className="flex items-center gap-2">
            <Button variant="outline" size="sm" disabled><ChevronLeft className="w-4 h-4" /></Button>

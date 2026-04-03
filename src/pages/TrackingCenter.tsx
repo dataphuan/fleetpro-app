@@ -3,23 +3,101 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { useTrips } from '@/hooks/useTrips';
 import { useTripLocationLogs, useTripPathSummary } from '@/hooks/useTripLocationLogs';
 import { TripReplayMap } from '@/components/tracking/TripReplayMap';
 import { exportToCSV, exportToJSON } from '@/lib/export';
-import { Download, FileJson, FileText } from 'lucide-react';
+import { Download, FileJson, FileText, Loader2, MessageSquare, Image as ImageIcon, Video, Send, CheckCircle2 } from 'lucide-react';
 import { useVehicles } from '@/hooks/useVehicles';
 import { useDrivers } from '@/hooks/useDrivers';
 import { TrackingPlaceholderFleetMap, buildMockMarkers } from '@/components/tracking/TrackingPlaceholderFleetMap';
+import { useAuth } from '@/contexts/AuthContext';
+import { normalizeUserRole } from '@/lib/rbac';
+import { useToast } from '@/hooks/use-toast';
+import { storage } from '@/lib/firebase';
+import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+
+type ReportMediaType = 'text' | 'photo' | 'video';
+
+const coordinationSteps = [
+  {
+    id: 'step-1',
+    title: 'B1 - Điều phối lệnh',
+    owner: 'dispatcher/admin',
+    description: 'Tạo nhiệm vụ, gắn chuyến, tài xế, thời gian và SLA phản hồi.',
+  },
+  {
+    id: 'step-2',
+    title: 'B2 - Tài xế cập nhật',
+    owner: 'driver',
+    description: 'Chat hiện trường, gửi ảnh/video chứng cứ và trạng thái theo thời gian thực.',
+  },
+  {
+    id: 'step-3',
+    title: 'B3 - Kế toán đối soát',
+    owner: 'accountant',
+    description: 'Xác nhận chứng từ, chi phí và ghi chú chênh lệch nếu có.',
+  },
+  {
+    id: 'step-4',
+    title: 'B4 - Quản lý chốt báo cáo',
+    owner: 'manager/admin',
+    description: 'Phê duyệt cuối cùng, khóa ca và lưu log hoàn tất phiên phối hợp.',
+  },
+];
+
+const rolePlaybook: Record<string, string[]> = {
+  driver: [
+    'Xac nhan GPS dau ca tren phone.',
+    'Gui checklist xe + anh/video truoc khi chay.',
+    'Nhan lenh dieu dong trong 3 phut.',
+    'Neu chua co lenh, tao draft va bao Telegram.',
+  ],
+  dispatcher: [
+    'Nhan trang thai san sang tu tai xe.',
+    'Gan lenh theo khu vuc + tai trong.',
+    'Theo doi timeout xac nhan va escalate.',
+    'Chot phan cong cuoi ngay, khong de treo.',
+  ],
+  accountant: [
+    'Loc chuyen da hoan thanh trong ngay.',
+    'Doi soat chung tu anh/video.',
+    'Duyet hoac tra lai co ly do.',
+    'Chot trang thai RECONCILED/PENDING.',
+  ],
+  manager: [
+    'Theo doi KPI dau ngay tren dashboard.',
+    'Xu ly escalation qua han 3 phut.',
+    'Phe duyet ngoai le phat sinh.',
+    'Khoa so cuoi ngay va giao viec tiep theo.',
+  ],
+  admin: [
+    'Giam sat suc khoe toan bo he thong.',
+    'Xu ly tai khoan/quyen han khi can.',
+    'Can bang tai nguyen va luong dieu phoi.',
+    'Chot bao cao ngay va luu audit log.',
+  ],
+};
 
 export default function TrackingCenter() {
   const { data: trips = [] } = useTrips();
   const { data: vehicles = [] } = useVehicles();
   const { data: drivers = [] } = useDrivers();
+  const { user, role, tenantId } = useAuth();
+  const { toast } = useToast();
+  const normalizedRole = normalizeUserRole(role);
   const [selectedTripId, setSelectedTripId] = useState<string>('');
   const [highlightedIndex, setHighlightedIndex] = useState<number>(-1);
   const [fromDate, setFromDate] = useState<string>('');
   const [toDate, setToDate] = useState<string>('');
+  const [reportStep, setReportStep] = useState<string>('step-1');
+  const [reportMediaType, setReportMediaType] = useState<ReportMediaType>('text');
+  const [reportText, setReportText] = useState<string>('');
+  const [reportMediaUrl, setReportMediaUrl] = useState<string>('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [isSending, setIsSending] = useState(false);
 
   const recentTrips = useMemo(() => {
     let rows = [...trips]
@@ -67,6 +145,7 @@ export default function TrackingCenter() {
   }, [filteredLogs]);
 
   const mockFleetMarkers = useMemo(() => buildMockMarkers(vehicles, drivers, trips), [vehicles, drivers, trips]);
+  const practicalSteps = rolePlaybook[normalizedRole] || rolePlaybook.manager;
 
   const handleExportReplay = () => {
     if (!filteredLogs.length) return;
@@ -140,6 +219,116 @@ export default function TrackingCenter() {
     });
   };
 
+  const handleUploadMedia = async (file: File | null) => {
+    if (!file) return;
+    if (reportMediaType === 'text') {
+      toast({ title: 'Chọn loại báo cáo', description: 'Hãy đổi loại báo cáo sang ảnh hoặc video trước khi upload.' });
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const folder = reportMediaType === 'photo' ? 'photos' : 'videos';
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+      const path = `tracking-reports/${tenantId || 'public'}/${folder}/${Date.now()}_${safeName}`;
+      const storageRef = ref(storage, path);
+      await uploadBytes(storageRef, file);
+      const url = await getDownloadURL(storageRef);
+      setReportMediaUrl(url);
+      toast({ title: 'Upload thành công', description: 'Đã lấy URL media để gửi Telegram.' });
+    } catch (error: any) {
+      toast({
+        title: 'Upload thất bại',
+        description: error?.message || 'Không thể upload file lên Firebase Storage.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleSendTelegramReport = async () => {
+    const text = reportText.trim();
+    if (!text) {
+      toast({ title: 'Thiếu nội dung', description: 'Vui lòng nhập nội dung báo cáo trước khi gửi.', variant: 'destructive' });
+      return;
+    }
+
+    if (reportMediaType !== 'text' && !reportMediaUrl.trim()) {
+      toast({
+        title: 'Thiếu media',
+        description: 'Báo cáo ảnh/video cần có URL media hoặc upload file trước khi gửi.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const activeStep = coordinationSteps.find((step) => step.id === reportStep);
+    const tripLabel = selectedTrip?.trip_code || effectiveTripId || 'N/A';
+    const payloadText = [
+      'FleetPro Tracking Coordination',
+      `Step: ${activeStep?.title || reportStep}`,
+      `Owner lane: ${activeStep?.owner || 'unknown'}`,
+      `Role: ${normalizedRole}`,
+      `User: ${user?.email || user?.id || 'anonymous'}`,
+      `Trip: ${tripLabel}`,
+      '',
+      text,
+    ].join('\n');
+
+    setIsSending(true);
+    try {
+      const response = await fetch('/api/notify/telegram', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          text: payloadText,
+          mediaType: reportMediaType === 'text' ? null : reportMediaType,
+          mediaUrl: reportMediaType === 'text' ? null : reportMediaUrl.trim(),
+          event: {
+            event_type: 'TRACKING_COORDINATION_REPORT',
+            actor_role: normalizedRole,
+            actor_name: user?.email || user?.id || 'anonymous',
+            action: activeStep?.title || reportStep,
+            timestamp: new Date().toISOString(),
+            trip_code: tripLabel,
+            location: selectedTrip?.route_id || null,
+            status_after_action: `step:${reportStep}`,
+            media_url: reportMediaType === 'text' ? null : reportMediaUrl.trim(),
+            tenant_id: tenantId || null,
+            extra: {
+              tenant_id: tenantId || null,
+              owner_lane: activeStep?.owner || 'unknown',
+              media_type: reportMediaType,
+            },
+          },
+        }),
+      });
+
+      const json = await response.json().catch(() => null as any);
+      if (!response.ok || !json?.ok) {
+        throw new Error(json?.message || `Telegram endpoint error (${response.status})`);
+      }
+
+      toast({
+        title: 'Đã gửi Telegram',
+        description: `Báo cáo ${reportMediaType === 'text' ? 'text' : reportMediaType} đã vào kênh Telegram.`,
+      });
+
+      setReportText('');
+      setReportMediaUrl('');
+      setReportMediaType('text');
+    } catch (error: any) {
+      toast({
+        title: 'Gửi Telegram thất bại',
+        description: error?.message || 'Không gửi được báo cáo lên Telegram.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -148,6 +337,138 @@ export default function TrackingCenter() {
       </div>
 
       <TrackingPlaceholderFleetMap markers={mockFleetMarkers} />
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Luồng phối hợp 4 bước (PC/Mobile đồng bộ)</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+            {coordinationSteps.map((step) => {
+              const isSelected = reportStep === step.id;
+              const isCurrentRoleOwner = step.owner.includes(normalizedRole);
+              return (
+                <button
+                  key={step.id}
+                  type="button"
+                  onClick={() => setReportStep(step.id)}
+                  className={`rounded-lg border p-3 text-left transition ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:bg-slate-50'}`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <p className="text-sm font-semibold text-slate-900">{step.title}</p>
+                    {isCurrentRoleOwner ? <CheckCircle2 className="w-4 h-4 text-emerald-600" /> : null}
+                  </div>
+                  <p className="mt-1 text-xs text-slate-600">Vai trò chính: {step.owner}</p>
+                  <p className="mt-2 text-xs text-slate-500">{step.description}</p>
+                </button>
+              );
+            })}
+          </div>
+          <p className="text-xs text-slate-600">
+            Mỗi bước đều dùng chung một payload báo cáo và gửi tập trung về Telegram để điều phối, tài xế, kế toán, quản lý theo dõi trên cùng kênh.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Playbook thực chiến theo vai trò</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <p className="text-sm text-slate-700">
+            Vai trò hiện tại: <span className="font-semibold uppercase">{normalizedRole}</span>
+          </p>
+          <div className="space-y-2">
+            {practicalSteps.map((task, index) => (
+              <div key={`${normalizedRole}-${index}`} className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+                <span className="font-semibold mr-1">B{index + 1}.</span>{task}
+              </div>
+            ))}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Gửi chat/báo cáo về Telegram</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div className="space-y-1">
+              <Label>Bước phối hợp</Label>
+              <Select value={reportStep} onValueChange={setReportStep}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn bước" />
+                </SelectTrigger>
+                <SelectContent>
+                  {coordinationSteps.map((step) => (
+                    <SelectItem key={step.id} value={step.id}>{step.title}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label>Loại báo cáo</Label>
+              <Select value={reportMediaType} onValueChange={(value) => setReportMediaType(value as ReportMediaType)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Chọn loại" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="text"><div className="flex items-center gap-2"><MessageSquare className="w-4 h-4" />Text</div></SelectItem>
+                  <SelectItem value="photo"><div className="flex items-center gap-2"><ImageIcon className="w-4 h-4" />Ảnh</div></SelectItem>
+                  <SelectItem value="video"><div className="flex items-center gap-2"><Video className="w-4 h-4" />Video</div></SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1">
+              <Label>Trip hiện tại</Label>
+              <Input value={selectedTrip?.trip_code || effectiveTripId || ''} readOnly placeholder="N/A" />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <Label>Nội dung</Label>
+            <textarea
+              className="min-h-24 w-full rounded-md border border-slate-300 px-3 py-2 text-sm"
+              placeholder="Nhập nội dung phối hợp: tình trạng hiện trường, yêu cầu hỗ trợ, xác nhận đối soát..."
+              value={reportText}
+              onChange={(e) => setReportText(e.target.value)}
+            />
+          </div>
+
+          {reportMediaType !== 'text' ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <Label>Upload file media</Label>
+                <Input
+                  type="file"
+                  accept={reportMediaType === 'photo' ? 'image/*' : 'video/*'}
+                  onChange={(e) => handleUploadMedia(e.target.files?.[0] || null)}
+                />
+              </div>
+              <div className="space-y-1">
+                <Label>Hoặc nhập URL media</Label>
+                <Input
+                  value={reportMediaUrl}
+                  onChange={(e) => setReportMediaUrl(e.target.value)}
+                  placeholder="https://..."
+                />
+              </div>
+            </div>
+          ) : null}
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button onClick={handleSendTelegramReport} disabled={isSending || isUploading}>
+              {isSending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+              Gửi về Telegram
+            </Button>
+            {isUploading ? <span className="text-xs text-slate-600">Đang upload media...</span> : null}
+            {!isUploading && reportMediaUrl ? <span className="text-xs text-emerald-700">Media sẵn sàng gửi</span> : null}
+          </div>
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="pb-2">

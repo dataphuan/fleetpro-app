@@ -15,11 +15,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { SignaturePad } from "@/components/shared/SignaturePad";
 import { DriverLiveMap } from "@/components/driver/DriverLiveMap";
 import { getBestCurrentPosition, geolocationErrorToMessage, startLocationWatch, stopLocationWatch, type DriverGeoPoint } from "@/lib/driver-location";
-import { alertsAdapter, expenseAdapter, tripAdapter, tripLocationAdapter } from "@/lib/data-adapter";
+import { alertsAdapter, expenseAdapter, transportOrderAdapter, tripAdapter, tripLocationAdapter } from "@/lib/data-adapter";
 import { evaluateLocationIntegrity, getIntegrityProfileByVehicleType } from "@/lib/location-integrity";
 import { useVehicles } from "@/hooks/useVehicles";
 import { normalizeUserRole } from "@/lib/rbac";
-import { sendDriverLocationReportNotification, sendDriverExpenseDocNotification } from "@/lib/driver-notifications";
+import { sendOpsEventNotification } from "@/lib/driver-notifications";
 
 const MIN_CHECKIN_ACCURACY_M = 50;
 const MAX_TRACKING_ACCURACY_M = 120;
@@ -41,6 +41,17 @@ const DRIVER_DRAFTS_STORAGE_KEY = 'driver_dashboard_trip_drafts';
 const DRIVER_PRETRIP_STORAGE_KEY = 'driver_pretrip_checklist';
 const DRIVER_REPORTS_STORAGE_KEY = 'driver_location_reports';
 const DRIVER_EXPENSES_STORAGE_KEY = 'driver_expense_docs';
+const DRIVER_PRECHECK_STORAGE_KEY = 'driver_precheck_v2';
+
+type DriverPrecheckState = {
+    tires: boolean;
+    lights: boolean;
+    brakes: boolean;
+    fuel: boolean;
+    documents: boolean;
+    photoUrl: string;
+    isUploading: boolean;
+};
 
 export default function DriverDashboard() {
     const { user, tenantId, role } = useAuth();
@@ -74,6 +85,12 @@ export default function DriverDashboard() {
     const [tripInputs, setTripInputs] = useState<Record<string, { odo: string, receiptUrl: string, isUploading: boolean, uploadState: FeatureState, uploadError?: string }>>({});
     const [reportInputs, setReportInputs] = useState<Record<string, { note: string, photoUrl: string, isUploading: boolean, uploadState: FeatureState, uploadError?: string }>>({});
     const [expenseInputs, setExpenseInputs] = useState<Record<string, { amount: string, note: string, photoUrl: string, isUploading: boolean, uploadState: FeatureState, uploadError?: string }>>({});
+    const [precheckByTrip, setPrecheckByTrip] = useState<Record<string, DriverPrecheckState>>({});
+    const [draftSlotFrom, setDraftSlotFrom] = useState('08:00');
+    const [draftSlotTo, setDraftSlotTo] = useState('11:00');
+    const [draftArea, setDraftArea] = useState('');
+    const [draftNote, setDraftNote] = useState('');
+    const [isCreatingDraftOrder, setIsCreatingDraftOrder] = useState(false);
     const watchIdRef = useRef<number | null>(null);
     const lastTrackPushRef = useRef<number>(0);
     const lastTripSyncRef = useRef<number>(0);
@@ -220,6 +237,19 @@ export default function DriverDashboard() {
 
     useEffect(() => {
         try {
+            const raw = localStorage.getItem(`${DRIVER_PRECHECK_STORAGE_KEY}:${storageScope}`);
+            if (!raw) return;
+            const parsed = JSON.parse(raw);
+            if (parsed && typeof parsed === 'object') {
+                setPrecheckByTrip(parsed);
+            }
+        } catch {
+            // Best effort only.
+        }
+    }, [storageScope]);
+
+    useEffect(() => {
+        try {
             localStorage.setItem(`${DRIVER_DRAFTS_STORAGE_KEY}:${storageScope}`, JSON.stringify(tripInputs));
         } catch {
             // Best effort only.
@@ -249,6 +279,31 @@ export default function DriverDashboard() {
             // Best effort only.
         }
     }, [expenseInputs, storageScope]);
+
+    useEffect(() => {
+        try {
+            localStorage.setItem(`${DRIVER_PRECHECK_STORAGE_KEY}:${storageScope}`, JSON.stringify(precheckByTrip));
+        } catch {
+            // Best effort only.
+        }
+    }, [precheckByTrip, storageScope]);
+
+    const getPrecheck = (tripId: string): DriverPrecheckState => {
+        return precheckByTrip[tripId] || {
+            tires: false,
+            lights: false,
+            brakes: false,
+            fuel: false,
+            documents: false,
+            photoUrl: '',
+            isUploading: false,
+        };
+    };
+
+    const isPrecheckComplete = (tripId: string) => {
+        const precheck = getPrecheck(tripId);
+        return precheck.tires && precheck.lights && precheck.brakes && precheck.fuel && precheck.documents && !!precheck.photoUrl;
+    };
 
     const vehicleById = useMemo(() => {
         const map = new Map<string, any>();
@@ -537,6 +592,146 @@ export default function DriverDashboard() {
         }
     };
 
+    const handlePrecheckToggle = (tripId: string, field: 'tires' | 'lights' | 'brakes' | 'fuel' | 'documents', value: boolean) => {
+        setPrecheckByTrip((prev) => ({
+            ...prev,
+            [tripId]: {
+                ...getPrecheck(tripId),
+                [field]: value,
+            },
+        }));
+    };
+
+    const handlePrecheckPhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>, tripId: string) => {
+        if (!isDriverRole) {
+            toast({ title: 'Không có quyền', description: 'Chỉ tài xế mới được tải ảnh kiểm tra xe.', variant: 'destructive' });
+            return;
+        }
+
+        if (!isOnline) {
+            toast({ title: 'Mất kết nối mạng', description: 'Vui lòng bật mạng để tải ảnh kiểm tra xe.', variant: 'destructive' });
+            return;
+        }
+
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (!file.type.startsWith('image/')) {
+            toast({ title: 'Tệp không hợp lệ', description: 'Checklist xe chỉ chấp nhận ảnh.', variant: 'destructive' });
+            return;
+        }
+
+        setPrecheckByTrip((prev) => ({
+            ...prev,
+            [tripId]: {
+                ...getPrecheck(tripId),
+                isUploading: true,
+            },
+        }));
+
+        try {
+            const downloadUrl = await uploadTripImage(file, 'driver-prechecks', tripId);
+            setPrecheckByTrip((prev) => ({
+                ...prev,
+                [tripId]: {
+                    ...getPrecheck(tripId),
+                    photoUrl: downloadUrl,
+                    isUploading: false,
+                },
+            }));
+            toast({ title: 'Đã lưu ảnh checklist', description: 'Ảnh xe trước chuyến đã sẵn sàng.' });
+        } catch {
+            setPrecheckByTrip((prev) => ({
+                ...prev,
+                [tripId]: {
+                    ...getPrecheck(tripId),
+                    isUploading: false,
+                },
+            }));
+            toast({ title: 'Lỗi tải ảnh', description: 'Không thể lưu ảnh checklist, vui lòng thử lại.', variant: 'destructive' });
+        }
+    };
+
+    const handleCreateDraftOrder = async () => {
+        if (!isDriverRole) {
+            toast({ title: 'Không có quyền', description: 'Chỉ tài xế mới được tạo lệnh nháp.', variant: 'destructive' });
+            return;
+        }
+        if (!isOnline) {
+            toast({ title: 'Mất kết nối mạng', description: 'Vui lòng bật mạng để tạo lệnh nháp.', variant: 'destructive' });
+            return;
+        }
+        if (!draftArea.trim()) {
+            toast({ title: 'Thiếu khu vực', description: 'Nhập khu vực sẵn sàng nhận lệnh.', variant: 'destructive' });
+            return;
+        }
+
+        setIsCreatingDraftOrder(true);
+        try {
+            const adapterAny = transportOrderAdapter as any;
+            const nextCode = typeof adapterAny.getNextCode === 'function'
+                ? await adapterAny.getNextCode()
+                : `DH${Date.now()}`;
+
+            await transportOrderAdapter.create({
+                order_code: nextCode,
+                status: 'draft',
+                customer_id: '',
+                requested_by_driver_id: user?.id || null,
+                requested_by_driver_email: user?.email || null,
+                requested_slot_from: draftSlotFrom,
+                requested_slot_to: draftSlotTo,
+                requested_area: draftArea.trim(),
+                note: draftNote.trim(),
+                source: 'driver-self-draft',
+            } as any);
+
+            await alertsAdapter.create(buildReleaseSafeCreatePayload('driver-draft-order', {
+                alert_type: 'info',
+                title: 'Tai xe tao lenh nhap',
+                message: `${user?.email || 'Tai xe'} tao lenh nhap ${nextCode}.`,
+                reference_type: 'transport_order',
+                reference_id: nextCode,
+                severity: 'low',
+                is_read: false,
+                date: new Date().toISOString(),
+                metadata: {
+                    area: draftArea.trim(),
+                    slot_from: draftSlotFrom,
+                    slot_to: draftSlotTo,
+                    note: draftNote.trim() || null,
+                },
+            }));
+
+            sendOpsEventNotification({
+                event: {
+                    event_type: 'DRIVER_DRAFT_ORDER_CREATED',
+                    actor_role: 'driver',
+                    actor_name: user?.email || user?.id || 'driver',
+                    action: 'create_draft_order',
+                    trip_code: nextCode,
+                    status_after_action: 'DRAFT',
+                    tenant_id: tenantId || null,
+                    extra: {
+                        tenant_id: tenantId || null,
+                        area: draftArea.trim(),
+                        slot_from: draftSlotFrom,
+                        slot_to: draftSlotTo,
+                        note: draftNote.trim() || '',
+                    },
+                },
+                text: 'Tai xe chu dong tao lenh nhap va bao ve kenh Telegram chung.',
+            }).catch(console.error);
+
+            setDraftArea('');
+            setDraftNote('');
+            toast({ title: 'Đã tạo lệnh nháp', description: `${nextCode} đã báo cho quản lý và kênh Telegram.` });
+        } catch (error: any) {
+            toast({ title: 'Tạo lệnh nháp thất bại', description: error?.message || 'Vui lòng thử lại.', variant: 'destructive' });
+        } finally {
+            setIsCreatingDraftOrder(false);
+        }
+    };
+
     const handleSubmitLocationReport = async (trip: any) => {
         if (!isDriverRole) {
             toast({ title: 'Không có quyền', description: 'Chỉ tài xế mới được gửi báo cáo.', variant: 'destructive' });
@@ -590,20 +785,28 @@ export default function DriverDashboard() {
             }));
             toast({ title: 'Đã gửi báo cáo', description: 'Báo cáo vị trí đã được gửi.' });
             
-            // Telegram Notification (Fire-and-forget logic)
-            try {
-                sendDriverLocationReportNotification({
-                    tripCode: trip.trip_code || '',
-                    driverName: linkedDriver?.full_name || user?.email || 'Tai xe',
-                    note: report?.note || '',
-                    photoUrl: report?.photoUrl || null,
-                    latitude: point?.latitude || null,
-                    longitude: point?.longitude || null,
-                    driverTelegramChatId: linkedDriver?.telegram_chat_id || linkedDriver?.telegramChatId || null,
-                }).catch(console.error);
-            } catch (telegramErr) {
-                console.error("Telegram notify err", telegramErr);
-            }
+            sendOpsEventNotification({
+                event: {
+                    event_type: 'DRIVER_LOCATION_REPORT',
+                    actor_role: 'driver',
+                    actor_name: linkedDriver?.full_name || user?.email || 'Tai xe',
+                    action: 'submit_location_report',
+                    trip_code: trip.trip_code || null,
+                    location: point ? `${roundCoord(point.latitude)},${roundCoord(point.longitude)}` : null,
+                    status_after_action: 'REPORTED',
+                    media_url: report?.photoUrl || null,
+                    tenant_id: tenantId || null,
+                    extra: {
+                        tenant_id: tenantId || null,
+                        note: report?.note || '',
+                        accuracy_m: point?.accuracy || null,
+                    },
+                },
+                text: report?.note || 'Tai xe gui bao cao vi tri.',
+                mediaType: report?.photoUrl ? 'photo' : null,
+                mediaUrl: report?.photoUrl || null,
+                chatId: linkedDriver?.telegram_chat_id || linkedDriver?.telegramChatId || null,
+            }).catch(console.error);
         } catch {
             toast({ title: 'Gửi báo cáo thất bại', description: 'Vui lòng thử lại.', variant: 'destructive' });
         } finally {
@@ -653,19 +856,27 @@ export default function DriverDashboard() {
             }));
             toast({ title: 'Đã gửi chứng từ', description: 'Kế toán sẽ đối soát chi phí.' });
             
-            // Telegram Notification (Fire-and-forget logic)
-            try {
-                sendDriverExpenseDocNotification({
-                    tripCode: trip.trip_code || '',
-                    driverName: linkedDriver?.full_name || user?.email || 'Tai xe',
-                    amount: amountValue,
-                    note: expense?.note || '',
-                    photoUrl: expense?.photoUrl || null,
-                    driverTelegramChatId: linkedDriver?.telegram_chat_id || linkedDriver?.telegramChatId || null,
-                }).catch(console.error);
-            } catch (telegramErr) {
-                console.error("Telegram expense doc notify err", telegramErr);
-            }
+            sendOpsEventNotification({
+                event: {
+                    event_type: 'DRIVER_EXPENSE_DOCUMENT',
+                    actor_role: 'driver',
+                    actor_name: linkedDriver?.full_name || user?.email || 'Tai xe',
+                    action: 'submit_expense_document',
+                    trip_code: trip.trip_code || null,
+                    status_after_action: 'PENDING_RECONCILIATION',
+                    media_url: expense?.photoUrl || null,
+                    tenant_id: tenantId || null,
+                    extra: {
+                        tenant_id: tenantId || null,
+                        amount: amountValue,
+                        note: expense?.note || '',
+                    },
+                },
+                text: `Chi phi ${amountValue.toLocaleString('vi-VN')} VND. ${expense?.note || ''}`,
+                mediaType: expense?.photoUrl ? 'photo' : null,
+                mediaUrl: expense?.photoUrl || null,
+                chatId: linkedDriver?.telegram_chat_id || linkedDriver?.telegramChatId || null,
+            }).catch(console.error);
         } catch (error) {
             toast({ title: 'Gửi chứng từ thất bại', description: 'Vui lòng thử lại.', variant: 'destructive' });
         } finally {
@@ -750,6 +961,15 @@ export default function DriverDashboard() {
 
         if (!infoConfirmedByTrip[trip.id]) {
             toast({ title: 'Chưa xác nhận thông tin', description: 'Vui lòng kiểm tra lộ trình và thông tin khách hàng.', variant: 'destructive' });
+            return;
+        }
+
+        if (!isPrecheckComplete(trip.id)) {
+            toast({
+                title: 'Thiếu checklist trước chuyến',
+                description: 'Cần hoàn thành checklist xe và tải ít nhất 1 ảnh xe trước khi check-in.',
+                variant: 'destructive',
+            });
             return;
         }
 
@@ -1041,15 +1261,63 @@ export default function DriverDashboard() {
 
     if (myActiveTrips.length === 0) {
         return (
-            <div className="p-6 flex flex-col items-center justify-center text-center mt-20">
-                <div className="bg-slate-200 p-4 rounded-full mb-4">
-                    <Package className="w-10 h-10 text-slate-400" />
+            <div className="p-6 space-y-4 mt-8">
+                <div className="flex flex-col items-center justify-center text-center">
+                    <div className="bg-slate-200 p-4 rounded-full mb-4">
+                        <Package className="w-10 h-10 text-slate-400" />
+                    </div>
+                    <h2 className="text-xl font-bold text-slate-700">Chưa có chuyến</h2>
+                    <p className="text-slate-500 mt-2">Bạn có thể chủ động tạo lệnh nháp để điều phối và quản lý xác nhận.</p>
                 </div>
-                <h2 className="text-xl font-bold text-slate-700">Chưa có chuyến</h2>
-                <p className="text-slate-500 mt-2">Tuyệt vời! Hiện tại bạn không có chuyến đi nào được phân công. Hãy nghỉ ngơi.</p>
+
+                <Card className="border-blue-200 bg-blue-50/70">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-base text-blue-900">BƯỚC 4: Tạo lệnh nháp khi chưa có điều động</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                        <div>
+                            <Label>Khu vực sẵn sàng nhận chuyến</Label>
+                            <Input
+                                className="mt-1"
+                                value={draftArea}
+                                onChange={(e) => setDraftArea(e.target.value)}
+                                placeholder="VD: Thu Duc - Quan 9 - Binh Thanh"
+                            />
+                        </div>
+                        <div className="grid grid-cols-2 gap-2">
+                            <div>
+                                <Label>Khung giờ từ</Label>
+                                <Input type="time" className="mt-1" value={draftSlotFrom} onChange={(e) => setDraftSlotFrom(e.target.value)} />
+                            </div>
+                            <div>
+                                <Label>Đến</Label>
+                                <Input type="time" className="mt-1" value={draftSlotTo} onChange={(e) => setDraftSlotTo(e.target.value)} />
+                            </div>
+                        </div>
+                        <div>
+                            <Label>Ghi chú</Label>
+                            <Input
+                                className="mt-1"
+                                value={draftNote}
+                                onChange={(e) => setDraftNote(e.target.value)}
+                                placeholder="VD: Sẵn sàng chạy tải nhẹ dưới 3 tấn"
+                            />
+                        </div>
+                        <Button
+                            className="w-full bg-blue-600 hover:bg-blue-700"
+                            disabled={isCreatingDraftOrder}
+                            onClick={handleCreateDraftOrder}
+                        >
+                            {isCreatingDraftOrder ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
+                            Tạo lệnh nháp và báo Telegram
+                        </Button>
+                        <p className="text-xs text-blue-800">Sau khi tạo nháp, hệ thống sẽ báo cho quản lý và kênh Telegram chung để xác nhận đồng ý chạy.</p>
+                    </CardContent>
+                </Card>
+
                 <a
                     href="tel:0989890022"
-                    className="mt-4 inline-flex items-center gap-2 rounded-md border border-blue-300 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700"
+                    className="inline-flex items-center gap-2 rounded-md border border-blue-300 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700"
                 >
                     <PhoneCall className="w-4 h-4" />
                     Liên hệ điều phối
@@ -1217,7 +1485,63 @@ export default function DriverDashboard() {
 
                         {trip.status === 'dispatched' && isDriverRole && (
                             <div className="mt-3 rounded-md border border-slate-200 bg-white px-3 py-3">
-                                <Label className="text-[11px] font-semibold text-slate-700">BƯỚC 4: KIỂM TRA LỘ TRÌNH & KHÁCH HÀNG</Label>
+                                <Label className="text-[11px] font-semibold text-slate-700">BƯỚC 4: CHECKLIST XE + ẢNH TRƯỚC CHUYẾN</Label>
+                                <div className="mt-2 grid grid-cols-1 gap-2 text-xs text-slate-700">
+                                    <label className="flex items-center gap-2">
+                                        <input type="checkbox" checked={getPrecheck(trip.id).tires} onChange={(e) => handlePrecheckToggle(trip.id, 'tires', e.target.checked)} />
+                                        Lốp xe đủ áp suất, không rách/nứt.
+                                    </label>
+                                    <label className="flex items-center gap-2">
+                                        <input type="checkbox" checked={getPrecheck(trip.id).lights} onChange={(e) => handlePrecheckToggle(trip.id, 'lights', e.target.checked)} />
+                                        Đèn, còi, tín hiệu hoạt động bình thường.
+                                    </label>
+                                    <label className="flex items-center gap-2">
+                                        <input type="checkbox" checked={getPrecheck(trip.id).brakes} onChange={(e) => handlePrecheckToggle(trip.id, 'brakes', e.target.checked)} />
+                                        Phanh và vô-lăng ổn định.
+                                    </label>
+                                    <label className="flex items-center gap-2">
+                                        <input type="checkbox" checked={getPrecheck(trip.id).fuel} onChange={(e) => handlePrecheckToggle(trip.id, 'fuel', e.target.checked)} />
+                                        Nhiên liệu đủ cho chuyến dự kiến.
+                                    </label>
+                                    <label className="flex items-center gap-2">
+                                        <input type="checkbox" checked={getPrecheck(trip.id).documents} onChange={(e) => handlePrecheckToggle(trip.id, 'documents', e.target.checked)} />
+                                        Giấy tờ xe và GPLX hợp lệ.
+                                    </label>
+                                </div>
+
+                                <Button
+                                    variant="outline"
+                                    className="mt-2 w-full bg-white border-slate-300 text-slate-700 cursor-pointer relative overflow-hidden"
+                                    disabled={getPrecheck(trip.id).isUploading}
+                                >
+                                    {getPrecheck(trip.id).isUploading ? (
+                                        <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Đang tải ảnh xe...</>
+                                    ) : getPrecheck(trip.id).photoUrl ? (
+                                        <><CheckCircle2 className="w-4 h-4 mr-2 text-green-600" /> Đã có ảnh checklist xe</>
+                                    ) : (
+                                        <><Camera className="w-4 h-4 mr-2" /> Chụp ảnh xe trước chuyến</>
+                                    )}
+                                    <input
+                                        type="file"
+                                        accept="image/*"
+                                        capture="environment"
+                                        className="absolute inset-0 opacity-0 cursor-pointer"
+                                        onChange={(e) => handlePrecheckPhotoUpload(e, trip.id)}
+                                        disabled={getPrecheck(trip.id).isUploading}
+                                    />
+                                </Button>
+
+                                <div className={`mt-2 text-xs ${isPrecheckComplete(trip.id) ? 'text-emerald-700' : 'text-amber-700'}`}>
+                                    {isPrecheckComplete(trip.id)
+                                        ? 'Checklist trước chuyến đã hoàn tất.'
+                                        : 'Cần tick đủ checklist và có ít nhất 1 ảnh xe để được check-in.'}
+                                </div>
+                            </div>
+                        )}
+
+                        {trip.status === 'dispatched' && isDriverRole && (
+                            <div className="mt-3 rounded-md border border-slate-200 bg-white px-3 py-3">
+                                <Label className="text-[11px] font-semibold text-slate-700">BƯỚC 5: KIỂM TRA LỘ TRÌNH & KHÁCH HÀNG</Label>
                                 <div className="mt-2 space-y-1 text-xs text-slate-700">
                                     <div><span className="text-slate-500">Mã đơn:</span> <span className="font-semibold">{trip.trip_code}</span></div>
                                     <div><span className="text-slate-500">Khách hàng:</span> <span className="font-semibold">{trip.customer?.customer_name || trip.customer?.name || trip.customer_id || 'Khách vãng lai'}</span></div>
@@ -1452,7 +1776,7 @@ export default function DriverDashboard() {
                                 <Button 
                                     className="w-full bg-blue-600 hover:bg-blue-700 text-lg py-6" 
                                     onClick={() => handleStartTrip(trip)}
-                                    disabled={isUpdating || isCheckingInTripId === trip.id || !infoConfirmed}
+                                    disabled={isUpdating || isCheckingInTripId === trip.id || !infoConfirmed || !isPrecheckComplete(trip.id)}
                                 >
                                     {isCheckingInTripId === trip.id ? (
                                         <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> DANG CHECK-IN GPS...</>
@@ -1519,7 +1843,7 @@ export default function DriverDashboard() {
                         ) : (
                             <Button
                                 className="h-12 w-full bg-blue-600 text-base font-bold hover:bg-blue-700"
-                                disabled={isUpdating || !isOnline || isCheckingInTripId === primaryTripForAction.id || !infoConfirmedByTrip[primaryTripForAction.id]}
+                                disabled={isUpdating || !isOnline || isCheckingInTripId === primaryTripForAction.id || !infoConfirmedByTrip[primaryTripForAction.id] || !isPrecheckComplete(primaryTripForAction.id)}
                                 onClick={() => handleStartTrip(primaryTripForAction)}
                             >
                                 {isCheckingInTripId === primaryTripForAction.id ? (

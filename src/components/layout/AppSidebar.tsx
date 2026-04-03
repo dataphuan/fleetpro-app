@@ -50,7 +50,7 @@ const roleAccessMap: Record<string, UserRole[]> = {
   "/settings": ["admin"],
   "/members": ["admin"],
   "/logs": ["admin"],
-  "/tracking-center": ["admin", "manager", "dispatcher"],
+  "/tracking-center": ["admin", "manager", "dispatcher", "accountant", "driver", "viewer"],
   "/coaching": ["admin", "manager"],
   "/profile": ["admin", "manager", "dispatcher", "accountant", "driver", "viewer"],
 };
