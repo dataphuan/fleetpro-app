@@ -5,7 +5,7 @@ const {
   assertFails,
   assertSucceeds,
 } = require('@firebase/rules-unit-testing');
-const { doc, setDoc, getDoc, updateDoc } = require('firebase/firestore');
+const { doc, setDoc, getDoc, updateDoc, collection, addDoc } = require('firebase/firestore');
 
 const projectId = 'fleetpro-v1-security-test';
 

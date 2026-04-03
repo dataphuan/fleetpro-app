@@ -35,7 +35,7 @@ service cloud.firestore {
 
     // QA AUDIT FIX 2.3: Unified role taxonomy — app uses 'admin' only
     function isTenantAdmin() {
-      return userRole() == 'admin';
+      return userRole() == 'admin' || userRole() == 'admin_tenant';
     }
 
     // --- SECURE COLLECTION MATCHES ---
@@ -82,8 +82,9 @@ service cloud.firestore {
     // Trips: SECURITY HARDENING — Server-side Writes Only
     match /trips/{tripId} {
       allow read: if canAccessTenantData() && sameTenantOnReadUpdateDelete();
-      // QA AUDIT FIX 2.1: Chặn hoàn toàn việc ghi từ client. Bắt buộc qua Cloud Functions.
-      allow create, update: if false; 
+      // Allow same-tenant creation from authenticated tenant user; updates remain server-side only.
+      allow create: if canAccessTenantData() && sameTenantOnCreate();
+      allow update: if false;
       allow delete: if canAccessTenantData() && sameTenantOnReadUpdateDelete() && isTenantAdmin();
     }
 
@@ -99,10 +100,10 @@ service cloud.firestore {
         return userRole() == 'manager' || userRole() == 'admin';
       }
 
-      allow read: if collection not in ['users', 'company_settings', 'system_logs', 'tenants', 'trips']
+      allow read: if !(collection in ['users', 'company_settings', 'system_logs', 'tenants', 'trips'])
                     && canAccessTenantData() && sameTenantOnReadUpdateDelete();
       
-      allow create, update: if collection not in ['users', 'company_settings', 'system_logs', 'tenants', 'trips']
+      allow create, update: if !(collection in ['users', 'company_settings', 'system_logs', 'tenants', 'trips'])
                     && canAccessTenantData() && (
                       (collection == 'expenses' && canAccountantWrite()) ||
                       (collection in ['vehicles', 'drivers', 'routes', 'customers'] && canDispatcherWrite()) ||

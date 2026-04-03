@@ -272,8 +272,7 @@ export const dailyTelegramSummary = functions.region('asia-southeast1').pubsub.s
     `<i>Tác vụ này được gửi tự động bởi hệ thống FleetPro. Cảm ơn đội ngũ đã hoàn thành ngày làm việc!</i>`;
 
   try {
-    const fetchObj = typeof fetch !== 'undefined' ? fetch : require('node-fetch');
-    const res = await fetchObj(`https://api.telegram.org/bot${token}/sendMessage`, {
+    const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ chat_id: chatId, text: summaryText, parse_mode: 'HTML' }),

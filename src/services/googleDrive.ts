@@ -247,7 +247,7 @@ class GoogleDriveService {
 
     try {
       // Create or get FleetPro folder
-      let folderResult = await this.createFolder(folderName);
+      const folderResult = await this.createFolder(folderName);
       if (!folderResult.success) {
         // Try to find existing folder
         const folders = await this.listFiles(`name='${folderName}' and mimeType='application/vnd.google-apps.folder'`);

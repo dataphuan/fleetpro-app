@@ -346,5 +346,4 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   seedAllData();
 }
 
-export { seedAllData, seedCollection };</content>
-<parameter name="filePath">d:\AI-KILLS\V1-quanlyxeonline\scripts\seed-firestore.mjs
+export { seedAllData, seedCollection };
