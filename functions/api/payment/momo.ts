@@ -16,9 +16,8 @@ export const onRequestPost = async (context: any) => {
     const payload = JSON.parse(payloadStr);
     const { tenantId, plan, redirectUrl } = payload;
 
-    // MoMo API endpoint (Test environment)
-    // Production: https://payment.momo.vn/v2/gateway/api/create
-    const momoEndpoint = "https://test-payment.momo.vn/v2/gateway/api/create";
+    // MoMo API endpoint from environment (use production in Cloudflare secrets).
+    const momoEndpoint = String(env.MOMO_ENDPOINT || "https://test-payment.momo.vn/v2/gateway/api/create").trim();
 
     const requestId = Date.now().toString();
     const orderId = `FLEETPRO_${tenantId}_${requestId}`;
