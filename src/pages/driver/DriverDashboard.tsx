@@ -177,7 +177,6 @@ export default function DriverDashboard() {
             // Keep clean runtime even when browser storage has invalid data.
         }
         // Load once for current session scope.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [storageScope]);
 
     useEffect(() => {
@@ -191,7 +190,6 @@ export default function DriverDashboard() {
         } catch {
             // Best effort only.
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [storageScope]);
 
     useEffect(() => {
@@ -205,7 +203,6 @@ export default function DriverDashboard() {
         } catch {
             // Best effort only.
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [storageScope]);
 
     useEffect(() => {
@@ -219,7 +216,6 @@ export default function DriverDashboard() {
         } catch {
             // Best effort only.
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [storageScope]);
 
     useEffect(() => {
