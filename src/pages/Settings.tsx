@@ -43,12 +43,14 @@ import {
   AlertCircle,
   Palette,
   Truck,
+  MessageCircle,
+  Cloud
 } from "lucide-react";
 import { ChangePasswordForm } from "@/components/settings/ChangePasswordForm";
 import { AISettingsForm } from "@/components/settings/AISettingsForm";
 import { GDriveSettingsForm } from "@/components/settings/GDriveSettingsForm";
 import { DataOwnershipExportCard } from "@/components/settings/DataOwnershipExportCard";
-import { Cloud } from "lucide-react";
+import { TelegramGuideCard } from "@/components/settings/TelegramGuideCard";
 
 export default function Settings() {
   const { toast } = useToast();
@@ -185,6 +187,10 @@ export default function Settings() {
           <TabsTrigger value="branding" className="gap-2 flex-1 lg:flex-none">
             <Palette className="w-4 h-4" />
             <span className="hidden sm:inline">Thương hiệu</span>
+          </TabsTrigger>
+          <TabsTrigger value="notifications" className="gap-2 flex-1 lg:flex-none">
+            <MessageCircle className="w-4 h-4" />
+            <span className="hidden sm:inline">Thông báo</span>
           </TabsTrigger>
 
           <div className="hidden lg:block w-px h-6 bg-border mx-1 self-center"></div>
@@ -786,6 +792,10 @@ export default function Settings() {
 
         <TabsContent value="cloud">
           <GDriveSettingsForm />
+        </TabsContent>
+
+        <TabsContent value="notifications">
+          <TelegramGuideCard />
         </TabsContent>
       </Tabs>
 

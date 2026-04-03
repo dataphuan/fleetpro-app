@@ -19,6 +19,7 @@ import { alertsAdapter, expenseAdapter, tripAdapter, tripLocationAdapter } from 
 import { evaluateLocationIntegrity, getIntegrityProfileByVehicleType } from "@/lib/location-integrity";
 import { useVehicles } from "@/hooks/useVehicles";
 import { normalizeUserRole } from "@/lib/rbac";
+import { sendDriverLocationReportNotification, sendDriverExpenseDocNotification } from "@/lib/driver-notifications";
 
 const MIN_CHECKIN_ACCURACY_M = 50;
 const MAX_TRACKING_ACCURACY_M = 120;
@@ -592,6 +593,21 @@ export default function DriverDashboard() {
                 [trip.id]: { note: '', photoUrl: '', isUploading: false, uploadState: 'idle' },
             }));
             toast({ title: 'Đã gửi báo cáo', description: 'Báo cáo vị trí đã được gửi.' });
+            
+            // Telegram Notification (Fire-and-forget logic)
+            try {
+                sendDriverLocationReportNotification({
+                    tripCode: trip.trip_code || '',
+                    driverName: linkedDriver?.full_name || user?.email || 'Tai xe',
+                    note: report?.note || '',
+                    photoUrl: report?.photoUrl || null,
+                    latitude: point?.latitude || null,
+                    longitude: point?.longitude || null,
+                    driverTelegramChatId: linkedDriver?.telegram_chat_id || linkedDriver?.telegramChatId || null,
+                }).catch(console.error);
+            } catch (telegramErr) {
+                console.error("Telegram notify err", telegramErr);
+            }
         } catch {
             toast({ title: 'Gửi báo cáo thất bại', description: 'Vui lòng thử lại.', variant: 'destructive' });
         } finally {
@@ -640,6 +656,20 @@ export default function DriverDashboard() {
                 [trip.id]: { amount: '', note: '', photoUrl: '', isUploading: false, uploadState: 'idle' },
             }));
             toast({ title: 'Đã gửi chứng từ', description: 'Kế toán sẽ đối soát chi phí.' });
+            
+            // Telegram Notification (Fire-and-forget logic)
+            try {
+                sendDriverExpenseDocNotification({
+                    tripCode: trip.trip_code || '',
+                    driverName: linkedDriver?.full_name || user?.email || 'Tai xe',
+                    amount: amountValue,
+                    note: expense?.note || '',
+                    photoUrl: expense?.photoUrl || null,
+                    driverTelegramChatId: linkedDriver?.telegram_chat_id || linkedDriver?.telegramChatId || null,
+                }).catch(console.error);
+            } catch (telegramErr) {
+                console.error("Telegram expense doc notify err", telegramErr);
+            }
         } catch (error) {
             toast({ title: 'Gửi chứng từ thất bại', description: 'Vui lòng thử lại.', variant: 'destructive' });
         } finally {
