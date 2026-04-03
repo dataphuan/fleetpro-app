@@ -60,47 +60,22 @@ if (import.meta.env.DEV) {
 // Validate before initializing
 validateFirebaseConfig();
 
-// Initialize Firebase with proper types
-let app: FirebaseApp;
-let auth: Auth;
-let db: Firestore;
-let storage: FirebaseStorage;
-let functions: Functions;
+// Initialize and export Firebase with proper types and Rock-Solid Direct Exports
+export const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-try {
-  app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-  
-  // Initialize Firestore with modern persistence API (replaces deprecated enableIndexedDbPersistence)
-  db = initializeFirestore(app, {
-    localCache: persistentLocalCache({
-      tabManager: persistentMultipleTabManager()
-    })
-  });
-  
-  storage = getStorage(app);
-  functions = getFunctions(app, 'asia-southeast1');
-  
-  // Initialize Auth with persistent session
-  auth = initializeAuth(app, {
-    persistence: browserLocalPersistence
-  });
-  
-  if (import.meta.env.DEV) {
-    console.log('✅ Firebase initialized successfully');
-  }
-} catch (error: unknown) {
-  const err = error as Error & { code?: string };
-  console.error('❌ Firebase Initialization Failed:', {
-    error: err.message,
-    code: err.code,
-    config: {
-      apiKey: firebaseConfig.apiKey ? '***' : 'MISSING',
-      authDomain: firebaseConfig.authDomain || 'MISSING',
-      projectId: firebaseConfig.projectId || 'MISSING'
-    }
-  });
-  throw error;
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager()
+  })
+});
+
+export const storage = getStorage(app);
+export const functions = getFunctions(app, 'asia-southeast1');
+
+export const auth = initializeAuth(app, {
+  persistence: browserLocalPersistence
+});
+
+if (import.meta.env.DEV) {
+  console.log('✅ Firebase initialized successfully');
 }
-
-// Cache buster: 2026-04-03
-export { app, db, auth, storage, functions };
