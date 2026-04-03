@@ -661,7 +661,7 @@ export default function Auth() {
                             className="flex items-center gap-2 text-[10px] font-bold text-slate-400 hover:text-primary transition-colors w-full justify-center"
                         >
                             {showDemo ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                            🎁 TÀI KHOẢN DÙNG THỬ (1,340+ BẢN GHI DEMO) - CLICK ĐỂ TRẢI NGHIỆM
+                            🎁 TÀI KHOẢN DÙNG THỬ (1,300+ BẢN GHI DEMO) - CLICK ĐỂ TRẢI NGHIỆM
                         </button>
                         
                         {showDemo && (
@@ -675,12 +675,12 @@ export default function Auth() {
                                                 DEMO DATA READY - TOÀN BỘ TÍNH NĂNG ĐƯỢC MỞ KHÓA
                                             </div>
                                             <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-600">
-                                                <div>✅ 20 chiếc xe</div>
-                                                <div>✅ 25 tài xế</div>
-                                                <div>✅ 50 chuyến đi</div>
-                                                <div>✅ 100+ chi phí</div>
+                                                <div>✅ 20 xe + 25 tài xế</div>
+                                                <div>✅ 50 chuyến + 15 tuyến</div>
+                                                <div>✅ 967 chi phí</div>
                                                 <div>✅ 10 khách hàng</div>
-                                                <div>✅ Báo cáo đầy đủ</div>
+                                                <div>✅ Bảo trì & lốp xe</div>
+                                                <div>✅ Kế toán & báo cáo</div>
                                             </div>
                                         </div>
                                     </div>

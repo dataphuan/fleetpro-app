@@ -1532,6 +1532,142 @@ const normalizeSeedRows = (rowsByCollection: Record<string, Array<Record<string,
             expense.trip_id = expense.tripId;
         }
     });
+
+    // BUG #7 FIX: Aggregate total_expenses for each trip from linked expenses
+    const expenseTotalsByTrip: Record<string, number> = {};
+    expenses.forEach((e) => {
+        const tid = String(e.trip_id || e.tripId || '');
+        if (tid) {
+            expenseTotalsByTrip[tid] = (expenseTotalsByTrip[tid] || 0) + Number(e.amount || 0);
+        }
+    });
+    trips.forEach((trip) => {
+        const tid = String(trip.id || trip.trip_code || '');
+        if (!trip.total_expenses && expenseTotalsByTrip[tid]) {
+            trip.total_expenses = expenseTotalsByTrip[tid];
+        }
+        trip.freight_revenue = trip.freight_revenue ?? trip.total_revenue ?? 0;
+        trip.additional_charges = trip.additional_charges ?? 0;
+        const grossRev = Number(trip.freight_revenue || 0) + Number(trip.additional_charges || 0);
+        const totalCost = Number(trip.total_expenses || 0);
+        trip.gross_revenue = trip.gross_revenue ?? grossRev;
+        trip.total_cost = trip.total_cost ?? totalCost;
+        trip.gross_profit = trip.gross_profit ?? (grossRev - totalCost);
+    });
+
+    // BUG #3 FIX: Supplement maintenance records if too few
+    const maintenance = rowsByCollection.maintenance || [];
+    if (maintenance.length < 10 && vehicles.length > 0) {
+        const maintTypes = ['Bao duong dinh ky', 'Thay nhot + loc dau', 'Sua chua lon', 'Kiem tra phanh', 'Thay loc gio', 'Bao duong hop so', 'Kiem tra dien', 'Thay day curoa'];
+        const baseDate = new Date();
+        for (let i = maintenance.length; i < 10; i++) {
+            const vehicle = vehicles[i % vehicles.length];
+            const daysAgo = (10 - i) * 12;
+            const mDate = new Date(baseDate.getTime() - daysAgo * 86400000);
+            maintenance.push({
+                id: `BT_SUP_${String(i + 1).padStart(3, '0')}`,
+                vehicle_id: vehicle.id || vehicle.vehicle_code,
+                maintenance_type: maintTypes[i % maintTypes.length],
+                cost: 1500000 + Math.round(Math.random() * 8000000),
+                currency: 'VND',
+                maintenance_date: mDate.toISOString().slice(0, 10),
+                odometer: 100000 + i * 15000,
+                status: i < 8 ? 'completed' : 'scheduled',
+                notes: `${maintTypes[i % maintTypes.length]} - ${vehicle.license_plate || vehicle.id}`,
+            });
+        }
+        rowsByCollection.maintenance = maintenance;
+    }
+
+    // BUG #3 FIX: Supplement tire records if too few
+    const tires = rowsByCollection.tires || [];
+    if (tires.length < 12 && vehicles.length > 0) {
+        const positions = ['Truoc-Trai', 'Truoc-Phai', 'Sau-Trai-Ngoai', 'Sau-Phai-Ngoai', 'Sau-Trai-Trong', 'Sau-Phai-Trong'];
+        const brands = ['Bridgestone', 'Michelin', 'Casumina', 'DRC', 'Yokohama'];
+        for (let i = tires.length; i < 12; i++) {
+            const vehicle = vehicles[i % vehicles.length];
+            tires.push({
+                id: `TIRE_SUP_${String(i + 1).padStart(3, '0')}`,
+                tire_code: `LOP-${String(i + 1).padStart(3, '0')}`,
+                current_vehicle_id: vehicle.id || vehicle.vehicle_code,
+                position: positions[i % positions.length],
+                brand: brands[i % brands.length],
+                size: '11R22.5',
+                serial_number: `SN${Date.now().toString(36).toUpperCase()}${i}`,
+                status: i < 10 ? 'active' : 'worn',
+                install_date: addDaysIso('2025-06-01', i * 20) || '2025-06-01',
+                tread_depth_mm: Math.max(2, 14 - i),
+                mileage_km: 20000 + i * 8000,
+                notes: `Lop ${positions[i % positions.length]} - xe ${vehicle.license_plate || vehicle.id}`,
+            });
+        }
+        rowsByCollection.tires = tires;
+    }
+
+    // BUG #3 FIX: Supplement inventory records if too few
+    const inventory = rowsByCollection.inventory || [];
+    if (inventory.length < 8) {
+        const items = [
+            { name: 'Nhot dong co 15W-40', unit: 'Lit', qty: 200, price: 85000 },
+            { name: 'Loc dau may', unit: 'Cai', qty: 50, price: 120000 },
+            { name: 'Loc nhien lieu', unit: 'Cai', qty: 30, price: 95000 },
+            { name: 'Loc gio', unit: 'Cai', qty: 40, price: 75000 },
+            { name: 'Ma phanh', unit: 'Bo', qty: 20, price: 350000 },
+            { name: 'Day curoa', unit: 'Cai', qty: 15, price: 180000 },
+            { name: 'Nuoc lam mat', unit: 'Lit', qty: 100, price: 45000 },
+            { name: 'Bong den pha', unit: 'Cai', qty: 25, price: 220000 },
+        ];
+        for (let i = inventory.length; i < 8; i++) {
+            const item = items[i % items.length];
+            inventory.push({
+                id: `INV_SUP_${String(i + 1).padStart(3, '0')}`,
+                item_code: `VT-${String(i + 1).padStart(3, '0')}`,
+                item_name: item.name,
+                unit: item.unit,
+                quantity: item.qty,
+                unit_price: item.price,
+                total_value: item.qty * item.price,
+                min_stock: Math.round(item.qty * 0.2),
+                category: 'Phu tung',
+                location: 'Kho chinh',
+                status: 'in_stock',
+                notes: `Vat tu ${item.name}`,
+            });
+        }
+        rowsByCollection.inventory = inventory;
+    }
+
+    // BUG #4 FIX: Calculate accounting period revenue/expense from trips & expenses
+    const accountingPeriods = rowsByCollection.accountingPeriods || [];
+    if (accountingPeriods.length > 0) {
+        accountingPeriods.forEach((period) => {
+            const start = period.start_date;
+            const end = period.end_date;
+            if (!start || !end) return;
+
+            let periodRevenue = 0;
+            let periodExpense = 0;
+
+            trips.forEach((trip) => {
+                const depDate = trip.departure_date || '';
+                if (depDate >= start && depDate <= end) {
+                    periodRevenue += Number(trip.total_revenue || trip.freight_revenue || 0);
+                    periodExpense += Number(trip.total_expenses || 0);
+                }
+            });
+
+            expenses.forEach((expense) => {
+                const expDate = expense.expense_date || expense.date || '';
+                if (expDate >= start && expDate <= end) {
+                    periodExpense += Number(expense.amount || 0);
+                }
+            });
+
+            if (periodRevenue > 0) period.total_revenue = periodRevenue;
+            if (periodExpense > 0) period.total_expense = periodExpense;
+            period.net_profit = (period.total_revenue || 0) - (period.total_expense || 0);
+        });
+    }
 };
 
 const seedNewTenantDemoData = async (options: TenantSeedOptions) => {
@@ -1539,10 +1675,10 @@ const seedNewTenantDemoData = async (options: TenantSeedOptions) => {
     const nowIso = new Date().toISOString();
 
     try {
-        // Check if demo data already exists
-        const existingVehicles = await getDocs(query(collection(db, 'vehicles'), where("tenant_id", "==", tenantId)));
-        if (!existingVehicles.empty) {
-            console.log(`✅ [seedNewTenantDemoData] Demo data already exists for tenant: ${tenantId}`);
+        // BUG #2 FIX: Use same insufficiency check as ensureTenantDemoReadiness
+        const alreadySufficient = !(await isTenantDemoDataInsufficient(tenantId));
+        if (alreadySufficient) {
+            console.log(`✅ [seedNewTenantDemoData] Demo data already sufficient for tenant: ${tenantId}`);
             return;
         }
         
@@ -1593,28 +1729,53 @@ const seedNewTenantDemoData = async (options: TenantSeedOptions) => {
 
     normalizeSeedRows(seedRowsByCollection);
 
+    // BUG #1 + #6 FIX: Link driver demo and assign dispatched/in_progress trips
     const demoDriver = seedRowsByCollection.drivers?.[0];
     if (demoDriver) {
         demoDriver.email = `demo.driver+${tenantId}@fleetpro.vn`;
+        // BUG #6 FIX: Set user_id for reliable DriverDashboard matching
+        demoDriver.user_id = `demo-driver-uid-${tenantId}`;
     }
 
     const demoDriverId = demoDriver?.id || demoDriver?.driver_code;
     const demoVehicleId = demoDriver?.assigned_vehicle_id;
     const demoTrips = seedRowsByCollection.trips || [];
     if (demoDriverId && demoTrips.length > 0) {
-        const dispatchedTrip = demoTrips[0];
-        dispatchedTrip.driver_id = demoDriverId;
-        if (demoVehicleId) dispatchedTrip.vehicle_id = demoVehicleId;
-        dispatchedTrip.status = 'dispatched';
-        dispatchedTrip.dispatched_at = dispatchedTrip.dispatched_at || nowIso;
+        // BUG #1 FIX: Assign 3 dispatched + 2 in_progress trips to demo driver
+        // Pick trips with different statuses to showcase full lifecycle
+        const draftOrConfirmedTrips = demoTrips.filter((t) =>
+            ['draft', 'confirmed'].includes(t.status)
+        );
+        const inProgressTrips = demoTrips.filter((t) => t.status === 'in_progress');
 
-        const inProgressTrip = demoTrips[1];
-        if (inProgressTrip) {
-            inProgressTrip.driver_id = demoDriverId;
-            if (demoVehicleId) inProgressTrip.vehicle_id = demoVehicleId;
-            inProgressTrip.status = 'in_progress';
-            inProgressTrip.dispatched_at = inProgressTrip.dispatched_at || nowIso;
-            inProgressTrip.actual_departure_time = inProgressTrip.actual_departure_time || nowIso;
+        // Convert up to 3 draft/confirmed trips → dispatched for demo driver
+        const toDispatch = draftOrConfirmedTrips.slice(0, 3);
+        toDispatch.forEach((trip) => {
+            trip.driver_id = demoDriverId;
+            if (demoVehicleId) trip.vehicle_id = demoVehicleId;
+            trip.status = 'dispatched';
+            trip.dispatched_at = trip.dispatched_at || nowIso;
+            trip.driver_name = demoDriver?.full_name || 'Demo Driver';
+        });
+
+        // Assign up to 2 in_progress trips to demo driver
+        const toAssignInProgress = inProgressTrips.slice(0, 2);
+        toAssignInProgress.forEach((trip) => {
+            trip.driver_id = demoDriverId;
+            if (demoVehicleId) trip.vehicle_id = demoVehicleId;
+            trip.dispatched_at = trip.dispatched_at || nowIso;
+            trip.actual_departure_time = trip.actual_departure_time || nowIso;
+            trip.driver_name = demoDriver?.full_name || 'Demo Driver';
+        });
+
+        // If no draft/confirmed trips were available, forcefully set first trip
+        if (toDispatch.length === 0 && demoTrips.length > 0) {
+            const fallback = demoTrips[0];
+            fallback.driver_id = demoDriverId;
+            if (demoVehicleId) fallback.vehicle_id = demoVehicleId;
+            fallback.status = 'dispatched';
+            fallback.dispatched_at = fallback.dispatched_at || nowIso;
+            fallback.driver_name = demoDriver?.full_name || 'Demo Driver';
         }
     }
 
