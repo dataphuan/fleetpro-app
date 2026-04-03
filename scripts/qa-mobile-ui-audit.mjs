@@ -30,8 +30,9 @@ async function login(page, account) {
   const emailInput = page.locator('#email');
   const loginButton = page.locator('button:has-text("Vào hệ thống ngay")').first();
 
-  // If auth form is visible, perform login. Otherwise continue when session is already active.
-  if (await emailInput.count()) {
+  // If still on auth page, perform login.
+  if (new URL(page.url()).pathname.includes('/auth')) {
+    await emailInput.waitFor({ state: 'visible', timeout: 30000 });
     await emailInput.fill(account.email);
     await page.fill('#password', account.password);
     await loginButton.click();
@@ -45,6 +46,10 @@ async function collectMobileChecks(page, account) {
   const findings = [];
 
   const currentPath = new URL(page.url()).pathname;
+  if (currentPath === '/auth') {
+    findings.push({ level: 'FAIL', check: 'Authenticated session', detail: 'Still on /auth after login flow' });
+  }
+
   if (account.expectedPathPrefix === '/driver') {
     if (!currentPath.startsWith('/driver')) {
       findings.push({ level: 'FAIL', check: 'Role redirect', detail: `Expected /driver*, got ${currentPath}` });
@@ -114,6 +119,12 @@ async function collectMobileChecks(page, account) {
       level: 'WARN',
       check: 'Touch target size',
       detail: `${touchTargets.badCount} interactive element(s) under 36px among ${touchTargets.totalInteractive}`,
+    });
+  } else if (touchTargets.totalInteractive === 0) {
+    findings.push({
+      level: 'FAIL',
+      check: 'Interactive surface',
+      detail: 'No interactive elements detected; page may not be rendered correctly',
     });
   } else {
     findings.push({ level: 'PASS', check: 'Touch target size', detail: `All sampled targets >= 36px (${touchTargets.totalInteractive} elements)` });
