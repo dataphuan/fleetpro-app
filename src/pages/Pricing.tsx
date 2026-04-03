@@ -318,6 +318,16 @@ export default function Pricing() {
                             <MessageCircle className="w-4 h-4" /> Group Zalo Hỗ Trợ
                         </a>
                     </Button>
+                    <Button variant="outline" className="gap-2 border-indigo-500 text-indigo-600 hover:bg-indigo-50" asChild>
+                        <a href={import.meta.env.VITE_SUPPORT_FACEBOOK_GROUP} target="_blank" rel="noreferrer">
+                            <MessageCircle className="w-4 h-4" /> Group Facebook Hỗ Trợ
+                        </a>
+                    </Button>
+                    <Button variant="outline" className="gap-2 border-green-500 text-green-600 hover:bg-green-50" asChild>
+                        <a href={import.meta.env.VITE_SUPPORT_WHATSAPP_GROUP} target="_blank" rel="noreferrer">
+                            <MessageCircle className="w-4 h-4" /> Group WhatsApp Hỗ Trợ
+                        </a>
+                    </Button>
                     <Button variant="outline" className="gap-2 border-blue-500 text-blue-600 hover:bg-blue-50" asChild>
                         <a href={import.meta.env.VITE_SUPPORT_ZALO_ADMIN} target="_blank" rel="noreferrer">
                             <MessageCircle className="w-4 h-4" /> Chat trực tiếp CSKH (Zalo)
