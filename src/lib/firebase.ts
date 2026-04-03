@@ -102,4 +102,5 @@ try {
   throw error;
 }
 
+// Cache buster: 2026-04-03
 export { app, db, auth, storage, functions };
