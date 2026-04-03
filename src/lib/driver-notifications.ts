@@ -229,13 +229,13 @@ export const sendDriverLocationReportNotification = async (payload: {
   driverTelegramChatId?: string | null;
 }): Promise<NotifyResult> => {
   const mapLink = payload.latitude && payload.longitude 
-    ? `\n📍 Bản đồ: https://www.google.com/maps?q=${payload.latitude},${payload.longitude}` 
+    ? `\n📍 <a href="https://www.google.com/maps?q=${payload.latitude},${payload.longitude}">Xem Bản đồ (Tọa độ: ${payload.latitude.toFixed(4)}, ${payload.longitude.toFixed(4)})</a>` 
     : '';
     
-  const text = `🚨 <b>Báo cáo sự cố / Vị trí</b>\n` +
-    `Mã chuyến: ${payload.tripCode}\n` +
-    `Tài xế: ${payload.driverName}\n` +
-    `Nội dung: ${payload.note || '(Có ảnh đính kèm)'}${mapLink}`;
+  const text = `🤖 <b>Xin chào, hệ thống nhận được thông tin từ bạn!</b>\n\n` +
+    `Cảm ơn Bác tài <b>${payload.driverName}</b> đã gửi báo cáo vị trí / sự cố cho chuyến <code>${payload.tripCode}</code>.\n\n` +
+    `📝 <b>Nội dung:</b> ${payload.note || '(Có ảnh đính kèm)'}${mapLink}\n\n` +
+    `<i>Chúc Bác tài vạn dặm bình an! Đội ngũ điều phối đã được thông báo.</i>`;
 
   return sendViaTelegramBotApiWithPhoto(text, payload.photoUrl || null, payload.driverTelegramChatId);
 };
@@ -250,11 +250,11 @@ export const sendDriverExpenseDocNotification = async (payload: {
 }): Promise<NotifyResult> => {
   const formattedAmount = (payload.amount || 0).toLocaleString('vi-VN');
   
-  const text = `💰 <b>Chi phí / Chứng từ mới</b>\n` +
-    `Mã chuyến: ${payload.tripCode}\n` +
-    `Tài xế: ${payload.driverName}\n` +
-    `Số tiền: ${formattedAmount} VNĐ\n` +
-    `Ghi chú: ${payload.note}`;
+  const text = `🤖 <b>Hệ thống xác nhận đã nhận dữ liệu chi phí!</b>\n\n` +
+    `Cảm ơn Bác tài <b>${payload.driverName}</b> đã gửi chứng từ cho chuyến <code>${payload.tripCode}</code>.\n\n` +
+    `💰 <b>Số tiền cung cấp:</b> ${formattedAmount} VNĐ\n` +
+    `📝 <b>Ghi chú/Mục đích:</b> ${payload.note}\n\n` +
+    `<i>Khoản chi phí này đã được máy chủ ghi nhận chờ kế toán đối soát. Bộ phận điều phối cảm ơn sự hợp tác của Bác tài!</i>`;
 
   return sendViaTelegramBotApiWithPhoto(text, payload.photoUrl || null, payload.driverTelegramChatId);
 };
