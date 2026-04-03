@@ -96,7 +96,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setUser({
                 id: firebaseUser.uid,
                 email: firebaseUser.email || '',
-                password_hash: '',
                 full_name: fullName,
                 avatar_url: avatarUrl,
                 role: currentRole,
@@ -124,7 +123,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             setUser({
                 id: 'dev-admin',
                 email: 'admin@dev.local',
-                password_hash: '',
                 full_name: 'Quản trị viên phát triển',
                 avatar_url: '',
                 role: 'admin',

@@ -1,8 +1,8 @@
-import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore, enableIndexedDbPersistence } from 'firebase/firestore';
-import { getAuth, initializeAuth, browserLocalPersistence } from 'firebase/auth';
-import { getStorage } from 'firebase/storage';
-import { getFunctions } from 'firebase/functions';
+import { initializeApp, getApps, getApp, type FirebaseApp } from 'firebase/app';
+import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager, type Firestore } from 'firebase/firestore';
+import { initializeAuth, browserLocalPersistence, type Auth } from 'firebase/auth';
+import { getStorage, type FirebaseStorage } from 'firebase/storage';
+import { getFunctions, type Functions } from 'firebase/functions';
 
 // Validate Firebase Configuration (8 required fields per connection standard)
 // See: docs/FIREBASE_CONNECTION_STANDARD_20260331.md
@@ -10,12 +10,12 @@ const validateFirebaseConfig = () => {
   const requiredEnvVars = [
     'VITE_FIREBASE_API_KEY',
     'VITE_FIREBASE_AUTH_DOMAIN',
-    'VITE_FIREBASE_DATABASE_URL',  // ⭐ Recently added as required
+    'VITE_FIREBASE_DATABASE_URL',
     'VITE_FIREBASE_PROJECT_ID',
     'VITE_FIREBASE_STORAGE_BUCKET',
     'VITE_FIREBASE_MESSAGING_SENDER_ID',
     'VITE_FIREBASE_APP_ID',
-    'VITE_FIREBASE_MEASUREMENT_ID'  // Including measurement ID for completeness
+    'VITE_FIREBASE_MEASUREMENT_ID'
   ];
   
   const missing = requiredEnvVars.filter(
@@ -38,7 +38,7 @@ const validateFirebaseConfig = () => {
 export const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY || '',
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || '',
-  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || 'https://fleetpro-app-default-rtdb.asia-southeast1.firebasedatabase.app',
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL || '',
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || '',
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || '',
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || '',
@@ -46,10 +46,10 @@ export const firebaseConfig = {
   measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID || ''
 };
 
-// 🔧 Debug logging for Firebase initialization
+// Debug logging for Firebase initialization (DEV only)
 if (import.meta.env.DEV) {
   console.log('🔧 Firebase Config Check:', {
-    apiKey: firebaseConfig.apiKey.substring(0, 10) + '...', // Don't log full key
+    apiKey: firebaseConfig.apiKey.substring(0, 10) + '...',
     authDomain: firebaseConfig.authDomain,
     projectId: firebaseConfig.projectId,
     appId: firebaseConfig.appId,
@@ -60,18 +60,23 @@ if (import.meta.env.DEV) {
 // Validate before initializing
 validateFirebaseConfig();
 
-// Initialize Firebase with error handling
-let app: any;
-let auth: any;
-let db: any;
-let storage: any;
-let functions: any;
+// Initialize Firebase with proper types
+let app: FirebaseApp;
+let auth: Auth;
+let db: Firestore;
+let storage: FirebaseStorage;
+let functions: Functions;
 
 try {
   app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
   
-  // Initialize Firestore and Storage
-  db = getFirestore(app);
+  // Initialize Firestore with modern persistence API (replaces deprecated enableIndexedDbPersistence)
+  db = initializeFirestore(app, {
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager()
+    })
+  });
+  
   storage = getStorage(app);
   functions = getFunctions(app, 'asia-southeast1');
   
@@ -80,32 +85,20 @@ try {
     persistence: browserLocalPersistence
   });
   
-  // Enable offline persistence for Firestore
-  try {
-    enableIndexedDbPersistence(db).catch((err) => {
-      if (err.code === 'failed-precondition') {
-        console.warn('⚠️ Firebase persistence: Multiple tabs detected');
-      } else if (err.code === 'unimplemented') {
-        console.warn('⚠️ Firebase persistence: Not supported by this browser');
-      }
-    });
-  } catch (e) {
-    console.warn('⚠️ Firebase persistence setup issue:', e);
+  if (import.meta.env.DEV) {
+    console.log('✅ Firebase initialized successfully');
   }
-  
-  console.log('✅ Firebase initialized successfully');
-} catch (error: any) {
+} catch (error: unknown) {
+  const err = error as Error & { code?: string };
   console.error('❌ Firebase Initialization Failed:', {
-    error: error.message,
-    code: error.code,
+    error: err.message,
+    code: err.code,
     config: {
       apiKey: firebaseConfig.apiKey ? '***' : 'MISSING',
       authDomain: firebaseConfig.authDomain || 'MISSING',
       projectId: firebaseConfig.projectId || 'MISSING'
     }
   });
-  
-  // Re-throw for visibility
   throw error;
 }
 

@@ -90,10 +90,13 @@ service cloud.firestore {
     // Role-based Access for other collections
     match /{collection}/{docId} {
       function canDispatcherWrite() {
-        return userRole() == 'dispatcher' || userRole() == 'admin';
+        return userRole() == 'dispatcher' || userRole() == 'manager' || userRole() == 'admin';
       }
       function canAccountantWrite() {
-        return userRole() == 'accountant' || userRole() == 'admin';
+        return userRole() == 'accountant' || userRole() == 'manager' || userRole() == 'admin';
+      }
+      function canManagerWrite() {
+        return userRole() == 'manager' || userRole() == 'admin';
       }
 
       allow read: if collection not in ['users', 'company_settings', 'system_logs', 'tenants', 'trips']
@@ -102,7 +105,8 @@ service cloud.firestore {
       allow create, update: if collection not in ['users', 'company_settings', 'system_logs', 'tenants', 'trips']
                     && canAccessTenantData() && (
                       (collection == 'expenses' && canAccountantWrite()) ||
-                      (collection in ['vehicles', 'drivers', 'routes', 'customers'] && canDispatcherWrite())
+                      (collection in ['vehicles', 'drivers', 'routes', 'customers'] && canDispatcherWrite()) ||
+                      (collection in ['maintenance', 'tires', 'inventory', 'inventoryTransactions', 'purchaseOrders', 'alerts', 'partners', 'transportOrders', 'expenseCategories', 'trip_location_logs'] && canManagerWrite())
                     );
 
       allow delete: if (collection in ['vehicles', 'drivers', 'expenses'])

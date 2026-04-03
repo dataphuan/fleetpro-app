@@ -8,7 +8,6 @@ export type UserStatus = 'active' | 'inactive' | 'locked';
 export interface User {
   id: string;
   email: string;
-  password_hash: string;
   full_name: string;
   avatar_url?: string;
   role: UserRole;

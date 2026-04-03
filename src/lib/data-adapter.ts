@@ -225,7 +225,8 @@ const checkStatusTransition = (oldStatus: string, newStatus: string) => {
     }
 
     const validTransitions: Record<string, string[]> = {
-        'draft': ['confirmed', 'cancelled'],
+        'draft': ['pending', 'confirmed', 'cancelled'],
+        'pending': ['confirmed', 'cancelled', 'draft'],
         'confirmed': ['dispatched', 'cancelled', 'draft'],
         'dispatched': ['in_progress', 'cancelled', 'confirmed'],
         'in_progress': ['completed', 'cancelled'],
@@ -651,13 +652,12 @@ const createFirestoreAdapter = (collectionName: string) => ({
                 await logActivity('CREATE', 'trips', tripId, { payload: validatedData, via: 'callable' });
                 return { id: tripId, ...validatedData, tenant_id: tenantId };
             } catch (error: any) {
-                if (!shouldRetryCallableInFallbackRegion(error)) {
-                    throw error;
+                // Cloud Function is the ONLY valid path for trip creation (Firestore rules block direct writes)
+                const errMsg = error?.message || 'Unknown error';
+                if (errMsg.includes('PERMISSION_DENIED') || errMsg.includes('Missing or insufficient permissions')) {
+                    throw new Error('Hệ thống đang bảo trì server xử lý chuyến đi. Vui lòng thử lại sau ít phút.');
                 }
-
-                const created = await createTripDirectWrite(validatedData, tenantId);
-                await logActivity('CREATE', 'trips', created.id, { payload: created.payload, via: 'direct-write-fallback' });
-                return { id: created.id, ...created.payload };
+                throw new Error(`Không thể tạo chuyến: ${errMsg}`);
             }
         }
         // -----------------------------------------------------------
@@ -725,17 +725,12 @@ const createFirestoreAdapter = (collectionName: string) => ({
                 });
                 return true;
             } catch (error: any) {
-                if (!shouldRetryCallableInFallbackRegion(error)) {
-                    throw error;
+                // Cloud Function is the ONLY valid path for trip updates (Firestore rules block direct writes)
+                const errMsg = error?.message || 'Unknown error';
+                if (errMsg.includes('PERMISSION_DENIED') || errMsg.includes('Missing or insufficient permissions')) {
+                    throw new Error('Hệ thống đang bảo trì server xử lý chuyến đi. Vui lòng thử lại sau ít phút.');
                 }
-
-                const directPatch = await updateTripDirectWrite(id, oldData, validatedData);
-                await logActivity('UPDATE', 'trips', id, {
-                    previous: oldData,
-                    changes: directPatch,
-                    via: 'direct-write-fallback',
-                });
-                return true;
+                throw new Error(`Không thể cập nhật chuyến: ${errMsg}`);
             }
         }
         // -----------------------------------------------------------

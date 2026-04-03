@@ -1,0 +1,31 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Build Firebase Functions After Fix",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"build"
+			]
+		},
+		{
+			"label": "Install Functions Dependencies",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"install"
+			]
+		},
+		{
+			"label": "Build Functions",
+			"type": "shell",
+			"command": "npm",
+			"args": [
+				"run",
+				"build"
+			]
+		}
+	]
+}
