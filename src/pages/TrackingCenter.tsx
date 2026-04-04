@@ -258,6 +258,13 @@ export default function TrackingCenter() {
 
   const handleDirectMediaCapture = async (blob: Blob, mediaType: 'photo' | 'video' | 'audio') => {
     setIsUploading(true);
+    
+    const typeLabel = mediaType === 'photo' ? 'ảnh' : mediaType === 'video' ? 'video' : 'âm thanh';
+    toast({
+      title: `⏳ Đang upload ${typeLabel}...`,
+      description: 'Vui lòng đợi',
+    });
+
     try {
       const extensions: Record<string, { ext: string; mimeType: string }> = {
         photo: { ext: 'jpg', mimeType: 'image/jpeg' },
@@ -279,15 +286,17 @@ export default function TrackingCenter() {
       setReportMediaUrl(url);
       setReportMediaType(mediaType);
 
-      const typeLabel = mediaType === 'photo' ? 'ảnh' : mediaType === 'video' ? 'video' : 'âm thanh';
       toast({
-        title: `Capture ${typeLabel} thành công`,
-        description: `${typeLabel.charAt(0).toUpperCase() + typeLabel.slice(1)} sẵn sàng gửi báo cáo.`,
+        title: `✅ Upload ${typeLabel} thành công`,
+        description: `${typeLabel.charAt(0).toUpperCase() + typeLabel.slice(1)} sẵn sàng gửi báo cáo. Nhấn "Gửi về Telegram" để tiếp tục.`,
       });
     } catch (error: any) {
+      console.error('Media upload error:', error);
       toast({
-        title: 'Lỗi upload',
-        description: error?.message || 'Không thể upload media lên Firebase Storage.',
+        title: '❌ Lỗi upload media',
+        description: error?.message?.includes('Permission denied') 
+          ? 'Không có quyền lưu file. Kiểm tra cài đặt Firebase Storage.' 
+          : error?.message || 'Không thể upload media lên Firebase Storage. Vui lòng thử lại.',
         variant: 'destructive',
       });
     } finally {
@@ -560,8 +569,17 @@ export default function TrackingCenter() {
                 Vào nhóm Telegram trải nghiệm
               </Button>
             ) : null}
-            {isUploading ? <span className="text-xs text-slate-600">Đang upload media...</span> : null}
-            {!isUploading && reportMediaUrl ? <span className="text-xs text-emerald-700">Media sẵn sàng gửi</span> : null}
+            {isUploading && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-50 border border-blue-200">
+                <div className="h-3 w-3 rounded-full bg-blue-500 animate-pulse"></div>
+                <span className="text-xs font-medium text-blue-700">Đang upload media...</span>
+              </div>
+            )}
+            {!isUploading && reportMediaUrl && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-50 border border-emerald-200">
+                <span className="text-xs font-bold text-emerald-700">✅ Media sẵn sàng gửi</span>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>

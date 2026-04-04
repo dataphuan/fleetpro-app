@@ -40,11 +40,13 @@ export function VideoRecorder({ onCapture, onClose }: VideoRecorderProps) {
     } catch (error: any) {
       console.error('Camera/Microphone access error:', error);
       if (error.name === 'NotAllowedError') {
-        setError('Quyền truy cập bị từ chối. Vui lòng kiểm tra cài đặt.');
+        setError('❌ Quyền truy cập bị từ chối.\n\nCách khắc phục:\n1. Mở cài đặt trình duyệt\n2. Cho phép quyền camera & micro\n3. Làm mới trang và thử lại');
       } else if (error.name === 'NotFoundError') {
-        setError('Không tìm thấy camera hoặc micro.');
+        setError('❌ Không tìm thấy camera hoặc micro.\n\nKiểm tra:\n• Thiết bị có camera & micro?\n• Có ứng dụng khác dùng camera?');
+      } else if (error.name === 'NotReadableError') {
+        setError('❌ Không thể truy cập camera/micro.\n\nThiết bị có thể đang được sử dụng bởi ứng dụng khác.');
       } else {
-        setError(error.message || 'Không thể mở camera.');
+        setError(`❌ Lỗi: ${error.message || 'Không thể mở camera. Vui lòng thử lại.'}`);
       }
     }
   };
@@ -95,7 +97,7 @@ export function VideoRecorder({ onCapture, onClose }: VideoRecorderProps) {
       }, 1000);
     } catch (error: any) {
       console.error('MediaRecorder error:', error);
-      setError(error.message || 'Không thể bắt đầu ghi video.');
+      setError(`❌ Lỗi quay video: ${error.message || 'Không thể bắt đầu ghi video. Vui lòng thử lại.'}`);
     }
   };
 
@@ -126,7 +128,7 @@ export function VideoRecorder({ onCapture, onClose }: VideoRecorderProps) {
         })
         .catch((error) => {
           console.error('Error processing video:', error);
-          setError('Không thể xử lý video. Vui lòng thử lại.');
+          setError('❌ Không thể xử lý video. Vui lòng thử lại hoặc quay lại video khác.');
         });
     }
   };

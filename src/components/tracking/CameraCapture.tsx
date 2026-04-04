@@ -34,11 +34,13 @@ export function CameraCapture({ onCapture, onClose }: CameraCaptureProps) {
     } catch (error: any) {
       console.error('Camera access error:', error);
       if (error.name === 'NotAllowedError') {
-        setError('Quyền truy cập camera bị từ chối. Vui lòng kiểm tra cài đặt.');
+        setError('❌ Quyền truy cập camera bị từ chối.\n\nCách khắc phục:\n1. Nhấn cài đặt trên trình duyệt\n2. Cho phép quyền truy cập camera\n3. Làm mới trang và thử lại');
       } else if (error.name === 'NotFoundError') {
-        setError('Không tìm thấy thiết bị camera.');
+        setError('❌ Không tìm thấy thiết bị camera.\n\nKiểm tra:\n• Thiết bị có camera không?\n• Camera có bị chiếm dụng bởi ứng dụng khác?');
+      } else if (error.name === 'NotReadableError') {
+        setError('❌ Không thể truy cập camera.\n\nCamera có thể đang được sử dụng bởi ứng dụng khác.\nVui lòng đóng các ứng dụng khác và thử lại.');
       } else {
-        setError(error.message || 'Không thể mở camera.');
+        setError(`❌ Lỗi: ${error.message || 'Không thể mở camera. Vui lòng thử lại.'}`);
       }
     }
   };

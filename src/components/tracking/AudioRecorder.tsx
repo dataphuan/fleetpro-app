@@ -116,11 +116,13 @@ export function AudioRecorder({ onCapture, onClose }: AudioRecorderProps) {
     } catch (error: any) {
       console.error('Microphone access error:', error);
       if (error.name === 'NotAllowedError') {
-        setError('Quyền truy cập micro bị từ chối. Vui lòng kiểm tra cài đặt.');
+        setError('❌ Quyền truy cập micro bị từ chối.\n\nCách khắc phục:\n1. Mở cài đặt trình duyệt\n2. Cho phép quyền micro\n3. Làm mới trang và thử lại');
       } else if (error.name === 'NotFoundError') {
-        setError('Không tìm thấy thiết bị micro.');
+        setError('❌ Không tìm thấy thiết bị micro.\n\nKiểm tra:\n• Thiết bị có micro không?\n• Micro có được bật không?');
+      } else if (error.name === 'NotReadableError') {
+        setError('❌ Không thể truy cập micro.\n\nMicro có thể đang được sử dụng bởi ứng dụng khác.');
       } else {
-        setError(error.message || 'Không thể truy cập micro.');
+        setError(`❌ Lỗi: ${error.message || 'Không thể truy cập micro. Vui lòng thử lại.'}`);
       }
     }
   };
@@ -154,7 +156,7 @@ export function AudioRecorder({ onCapture, onClose }: AudioRecorderProps) {
         })
         .catch((error) => {
           console.error('Error processing audio:', error);
-          setError('Không thể xử lý âm thanh. Vui lòng thử lại.');
+          setError('❌ Không thể xử lý âm thanh. Vui lòng thử ghi âm lại.');
         });
     }
   };

@@ -740,8 +740,22 @@ export default function Auth() {
                                 </div>
 
                                 {/* Password Info */}
-                                <div className="text-center text-[9px] text-slate-600 p-2 bg-white rounded border border-slate-100">
-                                    🔐 Mật khẩu: <span className="font-mono font-bold text-slate-900">Demo@1234</span>
+                                <div className="flex items-center justify-between bg-white rounded border border-slate-100 p-2.5">
+                                    <div className="text-[9px] text-slate-600">
+                                        🔐 Mật khẩu: <span className="font-mono font-bold text-slate-900">Demo@1234</span>
+                                    </div>
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => {
+                                            navigator.clipboard.writeText("Demo@1234");
+                                            toast({ title: "Đã copy mật khẩu", description: "Demo@1234" });
+                                        }}
+                                        className="h-6 px-2 text-[10px]"
+                                    >
+                                        <Copy className="w-3 h-3" />
+                                    </Button>
                                 </div>
 
                                 {/* Tips */}

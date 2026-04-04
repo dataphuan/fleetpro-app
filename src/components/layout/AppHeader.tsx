@@ -1,4 +1,4 @@
-import { Bell, User, LogOut, Settings, Menu, Building } from "lucide-react";
+import { Bell, User, LogOut, Settings, Menu, Building, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -13,6 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useAlertsSummary } from "@/hooks/useAlerts";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { Badge } from "@/components/ui/badge";
+import { useMemo } from "react";
 
 interface AppHeaderProps {
   onOpenMobileSidebar?: () => void;
@@ -32,6 +33,18 @@ export function AppHeader({ onOpenMobileSidebar, forceShowMenuButton = false }: 
 
   const displayName = user?.full_name || user?.email?.split("@")[0] || "Người dùng";
   const totalWarnings = alertsSummary?.criticalCount || 0;
+
+  // Calculate trial days remaining
+  const trialDaysRemaining = useMemo(() => {
+    if (!companySettings?.subscription?.trial_ends_at) return null;
+    const endDate = new Date(companySettings.subscription.trial_ends_at);
+    const now = new Date();
+    const diffTime = endDate.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return Math.max(0, diffDays);
+  }, [companySettings?.subscription?.trial_ends_at]);
+
+  const isTrialEnding = trialDaysRemaining !== null && trialDaysRemaining <= 3;
 
   return (
     <header className="sticky top-0 z-20 flex h-14 sm:h-16 items-center justify-between border-b bg-card/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-card/85 sm:px-4 lg:px-6">
@@ -62,6 +75,19 @@ export function AppHeader({ onOpenMobileSidebar, forceShowMenuButton = false }: 
             >
               {companySettings?.subscription?.plan || "trial"}
             </Badge>
+            {companySettings?.subscription?.plan === "trial" && trialDaysRemaining !== null && (
+              <Badge
+                variant="outline"
+                className={`h-4 px-1 text-[9px] font-black uppercase tracking-tighter flex items-center gap-1 ${
+                  isTrialEnding
+                    ? "border-orange-200 bg-orange-50/50 text-orange-600"
+                    : "border-green-200 bg-green-50/50 text-green-600"
+                }`}
+              >
+                <Clock className="h-3 w-3" />
+                {trialDaysRemaining} ngày
+              </Badge>
+            )}
           </div>
         </div>
       </div>
