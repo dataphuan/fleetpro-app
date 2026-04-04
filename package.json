@@ -31,6 +31,7 @@
     "seed:enrich-full": "node scripts/enrich-demo-seed-full.mjs",
     "seed:generate": "node scripts/generate-tenant-demo-seed.mjs",
     "seed:reset:tenant": "node scripts/reset-demo-tenant-admin.mjs",
+    "seed:demo-accounts": "node scripts/setup-demo-accounts-v2.mjs",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "firestore:emulator": "firebase emulators:start --only firestore",
     "test:firestore:rules": "firebase emulators:exec --only firestore \"node tests/firestore.rules.test.cjs\"",

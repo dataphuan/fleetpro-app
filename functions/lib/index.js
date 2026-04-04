@@ -33,7 +33,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.createTenantDemoAccounts = exports.secureUpdateTrip = exports.secureCreateTrip = void 0;
+exports.dailyTelegramSummary = exports.createTenantDemoAccounts = exports.secureUpdateTrip = exports.secureCreateTrip = void 0;
 const functions = __importStar(require("firebase-functions/v1"));
 const admin = __importStar(require("firebase-admin"));
 admin.initializeApp();
@@ -247,5 +247,49 @@ exports.createTenantDemoAccounts = callableRegion.https.onCall(async (data, cont
         results.push({ role: item.role, email, uid: userRecord.uid });
     }
     return { success: true, accounts: results, password: demoPassword };
+});
+exports.dailyTelegramSummary = functions.region('asia-southeast1').pubsub.schedule('59 23 * * *').timeZone('Asia/Ho_Chi_Minh').onRun(async (context) => {
+    const token = process.env.TELEGRAM_BOT_TOKEN;
+    const chatId = process.env.TELEGRAM_CHAT_ID;
+    if (!token || !chatId) {
+        console.log("No TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID in environment. Skipping Daily Summary.");
+        return null;
+    }
+    const now = new Date();
+    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+    const endOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    // Get alerts (incident reports)
+    const alertsSnap = await db.collection("alerts")
+        .where("date", ">=", startOfDay.toISOString())
+        .where("date", "<=", endOfDay.toISOString())
+        .get();
+    // Get expenses
+    const expDateStr = now.toISOString().slice(0, 10);
+    const expensesSnap = await db.collection("expenses")
+        .where("expense_date", "==", expDateStr)
+        .get();
+    const totalIncidents = alertsSnap.size;
+    const totalExpensesCount = expensesSnap.size;
+    let totalExpenseAmount = 0;
+    expensesSnap.forEach(doc => { totalExpenseAmount += Number(doc.data().amount || 0); });
+    const summaryText = `📊 <b>BÁO CÁO TÓM TẮT CUỐI NGÀY (${expDateStr})</b>\n\n` +
+        `Cập nhật lúc: 23:59\n\n` +
+        `📌 <b>Sự kiện trong ngày:</b>\n` +
+        `- Tổng chứng từ/chi phí mới nhận: ${totalExpensesCount} \n` +
+        `- Tổng số tiền tạm tính: ${totalExpenseAmount.toLocaleString('vi-VN')} VNĐ\n` +
+        `- Tổng số báo cáo sự cố/vị trí: ${totalIncidents} \n\n` +
+        `<i>Tác vụ này được gửi tự động bởi hệ thống FleetPro. Cảm ơn đội ngũ đã hoàn thành ngày làm việc!</i>`;
+    try {
+        const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ chat_id: chatId, text: summaryText, parse_mode: 'HTML' }),
+        });
+        console.log("Sent Daily Summary to Telegram", await res.json());
+    }
+    catch (error) {
+        console.error("Error sending daily summary via Telegram", error);
+    }
+    return null;
 });
 //# sourceMappingURL=index.js.map
