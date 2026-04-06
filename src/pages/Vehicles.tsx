@@ -145,7 +145,7 @@ export default function Vehicles() {
     'fuel_type', 'usage_limit_years', 'engine_number', 'chassis_number',
     'insurance_purchase_date', 'insurance_civil_expiry', 'insurance_body_expiry', 'insurance_cost',
     'registration_cycle', 'registration_date', 'registration_expiry_date', 'registration_cost',
-    'current_location', 'status', 'notes', 'id'
+    'current_location', 'status', 'assignment_type', 'notes', 'id'
   ];
   const [visibleColumns, setVisibleColumns] = useState<string[]>(allColumnKeys);
 
@@ -704,6 +704,26 @@ export default function Vehicles() {
         return (
           <span className={`px-2 py-1 rounded-full text-xs font-medium border ${colors[status] || colors.active}`}>
             {statusLabels[status] || status}
+          </span>
+        );
+      },
+    },
+    {
+      key: 'assignment_type' as keyof Vehicle,
+      header: 'Phân xe',
+      width: '120px',
+      render: (value: unknown) => {
+        const type = (value as string) || 'fixed';
+        if (type === 'pool') {
+          return (
+            <span className="px-2 py-1 rounded-full text-xs font-medium border bg-purple-100 text-purple-700 border-purple-200">
+              Xe pool
+            </span>
+          );
+        }
+        return (
+          <span className="px-2 py-1 rounded-full text-xs font-medium border bg-slate-100 text-slate-600 border-slate-200">
+            Cố định
           </span>
         );
       },

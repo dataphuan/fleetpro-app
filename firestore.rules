@@ -79,12 +79,26 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
-    // Trips: SECURITY HARDENING — Server-side Writes Only
+    // Trips: SECURITY HARDENING — Server-side Writes Only + Driver Isolation
     match /trips/{tripId} {
-      allow read: if canAccessTenantData() && sameTenantOnReadUpdateDelete();
+      // DATA ISOLATION: Drivers can only read their own trips
+      allow read: if canAccessTenantData() && sameTenantOnReadUpdateDelete() && (
+        userRole() != 'driver' || resource.data.driver_id == request.auth.uid
+      );
       // Allow same-tenant creation from authenticated tenant user; updates remain server-side only.
       allow create: if canAccessTenantData() && sameTenantOnCreate();
       allow update: if false;
+      allow delete: if canAccessTenantData() && sameTenantOnReadUpdateDelete() && isTenantAdmin();
+    }
+
+    // Drivers: DATA ISOLATION — driver can only read own record
+    match /drivers/{driverId} {
+      allow read: if canAccessTenantData() && sameTenantOnReadUpdateDelete() && (
+        userRole() != 'driver' || driverId == request.auth.uid
+      );
+      allow create, update: if canAccessTenantData() && (
+        (collection in ['drivers'] && (userRole() == 'dispatcher' || userRole() == 'manager' || userRole() == 'admin'))
+      );
       allow delete: if canAccessTenantData() && sameTenantOnReadUpdateDelete() && isTenantAdmin();
     }
 
@@ -100,10 +114,10 @@ service cloud.firestore {
         return userRole() == 'manager' || userRole() == 'admin';
       }
 
-      allow read: if !(collection in ['users', 'company_settings', 'system_logs', 'tenants', 'trips'])
+      allow read: if !(collection in ['users', 'company_settings', 'system_logs', 'tenants', 'trips', 'drivers'])
                     && canAccessTenantData() && sameTenantOnReadUpdateDelete();
       
-      allow create, update: if !(collection in ['users', 'company_settings', 'system_logs', 'tenants', 'trips'])
+      allow create, update: if !(collection in ['users', 'company_settings', 'system_logs', 'tenants', 'trips', 'drivers'])
                     && canAccessTenantData() && (
                       (collection == 'expenses' && canAccountantWrite()) ||
                       (collection in ['vehicles', 'drivers', 'routes', 'customers'] && canDispatcherWrite()) ||

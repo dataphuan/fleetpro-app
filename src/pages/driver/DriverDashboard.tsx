@@ -1,10 +1,11 @@
 import { useAuth } from "@/contexts/AuthContext";
+import { Link } from "react-router-dom";
 import { useTrips, useUpdateTrip } from "@/hooks/useTrips";
 import { useDrivers } from "@/hooks/useDrivers";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Navigation, AlertTriangle, CheckCircle2, Package, Play, Camera, Loader2, LocateFixed, Wifi, WifiOff, PhoneCall } from "lucide-react";
+import { MapPin, Navigation, AlertTriangle, CheckCircle2, Package, Play, Camera, Loader2, LocateFixed, Wifi, WifiOff, PhoneCall, CheckSquare, FileText, FlagOff } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Label } from "@/components/ui/label";
@@ -15,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { SignaturePad } from "@/components/shared/SignaturePad";
 import { DriverLiveMap } from "@/components/driver/DriverLiveMap";
 import { getBestCurrentPosition, geolocationErrorToMessage, startLocationWatch, stopLocationWatch, type DriverGeoPoint } from "@/lib/driver-location";
-import { alertsAdapter, expenseAdapter, transportOrderAdapter, tripAdapter, tripLocationAdapter } from "@/lib/data-adapter";
+import { alertsAdapter, driverAdapter, expenseAdapter, transportOrderAdapter, tripAdapter, tripLocationAdapter } from "@/lib/data-adapter";
 import { evaluateLocationIntegrity, getIntegrityProfileByVehicleType } from "@/lib/location-integrity";
 import { useVehicles } from "@/hooks/useVehicles";
 import { normalizeUserRole } from "@/lib/rbac";
@@ -91,6 +92,8 @@ export default function DriverDashboard() {
     const [draftArea, setDraftArea] = useState('');
     const [draftNote, setDraftNote] = useState('');
     const [isCreatingDraftOrder, setIsCreatingDraftOrder] = useState(false);
+    const [availabilityStatus, setAvailabilityStatus] = useState<string>('available');
+    const [isTogglingAvailability, setIsTogglingAvailability] = useState(false);
     const watchIdRef = useRef<number | null>(null);
     const lastTrackPushRef = useRef<number>(0);
     const lastTripSyncRef = useRef<number>(0);
@@ -145,6 +148,13 @@ export default function DriverDashboard() {
         // Demo fallback: pick first active driver in tenant so driver role can always experience workflow.
         return (drivers || []).find((d: any) => d.status === 'active') || (drivers || [])[0] || null;
     }, [drivers, user?.email, user?.id]);
+
+    // Sync availability status from Firestore when linkedDriver loads
+    useEffect(() => {
+        if (linkedDriver?.availability_status) {
+            setAvailabilityStatus(linkedDriver.availability_status);
+        }
+    }, [linkedDriver?.availability_status]);
 
     // Filter trips assigned to this driver using uid/email/driver-id/driver-code matching.
     const myActiveTrips = trips.filter((t: any) => 
@@ -1260,64 +1270,238 @@ export default function DriverDashboard() {
     }
 
     if (myActiveTrips.length === 0) {
+        const telegramBotName = (import.meta.env.VITE_TELEGRAM_BOT_USERNAME || 'FleetProBot').trim();
+        const telegramBotLink = `https://t.me/${telegramBotName}`;
+        const driverTelegramChatId = linkedDriver?.telegram_chat_id || linkedDriver?.telegramChatId || '';
+        const isTelegramConnected = !!driverTelegramChatId;
+
+        const handleToggleAvailability = async () => {
+            if (!linkedDriver?.id) return;
+            setIsTogglingAvailability(true);
+            const newStatus = availabilityStatus === 'available' ? 'off_duty' : 'available';
+            try {
+                await driverAdapter.update(linkedDriver.id, { availability_status: newStatus });
+                setAvailabilityStatus(newStatus);
+                toast({
+                    title: newStatus === 'available' ? 'Đã bật sẵn sàng nhận việc' : 'Đã chuyển sang nghỉ',
+                    description: newStatus === 'available' ? 'Bạn sẽ nhận thông báo chuyến mới.' : 'Hệ thống sẽ không gán chuyến cho bạn.',
+                });
+            } catch {
+                toast({ title: 'Lỗi', description: 'Không thể cập nhật trạng thái.', variant: 'destructive' });
+            } finally {
+                setIsTogglingAvailability(false);
+            }
+        };
+
+        // Find assigned vehicle
+        const assignedVehicle = vehicles.find((v: any) =>
+            v.id === linkedDriver?.assigned_vehicle_id || v.assigned_driver_id === linkedDriver?.id
+        );
+        
+        // Find pool vehicles available
+        const poolVehicles = vehicles.filter((v: any) =>
+            v.assignment_type === 'pool' && v.status === 'active'
+        );
+
         return (
-            <div className="p-6 space-y-4 mt-8">
-                <div className="flex flex-col items-center justify-center text-center">
-                    <div className="bg-slate-200 p-4 rounded-full mb-4">
-                        <Package className="w-10 h-10 text-slate-400" />
+            <div className="p-4 space-y-3 pb-36">
+                {/* STATUS BAR: Driver Name + Vehicle + Availability Toggle */}
+                <Card className="border-slate-200 bg-gradient-to-r from-slate-50 to-blue-50/50">
+                    <CardContent className="pt-3 pb-3">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-bold text-slate-800">
+                                    {linkedDriver?.full_name || user?.email || 'Tài xế'}
+                                </p>
+                                <p className="text-xs text-slate-500">
+                                    {assignedVehicle ? `🚛 ${assignedVehicle.license_plate} (${assignedVehicle.vehicle_type || 'N/A'})` : 'Chưa gán xe cố định'}
+                                </p>
+                            </div>
+                            <Button
+                                size="sm"
+                                variant={availabilityStatus === 'available' ? 'default' : 'outline'}
+                                className={`text-xs h-8 ${availabilityStatus === 'available' ? 'bg-emerald-600 hover:bg-emerald-700' : 'text-slate-600'}`}
+                                onClick={handleToggleAvailability}
+                                disabled={isTogglingAvailability}
+                            >
+                                {isTogglingAvailability ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
+                                {availabilityStatus === 'available' ? '🟢 Sẵn sàng' : '⚫ Đang nghỉ'}
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Pool vehicles available */}
+                {poolVehicles.length > 0 && availabilityStatus === 'available' && (
+                    <Card className="border-purple-200 bg-purple-50/70">
+                        <CardContent className="pt-3 pb-3">
+                            <p className="text-xs font-semibold text-purple-800 mb-1">🚛 Xe pool đang trống ({poolVehicles.length} xe)</p>
+                            <div className="flex flex-wrap gap-2">
+                                {poolVehicles.slice(0, 4).map((v: any) => (
+                                    <Badge key={v.id} variant="outline" className="bg-white text-xs">
+                                        {v.license_plate} — {v.vehicle_type || 'N/A'}
+                                    </Badge>
+                                ))}
+                            </div>
+                            <p className="text-[11px] text-purple-700 mt-1">Liên hệ điều phối để nhận chuyến với xe pool.</p>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* Quick Action Grid - Visible Even in Empty State for WOW Factor */}
+                <div className="mb-6 border-b pb-4">
+                    <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2 px-1">Menu Thao Tác</h4>
+                    <div className="grid grid-cols-4 gap-2">
+                        <Link to="/driver/menu" className="flex flex-col items-center justify-center h-16 bg-blue-50 border border-blue-100/50 rounded-xl text-blue-700 shadow-sm active:scale-95 transition-transform">
+                            <CheckSquare className="w-5 h-5 mb-1" />
+                            <span className="text-[10px] font-bold">Nhận Xe</span>
+                        </Link>
+                        <Link to="/driver/menu" className="flex flex-col items-center justify-center h-16 bg-blue-50 border border-blue-100/50 rounded-xl text-blue-700 shadow-sm active:scale-95 transition-transform">
+                            <MapPin className="w-5 h-5 mb-1" />
+                            <span className="text-[10px] font-bold">Check-in</span>
+                        </Link>
+                        <Link to="/driver/menu" className="flex flex-col items-center justify-center h-16 bg-blue-50 border border-blue-100/50 rounded-xl text-blue-700 shadow-sm active:scale-95 transition-transform">
+                            <FileText className="w-5 h-5 mb-1" />
+                            <span className="text-[10px] font-bold">Giấy Tờ</span>
+                        </Link>
+                        <Link to="/driver/menu" className="flex flex-col items-center justify-center h-16 border rounded-xl shadow-sm text-slate-500 active:scale-95 transition-transform cursor-not-allowed opacity-70">
+                            <FlagOff className="w-5 h-5 mb-1" />
+                            <span className="text-[10px] font-bold">Kết Thúc</span>
+                        </Link>
                     </div>
-                    <h2 className="text-xl font-bold text-slate-700">Chưa có chuyến</h2>
-                    <p className="text-slate-500 mt-2">Bạn có thể chủ động tạo lệnh nháp để điều phối và quản lý xác nhận.</p>
                 </div>
 
-                <Card className="border-blue-200 bg-blue-50/70">
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-base text-blue-900">BƯỚC 4: Tạo lệnh nháp khi chưa có điều động</CardTitle>
+                <div className="flex flex-col items-center justify-center text-center pt-2">
+                    <div className="bg-slate-200 p-3 rounded-full mb-3">
+                        <Package className="w-8 h-8 text-slate-400" />
+                    </div>
+                    <h2 className="text-lg font-bold text-slate-700">Chưa có chuyến làm việc</h2>
+                    <p className="text-sm text-slate-500 mt-1">Sẵn sàng và hoàn thành các bước bên dưới để nhận việc.</p>
+                </div>
+
+                {/* BƯỚC 1: Kết nối Telegram */}
+                <Card className={`border ${isTelegramConnected ? 'border-emerald-200 bg-emerald-50/70' : 'border-amber-200 bg-amber-50/70'}`}>
+                    <CardHeader className="pb-1 pt-3">
+                        <CardTitle className="text-sm font-semibold">
+                            {isTelegramConnected ? '✅' : '1️⃣'} BƯỚC 1: Kết nối Telegram
+                        </CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-3">
+                    <CardContent className="space-y-2 pb-3">
+                        {isTelegramConnected ? (
+                            <p className="text-xs text-emerald-800">Đã kết nối Telegram. Chat ID: <code className="text-[10px] bg-emerald-100 px-1 rounded">{driverTelegramChatId}</code></p>
+                        ) : (
+                            <>
+                                <p className="text-xs text-amber-800">Mở Telegram, tìm bot <strong>@{telegramBotName}</strong> và gửi <code className="bg-amber-100 px-1 rounded">/start</code></p>
+                                <a
+                                    href={telegramBotLink}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="inline-flex items-center justify-center gap-2 rounded-md bg-blue-600 px-4 h-10 min-h-[40px] text-sm font-semibold text-white hover:bg-blue-700 transition"
+                                >
+                                    📲 Mở Telegram Bot
+                                </a>
+                            </>
+                        )}
+                    </CardContent>
+                </Card>
+
+                {/* BƯỚC 2: Xác minh tài khoản */}
+                <Card className={`border ${linkedDriver?.phone || linkedDriver?.driver_phone ? 'border-emerald-200 bg-emerald-50/70' : 'border-slate-200 bg-slate-50'}`}>
+                    <CardHeader className="pb-1 pt-3">
+                        <CardTitle className="text-sm font-semibold">
+                            {linkedDriver?.phone || linkedDriver?.driver_phone ? '✅' : '2️⃣'} BƯỚC 2: Xác minh số điện thoại
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pb-3">
+                        <p className="text-xs text-slate-700">
+                            {linkedDriver?.phone || linkedDriver?.driver_phone
+                                ? `Số điện thoại: ${linkedDriver.phone || linkedDriver.driver_phone}`
+                                : 'Liên hệ quản lý để cập nhật SĐT vào hồ sơ tài xế.'}
+                        </p>
+                    </CardContent>
+                </Card>
+
+                {/* BƯỚC 3: Bật thông báo */}
+                <Card className="border-slate-200 bg-slate-50">
+                    <CardHeader className="pb-1 pt-3">
+                        <CardTitle className="text-sm font-semibold">3️⃣ BƯỚC 3: Bật thông báo đẩy</CardTitle>
+                    </CardHeader>
+                    <CardContent className="pb-3">
+                        <p className="text-xs text-slate-700">Cho phép thông báo trình duyệt để nhận cảnh báo chuyến mới ngay lập tức.</p>
+                        {typeof Notification !== 'undefined' && Notification.permission === 'granted' ? (
+                            <p className="text-xs text-emerald-700 mt-1">✅ Đã bật thông báo.</p>
+                        ) : (
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="mt-2 text-xs"
+                                onClick={() => {
+                                    if (typeof Notification !== 'undefined') {
+                                        Notification.requestPermission().then((perm) => {
+                                            toast({
+                                                title: perm === 'granted' ? 'Đã bật thông báo' : 'Thông báo bị từ chối',
+                                                description: perm === 'granted' ? 'Bạn sẽ nhận thông báo chuyến mới.' : 'Vui lòng bật lại trong cài đặt trình duyệt.',
+                                                variant: perm === 'granted' ? 'default' : 'destructive',
+                                            });
+                                        });
+                                    }
+                                }}
+                            >
+                                🔔 Bật thông báo
+                            </Button>
+                        )}
+                    </CardContent>
+                </Card>
+
+                {/* BƯỚC 4: Tạo lệnh nháp */}
+                <Card className="border-blue-200 bg-blue-50/70">
+                    <CardHeader className="pb-1 pt-3">
+                        <CardTitle className="text-sm font-semibold text-blue-900">4️⃣ BƯỚC 4: Tạo lệnh nháp khi chưa có điều động</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2 pb-3">
                         <div>
-                            <Label>Khu vực sẵn sàng nhận chuyến</Label>
+                            <Label className="text-xs">Khu vực sẵn sàng nhận chuyến</Label>
                             <Input
-                                className="mt-1"
+                                className="mt-1 h-9 text-sm"
                                 value={draftArea}
                                 onChange={(e) => setDraftArea(e.target.value)}
-                                placeholder="VD: Thu Duc - Quan 9 - Binh Thanh"
+                                placeholder="VD: Thủ Đức - Quận 9 - Bình Thạnh"
                             />
                         </div>
                         <div className="grid grid-cols-2 gap-2">
                             <div>
-                                <Label>Khung giờ từ</Label>
-                                <Input type="time" className="mt-1" value={draftSlotFrom} onChange={(e) => setDraftSlotFrom(e.target.value)} />
+                                <Label className="text-xs">Khung giờ từ</Label>
+                                <Input type="time" className="mt-1 h-9 text-sm" value={draftSlotFrom} onChange={(e) => setDraftSlotFrom(e.target.value)} />
                             </div>
                             <div>
-                                <Label>Đến</Label>
-                                <Input type="time" className="mt-1" value={draftSlotTo} onChange={(e) => setDraftSlotTo(e.target.value)} />
+                                <Label className="text-xs">Đến</Label>
+                                <Input type="time" className="mt-1 h-9 text-sm" value={draftSlotTo} onChange={(e) => setDraftSlotTo(e.target.value)} />
                             </div>
                         </div>
                         <div>
-                            <Label>Ghi chú</Label>
+                            <Label className="text-xs">Ghi chú</Label>
                             <Input
-                                className="mt-1"
+                                className="mt-1 h-9 text-sm"
                                 value={draftNote}
                                 onChange={(e) => setDraftNote(e.target.value)}
                                 placeholder="VD: Sẵn sàng chạy tải nhẹ dưới 3 tấn"
                             />
                         </div>
                         <Button
-                            className="w-full bg-blue-600 hover:bg-blue-700"
+                            className="w-full bg-blue-600 hover:bg-blue-700 h-10"
                             disabled={isCreatingDraftOrder}
                             onClick={handleCreateDraftOrder}
                         >
                             {isCreatingDraftOrder ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
                             Tạo lệnh nháp và báo Telegram
                         </Button>
-                        <p className="text-xs text-blue-800">Sau khi tạo nháp, hệ thống sẽ báo cho quản lý và kênh Telegram chung để xác nhận đồng ý chạy.</p>
+                        <p className="text-[11px] text-blue-800">Sau khi tạo nháp, hệ thống sẽ báo cho quản lý và kênh Telegram chung.</p>
                     </CardContent>
                 </Card>
 
                 <a
                     href="tel:0989890022"
-                    className="inline-flex items-center gap-2 rounded-md border border-blue-300 bg-blue-50 px-3 py-2 text-sm font-semibold text-blue-700"
+                    className="flex items-center justify-center gap-2 rounded-md border border-blue-300 bg-blue-50 px-3 py-2.5 text-sm font-semibold text-blue-700 w-full"
                 >
                     <PhoneCall className="w-4 h-4" />
                     Liên hệ điều phối
@@ -1326,8 +1510,58 @@ export default function DriverDashboard() {
         );
     }
 
+    // -- Active Trips View -- 
+    const handleToggleAvailabilityActive = async () => {
+        if (!linkedDriver?.id) return;
+        setIsTogglingAvailability(true);
+        const newStatus = availabilityStatus === 'available' ? 'off_duty' : 'available';
+        try {
+            await driverAdapter.update(linkedDriver.id, { availability_status: newStatus });
+            setAvailabilityStatus(newStatus);
+            toast({
+                title: newStatus === 'available' ? 'Đã bật sẵn sàng nhận việc' : 'Đã chuyển sang nghỉ',
+            });
+        } catch {
+            toast({ title: 'Lỗi', description: 'Không thể cập nhật trạng thái.', variant: 'destructive' });
+        } finally {
+            setIsTogglingAvailability(false);
+        }
+    };
+
+    const assignedVehicleActive = vehicles.find((v: any) =>
+        v.id === linkedDriver?.assigned_vehicle_id || v.assigned_driver_id === linkedDriver?.id
+    );
+
     return (
         <div className="p-4 pb-24 space-y-4">
+            {/* STATUS BAR */}
+            <Card className="border-slate-200 bg-gradient-to-r from-slate-50 to-blue-50/50">
+                <CardContent className="pt-3 pb-3">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <p className="text-sm font-bold text-slate-800">
+                                {linkedDriver?.full_name || user?.email || 'Tài xế'}
+                            </p>
+                            <p className="text-xs text-slate-500">
+                                {assignedVehicleActive ? `🚛 ${assignedVehicleActive.license_plate}` : ''}
+                                {' • '}
+                                {myActiveTrips.length} chuyến đang thực hiện
+                            </p>
+                        </div>
+                        <Button
+                            size="sm"
+                            variant={availabilityStatus === 'available' ? 'default' : 'outline'}
+                            className={`text-xs h-8 ${availabilityStatus === 'available' ? 'bg-emerald-600 hover:bg-emerald-700' : 'text-slate-600'}`}
+                            onClick={handleToggleAvailabilityActive}
+                            disabled={isTogglingAvailability}
+                        >
+                            {isTogglingAvailability ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
+                            {availabilityStatus === 'available' ? '🟢 Sẵn sàng' : '⚫ Đang nghỉ'}
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+
             <Card className={isOnline ? "border-emerald-200 bg-emerald-50/70" : "border-red-200 bg-red-50/80"}>
                 <CardContent className="pt-3 pb-3">
                     <div className="flex items-center gap-2 text-sm">
@@ -1427,6 +1661,29 @@ export default function DriverDashboard() {
                         <div className="flex justify-between text-sm">
                             <span className="text-slate-500">Hàng hóa:</span>
                             <span className="font-medium">{trip.cargo_description || "N/A"} - {trip.cargo_weight_tons || 0} Tấn</span>
+                        </div>
+
+                        {/* Quick Action Grid - One Page Experience FUNNEL */}
+                        <div className="mt-4 border-t pt-4">
+                            <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Thao Tác Nhanh</h4>
+                            <div className="grid grid-cols-4 gap-2">
+                                <Link to="/driver/menu" className="flex flex-col items-center justify-center h-16 bg-blue-50 border border-blue-100/50 rounded-xl text-blue-700 shadow-sm active:scale-95 transition-transform">
+                                    <CheckSquare className="w-5 h-5 mb-1" />
+                                    <span className="text-[10px] font-bold">Nhận Xe</span>
+                                </Link>
+                                <Link to="/driver/menu" className="flex flex-col items-center justify-center h-16 bg-blue-50 border border-blue-100/50 rounded-xl text-blue-700 shadow-sm active:scale-95 transition-transform">
+                                    <MapPin className="w-5 h-5 mb-1" />
+                                    <span className="text-[10px] font-bold">Check-in</span>
+                                </Link>
+                                <Link to="/driver/menu" className="flex flex-col items-center justify-center h-16 bg-blue-50 border border-blue-100/50 rounded-xl text-blue-700 shadow-sm active:scale-95 transition-transform">
+                                    <FileText className="w-5 h-5 mb-1" />
+                                    <span className="text-[10px] font-bold">Giấy Tờ</span>
+                                </Link>
+                                <Link to="/driver/menu" className="flex flex-col items-center justify-center h-16 border rounded-xl shadow-sm text-slate-500 active:scale-95 transition-transform cursor-not-allowed opacity-70">
+                                    <FlagOff className="w-5 h-5 mb-1" />
+                                    <span className="text-[10px] font-bold">Kết Thúc</span>
+                                </Link>
+                            </div>
                         </div>
 
                         {trip.status === 'dispatched' && !trip.accepted_at && !trip.accepted_by && isDriverRole && (

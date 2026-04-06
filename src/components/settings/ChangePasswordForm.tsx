@@ -5,6 +5,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff, Lock } from "lucide-react";
+import { auth } from "@/lib/firebase";
+import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from "firebase/auth";
 
 interface ChangePasswordFormProps {
     userId: string;
@@ -62,17 +64,17 @@ export function ChangePasswordForm({ userId }: ChangePasswordFormProps) {
                 return;
             }
 
-            // Call Electron API
-            const electronAPI = (window as any).electronAPI;
-            if (!electronAPI) {
-                throw new Error("Không thể kết nối Electron API");
+            const currentUser = auth.currentUser;
+            if (!currentUser || !currentUser.email) {
+                throw new Error("Không tìm thấy tài khoản đang đăng nhập. Vui lòng đăng nhập lại.");
             }
 
-            const result = await electronAPI.auth.changePassword(userId, oldPassword, newPassword);
+            // Re-authenticate with current password
+            const credential = EmailAuthProvider.credential(currentUser.email, oldPassword);
+            await reauthenticateWithCredential(currentUser, credential);
 
-            if (!result.success) {
-                throw new Error(result.error || "Đổi mật khẩu thất bại");
-            }
+            // Update password
+            await updatePassword(currentUser, newPassword);
 
             toast({
                 title: "Thành công",
@@ -83,8 +85,17 @@ export function ChangePasswordForm({ userId }: ChangePasswordFormProps) {
             setOldPassword("");
             setNewPassword("");
             setConfirmPassword("");
-        } catch (error) {
-            const message = error instanceof Error ? error.message : "Đã xảy ra lỗi";
+        } catch (error: any) {
+            let message = "Đã xảy ra lỗi";
+            if (error?.code === 'auth/wrong-password' || error?.code === 'auth/invalid-credential') {
+                message = "Mật khẩu hiện tại không đúng";
+            } else if (error?.code === 'auth/weak-password') {
+                message = "Mật khẩu mới quá yếu, vui lòng chọn mật khẩu mạnh hơn";
+            } else if (error?.code === 'auth/requires-recent-login') {
+                message = "Phiên đăng nhập đã hết hạn. Vui lòng đăng xuất và đăng nhập lại.";
+            } else if (error instanceof Error) {
+                message = error.message;
+            }
             toast({
                 title: "Đổi mật khẩu thất bại",
                 description: message,

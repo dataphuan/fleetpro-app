@@ -98,12 +98,12 @@ export default function DriverHistory() {
     <div className="p-4 pb-24 space-y-4">
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-lg">Lich su hanh trinh</CardTitle>
+          <CardTitle className="text-lg">Lịch sử hành trình</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex flex-wrap items-end gap-3">
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs text-slate-600">Tu ngay</label>
+              <label className="text-xs text-slate-600">Từ ngày</label>
               <input
                 type="date"
                 className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm"
@@ -112,7 +112,7 @@ export default function DriverHistory() {
               />
             </div>
             <div>
-              <label className="text-xs text-slate-600">Den ngay</label>
+              <label className="text-xs text-slate-600">Đến ngày</label>
               <input
                 type="date"
                 className="mt-1 rounded-md border border-slate-300 px-3 py-2 text-sm"
@@ -121,7 +121,7 @@ export default function DriverHistory() {
               />
             </div>
             <Button variant="outline" size="sm" onClick={() => { setFromDate(''); setToDate(''); }}>
-              Xoa loc
+              Xóa lọc
             </Button>
             <Button size="sm" onClick={handleExportReplay} disabled={!filteredLogs.length}>
               <Download className="mr-2 h-4 w-4" /> Export replay
@@ -130,7 +130,7 @@ export default function DriverHistory() {
 
           <Select value={effectiveTripId || undefined} onValueChange={(value) => setSelectedTripId(value)}>
             <SelectTrigger>
-              <SelectValue placeholder="Chon chuyen de xem hanh trinh" />
+              <SelectValue placeholder="Chọn chuyến để xem hành trình" />
             </SelectTrigger>
             <SelectContent>
               {completedTrips.map((trip: any) => (
@@ -142,9 +142,9 @@ export default function DriverHistory() {
           </Select>
 
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            <Badge variant="secondary">Tong diem: {summary.totalPoints}</Badge>
+            <Badge variant="secondary">Tổng điểm: {summary.totalPoints}</Badge>
             <Badge variant={summary.suspiciousPoints > 0 ? 'destructive' : 'secondary'}>
-              Diem nghi ngo: {summary.suspiciousPoints}
+              Điểm nghi ngờ: {summary.suspiciousPoints}
             </Badge>
           </div>
         </CardContent>
@@ -153,9 +153,9 @@ export default function DriverHistory() {
       <Card>
         <CardContent className="pt-4">
           {isLoading ? (
-            <div className="text-sm text-slate-600">Dang tai hanh trinh...</div>
+            <div className="text-sm text-slate-600">Đang tải hành trình...</div>
           ) : filteredLogs.length === 0 ? (
-            <div className="text-sm text-slate-600">Chuyen nay chua co du lieu dinh vi.</div>
+            <div className="text-sm text-slate-600">Chuyến này chưa có dữ liệu định vị.</div>
           ) : (
             <TripReplayMap logs={filteredLogs} highlightedIndex={highlightedIndex} />
           )}
@@ -165,7 +165,7 @@ export default function DriverHistory() {
       {filteredLogs.length > 0 ? (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">Timeline vi tri</CardTitle>
+            <CardTitle className="text-base">Timeline vị trí</CardTitle>
           </CardHeader>
           <CardContent className="space-y-2 max-h-72 overflow-y-auto">
             {filteredLogs.map((item, index) => (

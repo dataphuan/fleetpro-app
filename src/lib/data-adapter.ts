@@ -188,10 +188,15 @@ const PLAN_LIMITS: Record<string, any> = {
 };
 
 const checkQuotas = async (tenantId: string, collectionName: string) => {
-    // 1. Get Tenant Subscription Info
     const settingsDoc = await getDoc(doc(db, 'company_settings', tenantId));
     const sub = settingsDoc.exists() ? settingsDoc.data().subscription : { plan: 'trial' };
-    const plan = sub?.plan || 'trial';
+    let plan = sub?.plan || 'trial';
+    
+    // Nâng cấp tài khoản demo mặc định full quyền trải nghiệm gói không giới hạn
+    if (tenantId.toLowerCase().includes('demo')) {
+        plan = 'enterprise';
+    }
+
     const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.trial;
 
     // 2. Map collection to quota key

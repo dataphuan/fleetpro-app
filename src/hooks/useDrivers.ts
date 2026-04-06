@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { driverAdapter } from '@/lib/data-adapter';
 // Supabase types removed for offline mode
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { normalizeUserRole } from '@/lib/rbac';
 
 
 export type Driver = any;
@@ -9,13 +11,55 @@ export type NewDriver = any;
 export type UpdateDriver = any;
 
 /**
+ * Sensitive fields that should NOT be visible to other drivers.
+ * Only the driver's own record retains these fields.
+ */
+const DRIVER_SENSITIVE_FIELDS = [
+    'base_salary', 'tax_code', 'id_card', 'id_issue_date',
+    'address', 'date_of_birth', 'contract_type', 'notes',
+    'phone', 'license_number',
+];
+
+/**
+ * Strip sensitive fields from a driver record.
+ * Used when a driver views colleague info (e.g., in trip enrichment).
+ */
+const maskDriverRecord = (driver: any): any => {
+    const masked = { ...driver };
+    for (const field of DRIVER_SENSITIVE_FIELDS) {
+        delete masked[field];
+    }
+    return masked;
+};
+
+/**
  * Hook to fetch all drivers (excluding soft-deleted)
+ * DATA ISOLATION: When role=driver, returns only the current driver's own record
+ * with full details, and optionally masked records for colleagues (names only).
  */
 export const useDrivers = () => {
+    const { user, role } = useAuth();
+    const normalizedRole = normalizeUserRole(role);
+    const isDriver = normalizedRole === 'driver';
+
     return useQuery({
-        queryKey: ['drivers'],
+        queryKey: ['drivers', isDriver ? `driver:${user?.id}` : 'all'],
         queryFn: async () => {
-            return await driverAdapter.list();
+            const allDrivers = await driverAdapter.list();
+
+            // DRIVER DATA ISOLATION: Only return own record with full detail
+            // + masked colleague records (name-only) for trip display
+            if (isDriver && user?.id) {
+                return allDrivers.map((d: any) => {
+                    const isMe = d.id === user.id
+                        || d.user_id === user.id
+                        || d.email === user.email
+                        || d.driver_email === user.email;
+                    return isMe ? d : maskDriverRecord(d);
+                });
+            }
+
+            return allDrivers;
         },
     });
 };

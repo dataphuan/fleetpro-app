@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { tripAdapter } from '@/lib/data-adapter';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
+import { normalizeUserRole } from '@/lib/rbac';
 
 import type { Trip } from '@/shared/types/domain';
 
@@ -12,12 +14,31 @@ export type TripStatus = 'draft' | 'confirmed' | 'dispatched' | 'in_progress' | 
 
 /**
  * Hook to fetch all trips
+ * DATA ISOLATION: When role=driver, only returns trips assigned to the current driver.
+ * Prevents drivers from seeing colleagues' trip data (revenue, costs, routes).
  */
 export const useTrips = () => {
+    const { user, role } = useAuth();
+    const normalizedRole = normalizeUserRole(role);
+    const isDriver = normalizedRole === 'driver';
+
     return useQuery({
-        queryKey: ['trips'],
+        queryKey: ['trips', isDriver ? `driver:${user?.id}` : 'all'],
         queryFn: async () => {
-            return await tripAdapter.list();
+            const allTrips = await tripAdapter.list();
+            
+            // DRIVER DATA ISOLATION: Filter to only this driver's trips
+            if (isDriver && user?.id) {
+                return allTrips.filter((t: any) =>
+                    t.driver_id === user.id
+                    || t.driver_id === user.email
+                    || t.driver?.id === user.id
+                    || t.driver?.email === user.email
+                    || t.driver?.user_id === user.id
+                );
+            }
+            
+            return allTrips;
         },
     });
 };

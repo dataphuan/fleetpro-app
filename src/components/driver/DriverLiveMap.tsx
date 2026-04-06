@@ -87,5 +87,9 @@ export function DriverLiveMap({ latitude, longitude, accuracy }: DriverLiveMapPr
     map.panTo(nextLatLng, { animate: true, duration: 0.4 });
   }, [latitude, longitude, accuracy]);
 
-  return <div ref={mapRef} className="h-52 w-full rounded-lg border border-slate-200" />;
+  return (
+    <div className="relative h-52 w-full overflow-hidden rounded-lg border border-slate-200" style={{ isolation: 'isolate', zIndex: 0 }}>
+      <div ref={mapRef} className="absolute inset-0 h-full w-full" />
+    </div>
+  );
 }

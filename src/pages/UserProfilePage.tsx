@@ -94,7 +94,7 @@ export default function UserProfilePage() {
     };
 
     return (
-        <div className="p-6 space-y-6 max-w-2xl mx-auto">
+        <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 max-w-2xl mx-auto pb-36">
             <div>
                 <h1 className="text-2xl font-bold">Hồ Sơ Cá Nhân</h1>
                 <p className="text-muted-foreground">Thông tin tài khoản và đổi mật khẩu</p>

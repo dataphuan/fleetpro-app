@@ -30,8 +30,8 @@ export function MobileDriverMenu({
   const [activeTab, setActiveTab] = useState('pretip');
 
   return (
-    <div className="w-full max-w-md mx-auto p-4">
-      <Card className="p-0 overflow-hidden">
+    <div className="w-full max-w-md mx-auto p-3">
+      <Card className="p-0 border-0 shadow-none bg-transparent">
         <Tabs
           value={activeTab}
           onValueChange={setActiveTab}

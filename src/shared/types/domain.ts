@@ -42,6 +42,10 @@ export interface Vehicle {
   registration_cost?: number;
   current_location?: string;
   status: 'active' | 'maintenance' | 'inactive';
+  /** Vehicle assignment mode: 'fixed' = assigned to specific driver, 'pool' = shared among available drivers */
+  assignment_type?: 'fixed' | 'pool';
+  /** Driver ID assigned to this vehicle (for fixed assignment) */
+  assigned_driver_id?: string;
   purchase_date?: string;
   purchase_price?: number;
   notes?: string;
@@ -64,7 +68,16 @@ export interface Driver {
   hire_date?: string;
   base_salary: number;
   status: 'active' | 'on_leave' | 'inactive';
+  /** Real-time availability for pool vehicle assignment */
+  availability_status?: 'available' | 'on_trip' | 'off_duty' | 'on_leave';
   assigned_vehicle_id?: string;
+  /** Firebase Auth UID — links this driver record to a login account */
+  user_id?: string;
+  /** Email linked to driver account */
+  email?: string;
+  driver_email?: string;
+  /** Telegram chat ID for notifications */
+  telegram_chat_id?: string;
   notes?: string;
   is_deleted: number;
   created_at: string;

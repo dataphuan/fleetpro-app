@@ -389,11 +389,9 @@ export default function TrackingCenter() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold">Tracking Replay Center</h1>
-        <p className="text-sm text-slate-600">Xem lại hành trình và điểm nghi ngờ GPS theo từng chuyến.</p>
+        <h1 className="text-2xl font-bold">Trung Tâm Phối Hợp & Theo Dõi</h1>
+        <p className="text-sm text-slate-600">Luồng phối hợp 4 bước và xem lại hành trình GPS theo chuyến.</p>
       </div>
-
-      <TrackingPlaceholderFleetMap markers={mockFleetMarkers} />
 
       <Card>
         <CardHeader className="pb-2">
@@ -426,6 +424,8 @@ export default function TrackingCenter() {
           </p>
         </CardContent>
       </Card>
+
+      <TrackingPlaceholderFleetMap markers={mockFleetMarkers} />
 
       <Card>
         <CardHeader className="pb-2">

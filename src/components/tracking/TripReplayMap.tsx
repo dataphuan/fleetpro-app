@@ -114,5 +114,9 @@ export function TripReplayMap({ logs, highlightedIndex }: TripReplayMapProps) {
     map.panTo([target.latitude, target.longitude], { animate: true, duration: 0.35 });
   }, [highlightedIndex, logs]);
 
-  return <div ref={mapRef} className="h-[380px] w-full rounded-lg border border-slate-200" />;
+  return (
+    <div className="relative h-[380px] w-full overflow-hidden rounded-lg border border-slate-200" style={{ isolation: 'isolate', zIndex: 0 }}>
+      <div ref={mapRef} className="absolute inset-0 h-full w-full" />
+    </div>
+  );
 }

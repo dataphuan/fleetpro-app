@@ -5,11 +5,11 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { MobileDriverMenu } from '@/components/driver/MobileDriverMenu';
 import { MapPin, Calendar, Truck, Loader2 } from 'lucide-react';
 import { formatDate } from '@/lib/formatters';
@@ -141,25 +141,28 @@ export default function DriverMenuPage() {
         ))}
       </div>
 
-      {/* Menu Dialog */}
-      <Dialog open={menuOpen} onOpenChange={setMenuOpen}>
-        <DialogContent className="max-w-md p-0 overflow-hidden">
-          <DialogHeader className="bg-blue-600 text-white p-4 rounded-t">
-            <DialogTitle>{selectedTrip?.trip_code || 'Chuyến'}</DialogTitle>
-          </DialogHeader>
-          {selectedTrip && (
-            <div className="p-4">
-              <MobileDriverMenu
-                tripId={selectedTrip.id}
-                tripName={selectedTrip.trip_code}
-                vehicleId={selectedTrip.vehicle_id}
-                vehiclePlate={selectedTrip.vehicle_id}
-                onClose={() => setMenuOpen(false)}
-              />
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Sheet for mobile menu */}
+      <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+        <SheetContent side="bottom" className="h-[95vh] rounded-t-3xl p-0 flex flex-col bg-slate-50 border-0">
+          <div className="mx-auto mt-4 h-1.5 w-[50px] shrink-0 rounded-full bg-slate-300" />
+          <SheetHeader className="p-5 pb-3 border-b bg-white rounded-t-3xl text-left">
+            <SheetTitle className="text-xl font-bold flex flex-col gap-1">
+              <span className="text-sm font-medium text-slate-500 uppercase tracking-widest leading-none">Chi tiết chuyến đi</span>
+              <span className="leading-none text-blue-900">{selectedTrip?.trip_code || selectedTrip?.id}</span>
+            </SheetTitle>
+          </SheetHeader>
+          
+          <div className="flex-1 overflow-y-auto w-full max-w-md mx-auto relative">
+            <MobileDriverMenu 
+              tripId={selectedTrip?.id}
+              tripName={selectedTrip?.trip_code || selectedTrip?.route_id || undefined}
+              vehicleId={selectedTrip?.vehicle_id}
+              vehiclePlate={selectedTrip?.vehicle?.license_plate}
+              onClose={() => setMenuOpen(false)}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

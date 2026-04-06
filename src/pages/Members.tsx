@@ -8,29 +8,53 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { UserPlus, Mail, Shield, Trash2, Edit2, Loader2, Users } from "lucide-react";
+import { UserPlus, Mail, Shield, Trash2, Edit2, Loader2, Users, Link2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useDrivers } from "@/hooks/useDrivers";
+import { driverAdapter } from "@/lib/data-adapter";
+import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Members() {
   const { role: currentUserRole } = useAuth();
   const { data: users, isLoading } = useUsers();
+  const { data: drivers = [] } = useDrivers();
   const addUserMutation = useAddUser();
   const updateUserRoleMutation = useUpdateUserRole();
   const deleteUserMutation = useDeleteUser();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [newMember, setNewMember] = useState({
     email: "",
     password: "",
     full_name: "",
-    role: "viewer"
+    role: "viewer",
+    linked_driver_id: ""
   });
 
   const handleAddMember = async () => {
     if (!newMember.email || !newMember.password) return;
-    await addUserMutation.mutateAsync(newMember);
+    const result = await addUserMutation.mutateAsync(newMember);
+    
+    // AUTO-LINK: When creating a driver account, link user_id to driver record
+    if (newMember.role === 'driver' && newMember.linked_driver_id && result?.data?.id) {
+      try {
+        await driverAdapter.update(newMember.linked_driver_id, {
+          user_id: result.data.id,
+          email: newMember.email,
+          driver_email: newMember.email,
+        });
+        queryClient.invalidateQueries({ queryKey: ['drivers'] });
+        toast({ title: 'Liên kết thành công', description: `Tài khoản đã được liên kết với hồ sơ tài xế.` });
+      } catch (e) {
+        console.error('Auto-link driver failed:', e);
+      }
+    }
+    
     setIsAddDialogOpen(false);
-    setNewMember({ email: "", password: "", full_name: "", role: "viewer" });
+    setNewMember({ email: "", password: "", full_name: "", role: "viewer", linked_driver_id: "" });
   };
 
   const handleRoleChange = async (userId: string, newRole: string) => {
@@ -45,11 +69,21 @@ export default function Members() {
 
   const getRoleBadge = (role: string) => {
     switch (role) {
-      case 'admin': return <Badge className="bg-red-100 text-red-700 hover:bg-red-200 border-none px-2 py-0.5">Admin</Badge>;
-      case 'manager': return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-200 border-none px-2 py-0.5">Manager</Badge>;
-      case 'driver': return <Badge className="bg-green-100 text-green-700 hover:bg-green-200 border-none px-2 py-0.5">Driver</Badge>;
+      case 'admin': return <Badge className="bg-red-100 text-red-700 hover:bg-red-200 border-none px-2 py-0.5">Quản trị</Badge>;
+      case 'manager': return <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-200 border-none px-2 py-0.5">Điều hành</Badge>;
+      case 'dispatcher': return <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-200 border-none px-2 py-0.5">Điều phối</Badge>;
+      case 'accountant': return <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-200 border-none px-2 py-0.5">Kế toán</Badge>;
+      case 'driver': return <Badge className="bg-green-100 text-green-700 hover:bg-green-200 border-none px-2 py-0.5">Tài xế</Badge>;
+      case 'viewer': return <Badge className="bg-slate-100 text-slate-700 hover:bg-slate-200 border-none px-2 py-0.5">Chỉ xem</Badge>;
       default: return <Badge variant="secondary">{role}</Badge>;
     }
+  };
+
+  // Find linked driver record for a user
+  const getLinkedDriver = (userId: string, email: string) => {
+    return drivers.find((d: any) =>
+      d.user_id === userId || d.email === email || d.driver_email === email
+    );
   };
 
   if (isLoading) {
@@ -125,11 +159,42 @@ export default function Members() {
                     <SelectContent>
                       <SelectItem value="admin">Quản trị (Admin)</SelectItem>
                       <SelectItem value="manager">Điều hành (Manager)</SelectItem>
+                      <SelectItem value="dispatcher">Điều phối (Dispatcher)</SelectItem>
+                      <SelectItem value="accountant">Kế toán (Accountant)</SelectItem>
                       <SelectItem value="driver">Tài xế (Driver)</SelectItem>
                       <SelectItem value="viewer">Chỉ xem (Viewer)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+                
+                {/* Auto-link driver record when role=driver */}
+                {newMember.role === 'driver' && (
+                  <div className="space-y-2">
+                    <Label>Liên kết hồ sơ tài xế</Label>
+                    <Select
+                      value={newMember.linked_driver_id}
+                      onValueChange={(val) => setNewMember({...newMember, linked_driver_id: val})}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Chọn tài xế để liên kết..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Không liên kết</SelectItem>
+                        {drivers
+                          .filter((d: any) => !d.user_id && d.status !== 'inactive')
+                          .map((d: any) => (
+                            <SelectItem key={d.id} value={d.id}>
+                              {d.driver_code} — {d.full_name}
+                            </SelectItem>
+                          ))
+                        }
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      Liên kết tài khoản đăng nhập với hồ sơ tài xế trong danh mục.
+                    </p>
+                  </div>
+                )}
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>Hủy</Button>
@@ -149,6 +214,7 @@ export default function Members() {
               <TableRow>
                 <TableHead>Thành viên</TableHead>
                 <TableHead>Vai trò</TableHead>
+                <TableHead>Liên kết TX</TableHead>
                 <TableHead>Ngày gia nhập</TableHead>
                 {isAdmin && <TableHead className="text-right">Hành động</TableHead>}
               </TableRow>
@@ -176,6 +242,8 @@ export default function Members() {
                         <SelectContent>
                           <SelectItem value="admin">Quản trị</SelectItem>
                           <SelectItem value="manager">Điều hành</SelectItem>
+                          <SelectItem value="dispatcher">Điều phối</SelectItem>
+                          <SelectItem value="accountant">Kế toán</SelectItem>
                           <SelectItem value="driver">Tài xế</SelectItem>
                           <SelectItem value="viewer">Chỉ xem</SelectItem>
                         </SelectContent>
@@ -183,6 +251,18 @@ export default function Members() {
                     ) : (
                       getRoleBadge(user.role || 'viewer')
                     )}
+                  </TableCell>
+                  <TableCell>
+                    {(() => {
+                      const linked = getLinkedDriver(user.id, user.email);
+                      if (!linked) return <span className="text-xs text-muted-foreground">—</span>;
+                      return (
+                        <span className="flex items-center gap-1 text-xs font-medium text-emerald-700">
+                          <Link2 className="w-3 h-3" />
+                          {linked.driver_code} — {linked.full_name}
+                        </span>
+                      );
+                    })()}
                   </TableCell>
                   <TableCell className="text-sm text-slate-500">
                     {user.created_at ? new Date(user.created_at).toLocaleDateString('vi-VN') : '---'}
