@@ -93,7 +93,7 @@ export function AppHeader({ onOpenMobileSidebar, forceShowMenuButton = false }: 
       </div>
 
       <div className="flex items-center gap-1.5 sm:gap-2">
-        <Button variant="ghost" size="icon" className="relative" asChild>
+        <Button variant="ghost" size="icon" className="relative min-h-[40px] min-w-[40px]" asChild>
           <Link to="/?tab=alerts">
             <Bell className="h-5 w-5" />
             {totalWarnings > 0 && (

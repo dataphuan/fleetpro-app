@@ -271,9 +271,9 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
             )}
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-0.5">
-            {hasAccess("/profile") && <Link to="/profile" className="p-1.5 rounded text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/30" title="Hồ Sơ"><UserCircle className="w-4 h-4" /></Link>}
-            {hasAccess("/settings") && <Link to="/settings" className="p-1.5 rounded text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/30" title="Cài Đặt"><Settings className="w-4 h-4" /></Link>}
+          <div className="flex flex-col items-center gap-1">
+            {hasAccess("/profile") && <Link to="/profile" className="p-2 min-h-[40px] flex items-center justify-center rounded text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/30" title="Hồ Sơ"><UserCircle className="w-5 h-5" /></Link>}
+            {hasAccess("/settings") && <Link to="/settings" className="p-2 min-h-[40px] flex items-center justify-center rounded text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/30" title="Cài Đặt"><Settings className="w-5 h-5" /></Link>}
           </div>
         )}
 
@@ -307,15 +307,15 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
             </a>
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-0.5 pt-1">
+          <div className="flex flex-col items-center gap-1 pt-1">
             <a
               href={guideUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="p-1.5 rounded text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/30"
+              className="p-2 min-h-[40px] flex items-center justify-center rounded text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/30"
               title="Hướng dẫn theo vai trò"
             >
-              <ExternalLink className="w-4 h-4" />
+              <ExternalLink className="w-5 h-5" />
             </a>
             <a
               href={hasVideoUrl ? videoUrl : "#"}
@@ -327,10 +327,10 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
                   toast({ title: "Video đang cập nhật", description: "Chưa cấu hình VITE_SUPPORT_VIDEO_URL.", variant: "default" });
                 }
               }}
-              className="p-1.5 rounded text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/30"
+              className="p-2 min-h-[40px] flex items-center justify-center rounded text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/30"
               title="Xem video"
             >
-              <ExternalLink className="w-4 h-4" />
+              <ExternalLink className="w-5 h-5" />
             </a>
           </div>
         )}
@@ -340,7 +340,7 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
           variant="ghost"
           size="sm"
           onClick={() => setCollapsed(!collapsed)}
-          className="w-full justify-center text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/40 h-7"
+          className="w-full h-12 min-h-[48px] justify-center text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/40"
         >
           {collapsed ? (
             <ChevronRight className="w-3.5 h-3.5" />

@@ -1320,7 +1320,7 @@ export default function DriverDashboard() {
                             <Button
                                 size="sm"
                                 variant={availabilityStatus === 'available' ? 'default' : 'outline'}
-                                className={`text-xs h-8 ${availabilityStatus === 'available' ? 'bg-emerald-600 hover:bg-emerald-700' : 'text-slate-600'}`}
+                                className={`min-h-[40px] px-4 text-xs font-semibold ${availabilityStatus === 'available' ? 'bg-emerald-600 hover:bg-emerald-700' : 'text-slate-600'}`}
                                 onClick={handleToggleAvailability}
                                 disabled={isTogglingAvailability}
                             >
@@ -1352,19 +1352,19 @@ export default function DriverDashboard() {
                 <div className="mb-6 border-b pb-4">
                     <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2 px-1">Menu Thao Tác</h4>
                     <div className="grid grid-cols-4 gap-2">
-                        <Link to="/driver/menu" className="flex flex-col items-center justify-center h-16 bg-blue-50 border border-blue-100/50 rounded-xl text-blue-700 shadow-sm active:scale-95 transition-transform">
+                        <Link to="/driver/menu" className="flex flex-col items-center justify-center min-h-[64px] py-2 w-full bg-blue-50 border border-blue-100/50 rounded-xl text-blue-700 shadow-sm active:scale-95 transition-transform">
                             <CheckSquare className="w-5 h-5 mb-1" />
                             <span className="text-[10px] font-bold">Nhận Xe</span>
                         </Link>
-                        <Link to="/driver/menu" className="flex flex-col items-center justify-center h-16 bg-blue-50 border border-blue-100/50 rounded-xl text-blue-700 shadow-sm active:scale-95 transition-transform">
+                        <Link to="/driver/menu" className="flex flex-col items-center justify-center min-h-[64px] py-2 w-full bg-blue-50 border border-blue-100/50 rounded-xl text-blue-700 shadow-sm active:scale-95 transition-transform">
                             <MapPin className="w-5 h-5 mb-1" />
                             <span className="text-[10px] font-bold">Check-in</span>
                         </Link>
-                        <Link to="/driver/menu" className="flex flex-col items-center justify-center h-16 bg-blue-50 border border-blue-100/50 rounded-xl text-blue-700 shadow-sm active:scale-95 transition-transform">
+                        <Link to="/driver/menu" className="flex flex-col items-center justify-center min-h-[64px] py-2 w-full bg-blue-50 border border-blue-100/50 rounded-xl text-blue-700 shadow-sm active:scale-95 transition-transform">
                             <FileText className="w-5 h-5 mb-1" />
                             <span className="text-[10px] font-bold">Giấy Tờ</span>
                         </Link>
-                        <Link to="/driver/menu" className="flex flex-col items-center justify-center h-16 border rounded-xl shadow-sm text-slate-500 active:scale-95 transition-transform cursor-not-allowed opacity-70">
+                        <Link to="/driver/menu" className="flex flex-col items-center justify-center min-h-[64px] py-2 w-full border rounded-xl shadow-sm text-slate-500 active:scale-95 transition-transform cursor-not-allowed opacity-70">
                             <FlagOff className="w-5 h-5 mb-1" />
                             <span className="text-[10px] font-bold">Kết Thúc</span>
                         </Link>
@@ -1667,19 +1667,19 @@ export default function DriverDashboard() {
                         <div className="mt-4 border-t pt-4">
                             <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Thao Tác Nhanh</h4>
                             <div className="grid grid-cols-4 gap-2">
-                                <Link to="/driver/menu" className="flex flex-col items-center justify-center h-16 bg-blue-50 border border-blue-100/50 rounded-xl text-blue-700 shadow-sm active:scale-95 transition-transform">
+                                <Link to="/driver/menu" className="flex flex-col items-center justify-center min-h-[64px] py-2 w-full bg-blue-50 border border-blue-100/50 rounded-xl text-blue-700 shadow-sm active:scale-95 transition-transform">
                                     <CheckSquare className="w-5 h-5 mb-1" />
                                     <span className="text-[10px] font-bold">Nhận Xe</span>
                                 </Link>
-                                <Link to="/driver/menu" className="flex flex-col items-center justify-center h-16 bg-blue-50 border border-blue-100/50 rounded-xl text-blue-700 shadow-sm active:scale-95 transition-transform">
+                                <Link to="/driver/menu" className="flex flex-col items-center justify-center min-h-[64px] py-2 w-full bg-blue-50 border border-blue-100/50 rounded-xl text-blue-700 shadow-sm active:scale-95 transition-transform">
                                     <MapPin className="w-5 h-5 mb-1" />
                                     <span className="text-[10px] font-bold">Check-in</span>
                                 </Link>
-                                <Link to="/driver/menu" className="flex flex-col items-center justify-center h-16 bg-blue-50 border border-blue-100/50 rounded-xl text-blue-700 shadow-sm active:scale-95 transition-transform">
+                                <Link to="/driver/menu" className="flex flex-col items-center justify-center min-h-[64px] py-2 w-full bg-blue-50 border border-blue-100/50 rounded-xl text-blue-700 shadow-sm active:scale-95 transition-transform">
                                     <FileText className="w-5 h-5 mb-1" />
                                     <span className="text-[10px] font-bold">Giấy Tờ</span>
                                 </Link>
-                                <Link to="/driver/menu" className="flex flex-col items-center justify-center h-16 border rounded-xl shadow-sm text-slate-500 active:scale-95 transition-transform cursor-not-allowed opacity-70">
+                                <Link to="/driver/menu" className="flex flex-col items-center justify-center min-h-[64px] py-2 w-full border rounded-xl shadow-sm text-slate-500 active:scale-95 transition-transform cursor-not-allowed opacity-70">
                                     <FlagOff className="w-5 h-5 mb-1" />
                                     <span className="text-[10px] font-bold">Kết Thúc</span>
                                 </Link>

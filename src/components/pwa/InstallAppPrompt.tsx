@@ -77,11 +77,11 @@ export function InstallAppPrompt() {
         </AlertDescription>
         <div className="mt-3 flex gap-2">
           {deferredPrompt ? (
-            <Button size="sm" className="bg-blue-600 hover:bg-blue-700" onClick={handleInstall}>
+            <Button size="sm" className="bg-blue-600 hover:bg-blue-700 min-h-[40px] px-4" onClick={handleInstall}>
               <Download className="mr-2 h-4 w-4" /> Cai app
             </Button>
           ) : null}
-          <Button size="sm" variant="outline" onClick={handleDismiss}>
+          <Button size="sm" variant="outline" className="min-h-[40px] px-4" onClick={handleDismiss}>
             De sau
           </Button>
         </div>
