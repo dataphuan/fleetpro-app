@@ -15473,42 +15473,42 @@ export const TENANT_DEMO_SEED = {
     "users": [
       {
         "id": "member_admin",
-        "email": "demo.admin@fleetpro.vn",
+        "email": "admin@demo.tnc.io.vn",
         "full_name": "Demo Admin",
         "role": "admin",
         "status": "active"
       },
       {
         "id": "member_manager",
-        "email": "demo.manager@fleetpro.vn",
+        "email": "manager@demo.tnc.io.vn",
         "full_name": "Demo Manager",
         "role": "manager",
         "status": "active"
       },
       {
         "id": "member_dispatcher",
-        "email": "demo.dispatcher@fleetpro.vn",
+        "email": "dispatcher@demo.tnc.io.vn",
         "full_name": "Demo Dispatcher",
         "role": "dispatcher",
         "status": "active"
       },
       {
         "id": "member_accountant",
-        "email": "demo.accountant@fleetpro.vn",
+        "email": "accountant@demo.tnc.io.vn",
         "full_name": "Demo Accountant",
         "role": "accountant",
         "status": "active"
       },
       {
         "id": "member_driver",
-        "email": "demo.driver@fleetpro.vn",
+        "email": "driver@demo.tnc.io.vn",
         "full_name": "Demo Driver",
         "role": "driver",
         "status": "active"
       },
       {
         "id": "member_viewer",
-        "email": "demo.viewer@fleetpro.vn",
+        "email": "viewer@demo.tnc.io.vn",
         "full_name": "Demo Viewer",
         "role": "viewer",
         "status": "active"

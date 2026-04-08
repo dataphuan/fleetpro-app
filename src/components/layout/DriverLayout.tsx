@@ -55,7 +55,7 @@ export function DriverLayout() {
                 </main>
 
                 {/* Bottom Navigation */}
-                <nav className="absolute bottom-0 w-full bg-white border-t border-slate-200 flex justify-around items-center pb-safe pt-2 px-1 z-20 shadow-[0_-4px_10px_rgba(0,0,0,0.05)]">
+                <nav className="fixed bottom-0 w-full max-w-md md:max-w-5xl bg-white border-t border-slate-200 flex justify-around items-center pb-[safe-area-inset-bottom] pt-2 px-1 z-[100] shadow-[0_-4px_10px_rgba(0,0,0,0.1)]">
                     <Link to="/driver" className={`flex flex-col items-center p-2 min-w-[72px] transition-colors ${location.pathname === '/driver' ? 'text-blue-600' : 'text-slate-500 hover:text-slate-900'}`}>
                         <Home className="w-6 h-6 mb-1" />
                         <span className="text-[10px] font-medium">Việc Hôm Nay</span>
@@ -76,9 +76,6 @@ export function DriverLayout() {
                         <span className="text-[10px] font-medium">Cá Nhân</span>
                     </Link>
                 </nav>
-
-                {/* iOS safe area bottom padding helper */}
-                <div className="h-safe-bottom bg-white absolute bottom-0 w-full z-10" />
             </div>
         </PaywallGuard>
     );

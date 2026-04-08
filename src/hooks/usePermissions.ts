@@ -18,34 +18,64 @@ interface Permissions {
     canExport: boolean;
 }
 
+// QA AUDIT FIX 2.1: FULL Permission Matrix cho ngành vận tải
 const permissionMatrix: Record<UserRole, Record<string, Partial<Permissions>>> = {
     admin: {
         _default: { canView: true, canCreate: true, canEdit: true, canDelete: true, canLock: true, canExport: true },
     },
     manager: {
-        _default: { canView: true, canCreate: true, canEdit: true, canDelete: false, canLock: true, canExport: true },
+        _default: { canView: true, canCreate: true, canEdit: true, canDelete: true, canLock: true, canExport: true },
+        // Manager có quyền FULL trên tất cả tab (điều hành toàn bộ công ty)
+        vehicles: { canView: true, canCreate: true, canEdit: true, canDelete: true, canLock: true, canExport: true },
+        drivers: { canView: true, canCreate: true, canEdit: true, canDelete: true, canLock: true, canExport: true },
+        routes: { canView: true, canCreate: true, canEdit: true, canDelete: true, canLock: true, canExport: true },
+        customers: { canView: true, canCreate: true, canEdit: true, canDelete: true, canLock: true, canExport: true },
+        trips: { canView: true, canCreate: true, canEdit: true, canDelete: true, canLock: true, canExport: true },
+        dispatch: { canView: true, canCreate: true, canEdit: true, canDelete: true, canLock: true, canExport: true },
+        expenses: { canView: true, canCreate: true, canEdit: true, canDelete: true, canLock: true, canExport: true },
+        maintenance: { canView: true, canCreate: true, canEdit: true, canDelete: true, canLock: true, canExport: true },
+        reports: { canView: true, canCreate: true, canEdit: true, canDelete: true, canLock: false, canExport: true },
+        alerts: { canView: true, canCreate: true, canEdit: true, canDelete: true, canLock: false, canExport: true },
+        settings: { canView: true, canCreate: true, canEdit: true, canDelete: false, canLock: false, canExport: false },
     },
+    // QA AUDIT FIX 2.2: Dispatcher FULL quyền tạo/sửa vehicles, drivers, routes, customers, trips
+    // (Điều phối viên = Người quản lý thế xe, tài xế, chuyến đi - lõi của vận tải)
     dispatcher: {
-        _default: { canView: true, canCreate: false, canEdit: false, canDelete: false, canLock: false, canExport: true },
+        _default: { canView: true, canCreate: true, canEdit: true, canDelete: false, canLock: false, canExport: true },
         trips: { canView: true, canCreate: true, canEdit: true, canDelete: false, canLock: false, canExport: true },
         dispatch: { canView: true, canCreate: true, canEdit: true, canDelete: false, canLock: false, canExport: true },
-        vehicles: { canView: true, canCreate: false, canEdit: false, canDelete: false, canLock: false, canExport: true },
-        drivers: { canView: true, canCreate: false, canEdit: false, canDelete: false, canLock: false, canExport: true },
-        routes: { canView: true, canCreate: false, canEdit: false, canDelete: false, canLock: false, canExport: true },
-        customers: { canView: true, canCreate: false, canEdit: false, canDelete: false, canLock: false, canExport: true },
+        // Dispatcher CÓ QUYỀN tạo/sửa master data (xe, tài xế, tuyến, khách hàng)
+        vehicles: { canView: true, canCreate: true, canEdit: true, canDelete: false, canLock: false, canExport: true },
+        drivers: { canView: true, canCreate: true, canEdit: true, canDelete: false, canLock: false, canExport: true },
+        routes: { canView: true, canCreate: true, canEdit: true, canDelete: false, canLock: false, canExport: true },
+        customers: { canView: true, canCreate: true, canEdit: true, canDelete: false, canLock: false, canExport: true },
+        maintenance: { canView: true, canCreate: true, canEdit: true, canDelete: false, canLock: false, canExport: true },
+        // Dispatcher READ ONLY cho expenses + reports
+        expenses: { canView: true, canCreate: false, canEdit: false, canDelete: false, canLock: false, canExport: true },
+        reports: { canView: true, canCreate: false, canEdit: false, canDelete: false, canLock: false, canExport: true },
     },
+    // QA AUDIT FIX 2.3: Accountant FULL quyền chi phí + báo cáo + xem chuyến
     accountant: {
         _default: { canView: true, canCreate: false, canEdit: false, canDelete: false, canLock: false, canExport: true },
+        // Accountant FULL quyền expenses + reports + lock sổ
         expenses: { canView: true, canCreate: true, canEdit: true, canDelete: false, canLock: true, canExport: true },
-        trips: { canView: true, canCreate: false, canEdit: false, canDelete: false, canLock: true, canExport: true },
-        reports: { canView: true, canCreate: false, canEdit: false, canDelete: false, canLock: false, canExport: true },
+        reports: { canView: true, canCreate: true, canEdit: true, canDelete: false, canLock: true, canExport: true },
+        'transport-orders': { canView: true, canCreate: true, canEdit: true, canDelete: false, canLock: true, canExport: true },
+        // Accountant READ ONLY cho trips, vehicles, drivers, customers
+        trips: { canView: true, canCreate: false, canEdit: false, canDelete: false, canLock: false, canExport: true },
+        vehicles: { canView: true, canCreate: false, canEdit: false, canDelete: false, canLock: false, canExport: true },
+        drivers: { canView: true, canCreate: false, canEdit: false, canDelete: false, canLock: false, canExport: true },
         customers: { canView: true, canCreate: false, canEdit: false, canDelete: false, canLock: false, canExport: true },
     },
     driver: {
         _default: { canView: true, canCreate: false, canEdit: false, canDelete: false, canLock: false, canExport: false },
+        // Driver chỉ xem trips + profile của họ
+        trips: { canView: true, canCreate: false, canEdit: false, canDelete: false, canLock: false, canExport: false },
+        profile: { canView: true, canCreate: false, canEdit: true, canDelete: false, canLock: false, canExport: false },
     },
     viewer: {
         _default: { canView: true, canCreate: false, canEdit: false, canDelete: false, canLock: false, canExport: false },
+        // Viewer chỉ xem, không thể tạo/sửa/xóa gì cả
     },
 };
 

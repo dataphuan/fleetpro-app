@@ -58,6 +58,7 @@ import { useBulkDelete } from "@/hooks/useBulkDelete";
 import { BulkDeleteDialog } from "@/components/shared/BulkDeleteDialog";
 import { BulkDeleteToolbar } from "@/components/shared/BulkDeleteToolbar";
 import { usePermissions } from "@/hooks/usePermissions";
+import { driverAdapter } from "@/lib/data-adapter";
 import { getNextCodeByPrefix } from "@/lib/code-generator";
 
 // Type definitions
@@ -202,11 +203,23 @@ export default function Drivers() {
   // Handlers
   const handleAdd = async () => {
     setSelectedDriver(null);
-    const nextCode = getNextCodeByPrefix(
-      (drivers || []).map(d => d.driver_code),
-      'TX',
-      4
-    );
+    let nextCode = `TX0001`;
+    try {
+      const res = await driverAdapter.getNextCode();
+      if (res && typeof res === 'string') {
+        nextCode = res;
+      }
+    } catch (err) {
+      console.error("[AUDIT] Failed to fetch next driver code - using fallback TX0001", err);
+      // Fallback: generate based on existing drivers
+      if (drivers && drivers.length > 0) {
+        const maxCode = drivers.reduce((max, d) => {
+          const num = parseInt(d.driver_code?.replace(/[^0-9]/g, '') || '0');
+          return Math.max(max, num);
+        }, 0);
+        nextCode = `TX${String(maxCode + 1).padStart(4, '0')}`;
+      }
+    }
 
     form.reset({
       driver_code: nextCode,

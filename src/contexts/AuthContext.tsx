@@ -85,6 +85,38 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                         email: firebaseUser.email,
                         updated_at: new Date().toISOString(),
                     }, { merge: true });
+                } else {
+                    // QA AUDIT FIX: Auto-create user document for first-time users on new tenant
+                    // Generate a unique tenant ID based on email domain (or use user's email as tenant ID)
+                    const emailParts = firebaseUser.email.split('@');
+                    currentTenantId = `tenant-${emailParts[0]}-${Date.now()}`.toLowerCase().replace(/[^a-z0-9\-]/g, '');
+                    currentRole = 'admin'; // First user on new tenant is admin
+                    fullName = firebaseUser.displayName || firebaseUser.email;
+                    avatarUrl = firebaseUser.photoURL || '';
+
+                    // Create user document
+                    await setDoc(doc(db, 'users', firebaseUser.uid), {
+                        tenant_id: currentTenantId,
+                        email: firebaseUser.email,
+                        role: currentRole,
+                        full_name: fullName,
+                        avatar_url: avatarUrl,
+                        status: 'active',
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                    }, { merge: true });
+
+                    // Create default companySettings for new tenant
+                    await setDoc(doc(db, 'companySettings', `${currentTenantId}_companySettings_main`), {
+                        tenant_id: currentTenantId,
+                        company_name: `${emailParts[0]}'s Company`,
+                        email: firebaseUser.email,
+                        subscription: { plan: 'trial', status: 'active' },
+                        created_at: new Date().toISOString(),
+                        updated_at: new Date().toISOString(),
+                    }, { merge: true });
+
+                    console.log(`[AUTH] Created new tenant ${currentTenantId} for user ${firebaseUser.email}`);
                 }
             }
 

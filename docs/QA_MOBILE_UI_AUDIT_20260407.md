@@ -1,4 +1,4 @@
-# QA Mobile UI Audit - All Login Roles (2026-04-06T22:43:40.159Z)
+# QA Mobile UI Audit - All Login Roles (2026-04-07T01:18:55.183Z)
 
 - Base URL: `https://tnc.io.vn`
 - Viewport: iPhone 12 profile, 390x844
@@ -39,7 +39,7 @@
 - Checks:
   - [PASS] Role redirect: Driver landed on /driver
   - [PASS] Horizontal overflow: No overflow on 390px viewport
-  - [PASS] Touch target size: All sampled targets >= 36px (20 elements)
+  - [PASS] Touch target size: All sampled targets >= 36px (7 elements)
   - [PASS] Driver bottom nav: Bottom navigation is visible
 
 ## Recommendation Priority

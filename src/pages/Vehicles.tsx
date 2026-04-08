@@ -257,13 +257,20 @@ export default function Vehicles() {
     setSelectedVehicle(null);
     let nextCode = `XE0001`;
     try {
-      // @ts-ignore
       const res = await vehicleAdapter.getNextCode();
-      if (res) {
+      if (res && typeof res === 'string') {
         nextCode = res;
       }
     } catch (err) {
-      console.error("Failed to fetch next code", err);
+      console.error("[AUDIT] Failed to fetch next vehicle code - using fallback XE0001", err);
+      // Fallback: generate based on existing vehicles
+      if (vehicles && vehicles.length > 0) {
+        const maxCode = vehicles.reduce((max, v) => {
+          const num = parseInt(v.vehicle_code?.replace(/[^0-9]/g, '') || '0');
+          return Math.max(max, num);
+        }, 0);
+        nextCode = `XE${String(maxCode + 1).padStart(4, '0')}`;
+      }
     }
 
     form.reset({

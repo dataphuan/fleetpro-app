@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { Truck, User, MapPin, Calendar, Clock, DollarSign, FileText, Printer } from "lucide-react";
+import { Truck, User, MapPin, Calendar, Clock, DollarSign, FileText, Printer, Navigation } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -95,14 +95,15 @@ export function DispatchTripDrawer({
         }
     };
 
-    const queryDate = selectedTrip?.departure_date || getValidDateString(selectedDate);
+    const queryDateRaw = selectedTrip?.departure_date || getValidDateString(selectedDate);
+    const queryDate = queryDateRaw && queryDateRaw.includes('T') ? queryDateRaw.split('T')[0] : queryDateRaw;
     const { data: dayTrips } = useTripsByDateRange(queryDate, queryDate);
 
     const form = useForm<TripFormValues>({
         resolver: zodResolver(tripSchema),
         defaultValues: {
             trip_code: "",
-            departure_date: format(new Date(), 'yyyy-MM-dd'),
+            departure_date: getValidDateString(new Date()),
             departure_time: "08:00",
             customer_id: "",
             route_id: "",
@@ -131,10 +132,24 @@ export function DispatchTripDrawer({
     useEffect(() => {
         if (open) {
             if (selectedTrip) {
+                let formattedDate = "";
+                let formattedTime = "08:00";
+                try {
+                    if (selectedTrip.departure_date) {
+                        const dateObj = parseISO(selectedTrip.departure_date);
+                        if (!isNaN(dateObj.getTime())) {
+                            formattedDate = format(dateObj, 'yyyy-MM-dd');
+                            formattedTime = format(dateObj, 'HH:mm');
+                        }
+                    }
+                } catch (e) {
+                    console.error("Date parse error:", e);
+                }
+
                 form.reset({
                     trip_code: selectedTrip.trip_code,
-                    departure_date: selectedTrip.departure_date ? format(parseISO(selectedTrip.departure_date), 'yyyy-MM-dd') : "",
-                    departure_time: selectedTrip.departure_date ? new Date(selectedTrip.departure_date).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : "08:00",
+                    departure_date: formattedDate,
+                    departure_time: formattedTime,
                     customer_id: selectedTrip.customer_id || "",
                     route_id: selectedTrip.route_id || "",
                     vehicle_id: selectedTrip.vehicle_id || "",
@@ -585,7 +600,7 @@ export function DispatchTripDrawer({
                                                 }, 1500);
                                             }}
                                         >
-                                            <Navigation className="w-3 h-3 mr-1" /> Chốt phí VETC/ePass
+                                            <MapPin className="w-3 h-3 mr-1" /> Chốt phí VETC/ePass
                                         </Button>
                                         <FormMessage />
                                     </FormItem>
