@@ -4,7 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { PageHeader } from "@/components/shared/PageHeader";
 import { DataTable, Column } from "@/components/shared/DataTable";
-import { Database } from "@/integrations/supabase/types";
+// Removed stale Supabase import
 import { ExcelImportDialog, ImportColumn } from "@/components/shared/ExcelImportDialog";
 import { formatCurrency } from "@/lib/formatters";
 import { format } from "date-fns";
@@ -57,9 +57,10 @@ import { CustomerFilter } from "@/components/customers/CustomerFilter";
 import { ColumnChooser } from "@/components/vehicles/ColumnChooser";
 import { cn } from "@/lib/utils";
 import { getNextCodeByPrefix } from "@/lib/code-generator";
+import { customerAdapter } from "@/lib/data-adapter";
 
 // Type definitions
-type Customer = Database['public']['Tables']['customers']['Row'];
+type Customer = z.infer<typeof customerSchema> & { id: string };
 type CustomerType = 'Doanh nghiệp' | 'Cá nhân';
 type CustomerStatus = 'active' | 'inactive';
 
@@ -231,11 +232,18 @@ export default function Customers() {
 
   const handleAdd = async () => {
     setSelectedCustomer(null);
-    const nextCode = getNextCodeByPrefix(
-      (customers || []).map(c => c.customer_code),
-      'KH',
-      4
-    );
+    let nextCode = 'KH0001';
+    try {
+      const res = await customerAdapter.getNextCode();
+      if (res) nextCode = res;
+    } catch (err) {
+      console.error("Failed to fetch next customer code", err);
+      nextCode = getNextCodeByPrefix(
+        (customers || []).map(c => c.customer_code),
+        'KH',
+        4
+      );
+    }
 
     form.reset({
       customer_code: nextCode,

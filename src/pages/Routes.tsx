@@ -74,6 +74,7 @@ import { useBulkDelete } from "@/hooks/useBulkDelete";
 import { BulkDeleteDialog } from "@/components/shared/BulkDeleteDialog";
 import { BulkDeleteToolbar } from "@/components/shared/BulkDeleteToolbar";
 import { getNextCodeByPrefix } from "@/lib/code-generator";
+import { routeAdapter } from "@/lib/data-adapter";
 
 // Type definitions
 type RouteData = Route;
@@ -247,11 +248,18 @@ export default function Routes() {
 
   const handleAdd = async () => {
     setSelectedRoute(null);
-    const nextCode = getNextCodeByPrefix(
-      (routes || []).map(r => r.route_code),
-      'TD',
-      4
-    );
+    let nextCode = 'TD0001';
+    try {
+      const res = await routeAdapter.getNextCode();
+      if (res) nextCode = res;
+    } catch (err) {
+      console.error("Failed to fetch next route code", err);
+      nextCode = getNextCodeByPrefix(
+        (routes || []).map(r => r.route_code),
+        'TD',
+        4
+      );
+    }
 
     form.reset({
       route_code: nextCode,

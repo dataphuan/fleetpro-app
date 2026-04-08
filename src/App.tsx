@@ -13,6 +13,7 @@ import { CustomerPortalLayout } from "@/components/layout/CustomerPortalLayout";
 import { Suspense, lazy } from "react";
 import { ErrorBoundary } from "@/components/shared/ErrorBoundary";
 import { PageSkeleton } from "@/components/shared/PageSkeleton";
+import { InstallAppPrompt } from "@/components/pwa/InstallAppPrompt";
 
 // Lazy Loaded Pages - with proper error handling
 const Dashboard = lazy(() => import("./pages/Dashboard").catch(err => {
@@ -144,6 +145,7 @@ const App = () => {
           <Toaster />
           <Sonner />
           <Router>
+            <InstallAppPrompt />
             <ErrorBoundary>
               <Routes>
                 <Route path="/auth" element={<Auth />} />

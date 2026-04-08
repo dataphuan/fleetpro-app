@@ -1827,24 +1827,24 @@ const seedNewTenantDemoData = async (options: TenantSeedOptions) => {
         return { collectionName, rows: mappedRows };
     });
 
-    allCollections.push({
-        collectionName: 'users',
-        rows: [
-            {
-                docId: adminUid,
-                data: withAudit({
-                    email: adminEmail,
-                    full_name: adminName,
-                    company_name: companyName,
-                    role: 'admin',
-                    status: 'active',
-                }),
-            },
-        ],
+    // QA AUDIT FIX: Atomic User Creation
+    // We MUST create the admin user document FIRST and separately from the batch.
+    // This satisfies the exist() check in firestore.rules for all subsequent writes in the batch.
+    const adminDocData = withAudit({
+        email: adminEmail,
+        full_name: adminName,
+        company_name: companyName,
+        role: 'admin',
+        status: 'active',
     });
+    
+    console.log(`👤 [seedNewTenantDemoData] Registering admin user document: ${adminUid}`);
+    await setDoc(doc(db, 'users', adminUid), adminDocData, { merge: true });
 
     const writes: Array<{ collectionName: string; docId: string; data: Record<string, any> }> = [];
     allCollections.forEach(({ collectionName, rows }) => {
+        // Skip 'users' collection if it was already handled or empty
+        if (collectionName === 'users') return;
         rows.forEach((row) => writes.push({ collectionName, ...row }));
     });
 
@@ -2143,38 +2143,61 @@ const startRealDataMode = async (payload: StartRealDataModePayload) => {
 };
 
 /**
+ * Helper to generate sequential codes like XE0001, TX0005, etc.
+ */
+const generateGetNextCode = (collectionName: string, prefix: string, codeField: string, padding: number = 4) => {
+    return async () => {
+        try {
+            const tenantId = getTenantId();
+            if (!tenantId) return `${prefix}${String(1).padStart(padding, '0')}`;
+
+            const q = query(collection(db, collectionName), where('tenant_id', '==', tenantId));
+            const snap = await getDocs(q);
+            if (snap.empty) return `${prefix}${String(1).padStart(padding, '0')}`;
+
+            const maxNo = snap.docs.reduce((m: number, d: any) => {
+                const data = d.data();
+                const code = String(data[codeField] || '');
+                const n = Number(code.replace(/\D/g, ''));
+                return Number.isFinite(n) ? Math.max(m, n) : m;
+            }, 0);
+
+            return `${prefix}${String(maxNo + 1).padStart(padding, '0')}`;
+        } catch (error) {
+            console.error(`[getNextCode] Failed for ${collectionName}:`, error);
+            return `${prefix}${String(1).padStart(padding, '0')}`;
+        }
+    };
+};
+
+/**
  * Web Data Access Layer - Uses Firebase Firestore
  */
 const webDataAdapters: Record<string, any> = {
     vehicles: {
         ...createFirestoreAdapter('vehicles'),
-        getNextCode: async () => {
-            const rows = await (createFirestoreAdapter('vehicles') as any).list();
-            const maxNo = rows.reduce((m: number, r: any) => {
-                const n = Number(String(r.vehicle_code || '').replace(/\D/g, ''));
-                return Number.isFinite(n) ? Math.max(m, n) : m;
-            }, 0);
-            return `XE${String(maxNo + 1).padStart(4, '0')}`;
-        },
+        getNextCode: generateGetNextCode('vehicles', 'XE', 'vehicle_code'),
     },
     drivers: {
         ...createFirestoreAdapter('drivers'),
-        getNextCode: async () => {
-            const rows = await (createFirestoreAdapter('drivers') as any).list();
-            const maxNo = rows.reduce((m: number, r: any) => {
-                const n = Number(String(r.driver_code || '').replace(/\D/g, ''));
-                return Number.isFinite(n) ? Math.max(m, n) : m;
-            }, 0);
-            return `TX${String(maxNo + 1).padStart(4, '0')}`;
-        },
+        getNextCode: generateGetNextCode('drivers', 'TX', 'driver_code'),
     },
-    customers: createFirestoreAdapter('customers'),
-    routes: createFirestoreAdapter('routes'),
+    customers: {
+        ...createFirestoreAdapter('customers'),
+        getNextCode: generateGetNextCode('customers', 'KH', 'customer_code'),
+    },
+    routes: {
+        ...createFirestoreAdapter('routes'),
+        getNextCode: generateGetNextCode('routes', 'TD', 'route_code'),
+    },
+    partners: {
+        ...createFirestoreAdapter('partners'),
+        getNextCode: generateGetNextCode('partners', 'DT', 'partner_name'), // Some use partner_name as code or just DT prefix
+    },
     trips: tripFirestoreAdapter,
     expenses: expenseFirestoreAdapter,
     maintenance: createFirestoreAdapter('maintenance'),
     tires: tiresFirestoreAdapter,
-    partners: createFirestoreAdapter('partners'),
     inventory: inventoryFirestoreAdapter,
     tripLocationLogs: tripLocationFirestoreAdapter,
     transportOrders: transportOrderFirestoreAdapter,

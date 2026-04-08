@@ -263,19 +263,7 @@ export default function Auth() {
 
             await refreshAuth();
 
-            const ensureResult = await dataAdapter.auth.ensureTenantDemoReadiness?.({
-                tenantId: result?.data?.user?.tenantId,
-                role: result?.data?.user?.role,
-                email: result?.data?.user?.email,
-                full_name: result?.data?.user?.full_name,
-            });
-
-            if (ensureResult?.seeded) {
-                toast({
-                    title: '✅ Không gian dùng thử đã sẵn sàng',
-                    description: 'Hệ thống vừa tự động nạp dữ liệu đầy đủ cho tenant mới/thiếu dữ liệu.',
-                });
-            }
+            // Removed automatic demo seeding for professional "Real Data" accounts
 
             toast({ title: "Đăng nhập thành công", description: `Chào mừng trở lại!` });
             const userRole = result?.data?.user?.role;
@@ -346,7 +334,7 @@ export default function Auth() {
 
             toast({
                 title: "🎉 Đăng ký thành công!",
-                description: "Không gian làm việc của bạn đã sẵn sàng. Vui lòng đăng nhập.",
+                description: "Không gian làm việc của bạn đã sẵn sàng. Vui lòng đăng nhập với Dữ liệu thật.",
             });
             
             // Auto-fill login email and switch to login tab

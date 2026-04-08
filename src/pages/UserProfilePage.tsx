@@ -8,8 +8,9 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { db } from "@/lib/firebase";
 import { doc, updateDoc } from "firebase/firestore";
-import { Calendar, Mail, Shield, User } from "lucide-react";
+import { Calendar, Mail, Shield, User, LogOut } from "lucide-react";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 const roleLabels: Record<string, string> = {
     admin: "Quản trị viên",
@@ -30,12 +31,20 @@ const roleColors: Record<string, string> = {
 };
 
 export default function UserProfilePage() {
-    const { user, role, userId, refreshAuth } = useAuth();
+    const { user, role, userId, refreshAuth, signOut } = useAuth();
     const { toast } = useToast();
+    const navigate = useNavigate();
     const [avatarUrl, setAvatarUrl] = useState(user?.avatar_url || "");
     const [savingAvatar, setSavingAvatar] = useState(false);
     const displayName = user?.full_name || user?.email || "";
     const initial = displayName ? displayName.trim().charAt(0).toUpperCase() : "?";
+
+    const handleLogout = async () => {
+        if (window.confirm("Bạn có chắc chắn muốn đăng xuất?")) {
+            await signOut();
+            navigate("/auth");
+        }
+    };
 
     const isValidAvatarUrl = (value: string) => {
         if (!value) return true;
@@ -95,9 +104,19 @@ export default function UserProfilePage() {
 
     return (
         <div className="p-4 sm:p-6 space-y-4 sm:space-y-6 max-w-2xl mx-auto pb-36">
-            <div>
-                <h1 className="text-2xl font-bold">Hồ Sơ Cá Nhân</h1>
-                <p className="text-muted-foreground">Thông tin tài khoản và đổi mật khẩu</p>
+            <div className="flex justify-between items-start">
+                <div>
+                    <h1 className="text-2xl font-bold">Hồ Sơ Cá Nhân</h1>
+                    <p className="text-muted-foreground">Thông tin tài khoản và đổi mật khẩu</p>
+                </div>
+                <Button 
+                    variant="outline" 
+                    className="text-destructive border-destructive hover:bg-destructive/10"
+                    onClick={handleLogout}
+                >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Đăng xuất
+                </Button>
             </div>
 
             {/* User Info Card */}
@@ -190,6 +209,18 @@ export default function UserProfilePage() {
 
             {/* Change Password */}
             <ChangePasswordForm userId={userId || ""} />
+
+            {/* Additional Logout button for mobile accessibility at the bottom */}
+            <div className="pt-4 sm:hidden">
+                <Button 
+                    variant="destructive" 
+                    className="w-full h-12 text-base font-semibold"
+                    onClick={handleLogout}
+                >
+                    <LogOut className="w-5 h-5 mr-2" />
+                    Đăng xuất khỏi hệ thống
+                </Button>
+            </div>
         </div>
     );
 }

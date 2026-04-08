@@ -1,15 +1,26 @@
-import { Outlet, Navigate, useLocation, Link } from "react-router-dom";
+import { Outlet, Navigate, useLocation, Link, useNavigate } from "react-router-dom";
 import { Suspense } from "react";
 import { useAuth } from "@/contexts/AuthContext";
-import { Truck, Home, User, Bell, Menu } from "lucide-react";
+import { Truck, Home, User, Bell, Menu, LogOut, LayoutDashboard } from "lucide-react";
 import { PaywallGuard } from "@/components/shared/PaywallGuard";
 import { normalizeUserRole } from "@/lib/rbac";
 import { InstallAppPrompt } from "@/components/pwa/InstallAppPrompt";
+import { Button } from "@/components/ui/button";
 
 export function DriverLayout() {
-    const { user, role, loading } = useAuth() as any;
+    const { user, role, loading, signOut } = useAuth() as any;
     const location = useLocation();
+    const navigate = useNavigate();
     const normalizedRole = normalizeUserRole(role);
+
+    const handleLogout = async () => {
+        if (window.confirm("Bạn có chắc chắn muốn đăng xuất?")) {
+            await signOut();
+            navigate("/auth");
+        }
+    };
+
+    const canGoToDashboard = ['admin', 'manager', 'dispatcher'].includes(normalizedRole);
 
     // While loading auth state
     if (loading) {
@@ -35,17 +46,37 @@ export function DriverLayout() {
             <div className="flex flex-col h-screen bg-slate-100 w-full max-w-md md:max-w-5xl mx-auto relative shadow-2xl overflow-hidden md:my-3 md:h-[calc(100vh-1.5rem)] md:rounded-2xl md:border md:border-slate-200">
                 {/* Mobile Header */}
                 <header className="bg-blue-600 text-white p-4 shadow-md flex justify-between items-center z-10">
-                    <div>
-                        <h1 className="font-bold text-lg leading-none tracking-tight">Cổng Tài Xế</h1>
-                        <span className="text-xs opacity-80">{user?.email}</span>
+                    <div className="flex items-center gap-3">
+                        {canGoToDashboard && (
+                            <Link 
+                                to="/" 
+                                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
+                                title="Về bảng điều quản"
+                            >
+                                <LayoutDashboard className="w-5 h-5 text-white" />
+                            </Link>
+                        )}
+                        <div>
+                            <h1 className="font-bold text-lg leading-none tracking-tight">Cổng Tài Xế</h1>
+                            <span className="text-xs opacity-80">{user?.email}</span>
+                        </div>
                     </div>
-                    <button className="relative p-2 rounded-full bg-white/10 hover:bg-white/20 transition">
-                        <Bell className="w-5 h-5 text-white" />
-                        <span className="absolute top-2 right-2 flex h-2 w-2 rounded-full bg-red-500"></span>
-                    </button>
+                    
+                    <div className="flex items-center gap-2">
+                        <button className="relative p-2 rounded-full bg-white/10 hover:bg-white/20 transition">
+                            <Bell className="w-5 h-5 text-white" />
+                            <span className="absolute top-2 right-2 flex h-2 w-2 rounded-full bg-red-500"></span>
+                        </button>
+                        <button 
+                            onClick={handleLogout}
+                            className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition text-white"
+                            title="Đăng xuất"
+                        >
+                            <LogOut className="w-5 h-5" />
+                        </button>
+                    </div>
                 </header>
 
-                <InstallAppPrompt />
 
                 {/* Main Content Area */}
                 <main className="flex-1 overflow-y-auto w-full pb-24">
@@ -77,6 +108,9 @@ export function DriverLayout() {
                     </Link>
                 </nav>
             </div>
+            
+            {/* PWA Install Prompt */}
+            <InstallAppPrompt />
         </PaywallGuard>
     );
 }
