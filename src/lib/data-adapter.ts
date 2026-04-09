@@ -2127,13 +2127,11 @@ const startRealDataMode = async (payload: StartRealDataModePayload) => {
     }
 
     if (isProtectedSharedDemoTenant(tenantId)) {
-        return createIsolatedTenantWorkspace({
-            sourceTenantId: tenantId,
-            keepUserId: String(payload?.keepUserId || ''),
-            email: payload?.email,
-            full_name: payload?.full_name,
-            company_name: payload?.company_name,
-        });
+        return {
+            success: false,
+            error: 'Đây là tài khoản demo dùng chung. Để thử nghiệm với dữ liệu thật, vui lòng thoát ra và chọn "Tạo tài khoản mới" để nhận 14 ngày dùng thử miễn phí.',
+            message: 'Vui lòng tạo tài khoản mới cho doanh nghiệp của bạn.'
+        };
     }
 
     const cleared = await clearTenantOperationalData({

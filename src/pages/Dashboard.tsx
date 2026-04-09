@@ -52,68 +52,57 @@ export default function Dashboard() {
       />
 
       {isDemoMode && (
-        <Card className="border-amber-300 bg-amber-50/70">
-          <CardContent className="py-4 space-y-3">
-            <div className="flex flex-col gap-1">
-              <div className="text-sm font-semibold">Bạn đang ở chế độ Demo</div>
-              <div className="text-xs text-muted-foreground">
-                Dữ liệu mẫu đầy đủ để trải nghiệm toàn bộ tính năng trên PC và mobile.
+        <Card className="border-amber-300 bg-amber-50/70 shadow-sm animate-in fade-in slide-in-from-top-4 duration-500">
+          <CardContent className="py-5 space-y-4">
+            <div className="flex items-start gap-4">
+              <div className="p-2 bg-amber-100 rounded-full text-amber-600">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+              </div>
+              <div className="space-y-1">
+                <div className="text-base font-bold text-amber-900">Chế độ Trải nghiệm (Demo Data Only)</div>
+                <p className="text-sm text-amber-800 leading-relaxed">
+                  Đây là không gian dùng chung với dữ liệu mẫu đầy đủ để anh/chị tham quan toàn bộ tính năng trên PC & Mobile.
+                </p>
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <Button
-                variant="outline"
-                onClick={async () => {
-                  if (!tenantId) return;
-                  const res = await dataAdapter.auth.ensureTenantDemoReadiness({
-                    tenantId,
-                    role: role || 'viewer',
-                    email: user?.email || '',
-                    full_name: user?.full_name || '',
-                    uid: userId || '',
-                  });
-
-                  if (res?.success) {
-                    toast({ title: '✅ Demo full tính năng đã sẵn sàng', description: res?.message || 'Đã kiểm tra và nạp dữ liệu demo nếu thiếu.' });
-                  } else {
-                    toast({ title: 'Không thể nạp demo', description: res?.error || res?.message || 'Vui lòng thử lại.', variant: 'destructive' });
-                  }
-                }}
-              >
-                Nạp/đảm bảo dữ liệu Demo đầy đủ
-              </Button>
-
-              <Button
-                variant="default"
-                onClick={async () => {
-                  if (!tenantId) return;
-                  const ok = window.confirm('Chuyển sang chế độ dữ liệu thật? Nếu đang ở tenant demo dùng chung, hệ thống sẽ tách workspace riêng để không ảnh hưởng khách mới.');
-                  if (!ok) return;
-
-                  const res = await dataAdapter.auth.startRealDataMode({
-                    tenantId,
-                    role: role || 'viewer',
-                    keepUserId: userId || undefined,
-                    email: user?.email || '',
-                    full_name: user?.full_name || '',
-                  });
-
-                  if (res?.success) {
-                    await refreshAuth();
-                    toast({
-                      title: res?.migrated ? '✅ Đã tách workspace dữ liệu thật' : '✅ Đã chuyển sang dữ liệu thật',
-                      description: res?.migrated
-                        ? 'Vui lòng tải lại trang để thấy tenant mới.'
-                        : 'Bạn có thể nhập dữ liệu thật ngay bây giờ.',
+            <div className="bg-white/60 p-4 rounded-lg border border-amber-200/50 space-y-3">
+              <p className="text-sm font-medium text-slate-700 italic">
+                💡 Để sử dụng <b>Dữ liệu thật</b> cho đội xe của công ty bạn (miễn phí 14 ngày, đầy đủ tính năng), 
+                vui lòng thoát ra và chọn <b>"Tạo tài khoản mới"</b>.
+              </p>
+              
+              <div className="flex flex-wrap gap-3">
+                <Button
+                  variant="outline"
+                  className="bg-white border-amber-300 hover:bg-amber-100 text-amber-700"
+                  onClick={async () => {
+                    if (!tenantId) return;
+                    const res = await dataAdapter.auth.ensureTenantDemoReadiness({
+                      tenantId,
+                      role: role || 'viewer',
+                      email: user?.email || '',
+                      full_name: user?.full_name || '',
+                      uid: userId || '',
                     });
-                  } else {
-                    toast({ title: 'Không thể chuyển chế độ', description: res?.error || 'Vui lòng thử lại.', variant: 'destructive' });
-                  }
-                }}
-              >
-                Chuyển sang Dữ liệu thật
-              </Button>
+
+                    if (res?.success) {
+                      toast({ title: '✅ Dữ liệu mẫu đã sẵn sàng', description: 'Đã kiểm tra và nạp dữ liệu demo đầy đủ.' });
+                    }
+                  }}
+                >
+                  <svg className="mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+                  Tải lại dữ liệu mẫu (Reset Demo)
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  className="text-primary font-semibold hover:bg-primary/5"
+                  onClick={() => window.location.href = '/auth?tab=register'}
+                >
+                  Đăng ký công ty mới (Thử thật 14 ngày) →
+                </Button>
+              </div>
             </div>
           </CardContent>
         </Card>

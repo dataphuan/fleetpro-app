@@ -725,6 +725,11 @@ export default function Auth() {
                                             </div>
                                         ))}
                                     </div>
+                                    <div className="bg-primary/5 rounded-lg p-3 border border-primary/20 mt-3">
+                                        <p className="text-[10px] text-primary font-medium leading-relaxed">
+                                            💡 <b>Lưu ý:</b> Các tài khoản trên dùng chung dữ liệu mẫu. Để sử dụng <b>Dữ liệu thật</b> riêng biệt cho công ty bạn (FREE 14 ngày), vui lòng chọn tab <b>"Tạo tài khoản mới"</b> ở phía trên.
+                                        </p>
+                                    </div>
                                 </div>
 
                                 {/* Password Info */}

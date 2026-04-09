@@ -26,7 +26,12 @@ interface OnboardingStep {
   content: React.ReactNode;
 }
 
-export function OnboardingFlow() {
+interface OnboardingFlowProps {
+  tenantId: string;
+  onComplete: () => void;
+}
+
+export function OnboardingFlow({ tenantId, onComplete }: OnboardingFlowProps) {
   const { toast } = useToast();
   const [currentStep, setCurrentStep] = useState(0);
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
@@ -337,7 +342,7 @@ export function OnboardingFlow() {
           </div>
 
           <div className="text-center">
-            <Button size="lg" className="bg-blue-600 hover:bg-blue-700">
+            <Button size="lg" className="bg-blue-600 hover:bg-blue-700" onClick={onComplete}>
               Bắt đầu sử dụng FleetPro
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
