@@ -1864,7 +1864,8 @@ const seedNewTenantDemoData = async (options: TenantSeedOptions) => {
     console.log(`✅ [seedNewTenantDemoData] COMPLETE: ${totalRecords} records seeded for tenant: ${tenantId}`);
     } catch (error) {
         console.error(`❌ [seedNewTenantDemoData] FAILED for tenant ${tenantId}:`, error);
-        throw error;
+        // 🛡️ CRITICAL: Never throw — seeding failure must NEVER crash the registration flow
+        return;
     }
 };
 
