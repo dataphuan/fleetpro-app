@@ -65,27 +65,20 @@ export function DashboardContainer() {
   const currentOption = DASHBOARD_OPTIONS.find(opt => opt.id === mode);
 
   return (
-    <div className="space-y-4">
-      {/* HEADER với Mode Indicator */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="text-3xl">{isDriver ? '👨‍✈️' : currentOption?.icon}</span>
-          <div>
-            <h1 className="text-2xl font-bold text-foreground">
-              {isDriver ? 'Đơn Giản Dashboard' : `${currentOption?.label} Dashboard`}
-            </h1>
-            <p className="text-sm text-muted-foreground">{isDriver ? 'Tài xế' : currentOption?.targetUser}</p>
-          </div>
-        </div>
-        {!isDriver && (
+    <div className="space-y-4 pt-1">
+      {/* NÚT CHIA CHẾ ĐỘ DASHBOARD (MINI) */}
+      {!isDriver && (
+        <div className="flex justify-end">
           <Button
-            variant={showSelector ? 'default' : 'outline'}
+            size="sm"
+            variant="ghost" 
+            className="text-[10px] h-6 uppercase tracking-wider opacity-50 hover:opacity-100"
             onClick={() => setShowSelector(!showSelector)}
           >
-            {showSelector ? '✕ Đóng' : 'Đơn Giản Dashboard / PRO Dashboard'}
+            {showSelector ? '✕ Đóng' : 'Thay đổi giao diện (Đơn giản/PRO)'}
           </Button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* MODE SELECTOR (Collapsible) */}
       {!isDriver && showSelector && (

@@ -8,13 +8,11 @@ import { useAlertsSummary } from '@/hooks/useAlerts';
 import { AlertTriangle, Circle, Truck, Wallet, Sparkles, TrendingUp, Info } from 'lucide-react';
 
 const AIInsightCard = ({ icon: Icon, title, message, colorClass }: { icon: any, title: string, message: string, colorClass: string }) => (
-    <div className={`flex items-start gap-3 p-3 rounded-xl border ${colorClass} bg-white/50 backdrop-blur-sm transition-all hover:shadow-md`}>
-        <div className="mt-0.5">
-            <Icon className="h-5 w-5" />
-        </div>
+    <div className={`flex items-start gap-2 p-2 rounded-lg border ${colorClass} bg-white/50 transition-all hover:shadow-sm`}>
+        <Icon className="h-4 w-4 mt-0.5 shrink-0" />
         <div>
-            <p className="text-xs font-bold uppercase tracking-tight opacity-70">{title}</p>
-            <p className="text-sm font-medium leading-snug">{message}</p>
+            <p className="text-[10px] font-bold uppercase tracking-tight opacity-70 leading-none mb-1">{title}</p>
+            <p className="text-xs font-medium leading-tight">{message}</p>
         </div>
     </div>
 );
@@ -196,31 +194,39 @@ export function DashboardOwnerRealtime() {
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Card>
-          <CardContent className="pt-5">
-            <p className="text-xs text-muted-foreground">Đội xe hoạt động</p>
-            <p className="text-2xl font-bold text-primary"><AnimatedValue value={activeVehicles} /></p>
-            <p className="text-xs text-muted-foreground">/{vehicles.length} xe</p>
+          <CardContent className="p-3">
+            <p className="text-[10px] uppercase font-bold text-muted-foreground opacity-70 mb-1">Đội xe hoạt động</p>
+            <div className="flex items-baseline gap-1">
+              <span className="text-xl font-black text-primary"><AnimatedValue value={activeVehicles} /></span>
+              <span className="text-[10px] text-muted-foreground font-medium">/{vehicles.length} xe</span>
+            </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-5">
-            <p className="text-xs text-muted-foreground">Đang chạy</p>
-            <p className="text-2xl font-bold text-primary"><AnimatedValue value={runningTrips} /></p>
-            <p className="text-xs text-muted-foreground">xe hôm nay</p>
+          <CardContent className="p-3">
+            <p className="text-[10px] uppercase font-bold text-muted-foreground opacity-70 mb-1">Đang chạy</p>
+            <div className="flex items-baseline gap-1">
+              <span className="text-xl font-black text-primary"><AnimatedValue value={runningTrips} /></span>
+              <span className="text-[10px] text-muted-foreground font-medium">xe hôm nay</span>
+            </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-5">
-            <p className="text-xs text-muted-foreground">Thu hôm nay</p>
-            <p className="text-2xl font-bold text-primary"><AnimatedValue value={revenueToday} /></p>
-            <p className="text-xs text-muted-foreground">VNĐ</p>
+          <CardContent className="p-3">
+            <p className="text-[10px] uppercase font-bold text-muted-foreground opacity-70 mb-1">Thu hôm nay</p>
+            <div className="flex items-baseline gap-1">
+              <span className="text-xl font-black text-primary"><AnimatedValue value={revenueToday} /></span>
+              <span className="text-[10px] text-muted-foreground font-medium">VNĐ</span>
+            </div>
           </CardContent>
         </Card>
         <Card>
-          <CardContent className="pt-5">
-            <p className="text-xs text-muted-foreground">Cảnh báo</p>
-            <p className="text-2xl font-bold text-primary"><AnimatedValue value={criticalAlerts} /></p>
-            <p className="text-xs text-muted-foreground">cần xử lý</p>
+          <CardContent className="p-3">
+            <p className="text-[10px] uppercase font-bold text-muted-foreground opacity-70 mb-1">Cảnh báo</p>
+            <div className="flex items-baseline gap-1">
+              <span className="text-xl font-black text-red-600"><AnimatedValue value={criticalAlerts} /></span>
+              <span className="text-[10px] text-muted-foreground font-medium">cần xử lý</span>
+            </div>
           </CardContent>
         </Card>
       </div>
