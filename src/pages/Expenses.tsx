@@ -55,7 +55,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useExpenses, useCreateExpense, useUpdateExpense, useDeleteExpense, useBulkDeleteExpenses } from "@/hooks/useExpenses";
+import { useExpenses, useCreateExpense, useUpdateExpense, useDeleteExpense, useBulkDeleteExpenses, useRejectExpense } from "@/hooks/useExpenses";
 import { useVehiclesByStatus } from "@/hooks/useVehicles";
 import { useDrivers } from "@/hooks/useDrivers";
 import { useTrips } from "@/hooks/useTrips";
