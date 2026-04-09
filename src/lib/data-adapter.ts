@@ -1902,6 +1902,12 @@ const ensureTenantDemoReadiness = async (payload: EnsureDemoReadinessPayload) =>
         return { success: false, skipped: true, reason: 'missing_tenant' };
     }
 
+    // 🛡️ CRITICAL GUARD: Only seed demo data for internal demo tenants
+    // Real/trial tenants must NEVER be auto-seeded — they use 100% real data
+    if (!tenantId.startsWith('internal-tenant-')) {
+        return { success: true, seeded: false, skipped: true, message: 'Tài khoản thật — không cần nạp dữ liệu demo.' };
+    }
+
     const insufficient = await isTenantDemoDataInsufficient(tenantId);
     if (!insufficient) {
         return { success: true, seeded: false, message: 'Demo data already sufficient' };
