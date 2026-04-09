@@ -2306,26 +2306,16 @@ const webDataAdapters: Record<string, any> = {
                     company_name: payload.company_name,
                     admin_id: uid,
                     created_at: new Date().toISOString(),
-                    subscription: { plan: 'trial', status: 'active' }
+                    subscription: { 
+                        plan: 'trial', 
+                        status: 'active',
+                        trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+                    }
                 });
 
-                // 5. Initialize base metadata only (New accounts start with 100% Real Data)
-                // Removed automatic large demo seeding to ensure stability and quota compliance
-                /* 
-                await seedNewTenantDemoData({
-                    tenantId,
-                    companyName: payload.company_name,
-                    adminUid: uid,
-                    adminEmail: payload.email,
-                    adminName: payload.full_name,
-                });
-                */
-
-                try {
-                    await createTenantDemoAccounts(tenantId, payload.company_name);
-                } catch (error) {
-                    console.warn('[Register] Demo account provisioning failed:', error);
-                }
+                // 5. Registration complete — No demo seeding for production stability
+                // New accounts start with 100% Real Data (empty lists)
+                // Users will be guided by the MenuGuide onboarding system
                 
                 await logActivity('CREATE', 'users', uid, { type: 'registration', company: payload.company_name });
 
