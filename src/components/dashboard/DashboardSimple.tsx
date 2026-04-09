@@ -33,14 +33,14 @@ export function DashboardSimple() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* HÔM NAY - 3 KPI CHÍNH */}
       <div>
-        <h2 className="mb-4 text-lg font-semibold text-foreground">Hôm Nay</h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <h2 className="mb-2 text-sm font-bold uppercase tracking-wider text-muted-foreground">Hôm Nay</h2>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {/* Chuyến Đang Làm */}
           <Card className="border-l-4 border-l-blue-500 bg-gradient-to-br from-blue-50 to-blue-50 dark:from-blue-950/20 dark:to-blue-950/10">
-            <CardContent className="pt-6">
+            <CardContent className="p-3">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-muted-foreground">📍 Chuyến Đang Làm</span>
@@ -53,22 +53,22 @@ export function DashboardSimple() {
 
           {/* Thu Hôm Nay */}
           <Card className="border-l-4 border-l-emerald-500 bg-gradient-to-br from-emerald-50 to-emerald-50 dark:from-emerald-950/20 dark:to-emerald-950/10">
-            <CardContent className="pt-6">
+            <CardContent className="p-3">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-muted-foreground">💰 Thu Hôm Nay</span>
-                  <span className="text-2xl font-bold text-emerald-600">
+                  <span className="text-xs font-medium text-muted-foreground uppercase">💰 Thu Hôm Nay</span>
+                  <span className="text-xl font-bold text-emerald-600">
                     {((stats?.official?.revenue || 0) + (stats?.pending?.revenue || 0)).toLocaleString('vi-VN', { notation: 'compact' })}
                   </span>
                 </div>
-                <p className="text-xs text-muted-foreground">VND</p>
+                <p className="text-[10px] text-muted-foreground">VND</p>
               </div>
             </CardContent>
           </Card>
-
+ 
           {/* Cảnh Báo */}
           <Card className="border-l-4 border-l-orange-500 bg-gradient-to-br from-orange-50 to-orange-50 dark:from-orange-950/20 dark:to-orange-950/10">
-            <CardContent className="pt-6">
+            <CardContent className="p-3">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <span className="text-sm font-medium text-muted-foreground">⚠️ Cảnh Báo</span>
@@ -83,10 +83,10 @@ export function DashboardSimple() {
 
       {/* CHUYẾN TIẾP THEO - NỔIBẬT */}
       <div>
-        <h2 className="mb-4 text-lg font-semibold text-foreground">Chuyến Tiếp Theo</h2>
+        <h2 className="mb-2 text-sm font-bold uppercase tracking-wider text-muted-foreground">Chuyến Tiếp Theo</h2>
         {recentTrips && recentTrips.length > 0 ? (
           <Card className="border-2 border-primary/50 bg-gradient-to-r from-primary/5 to-primary/10 dark:from-primary/10 dark:to-primary/5">
-            <CardContent className="pt-6">
+            <CardContent className="p-4">
               <div className="space-y-4">
                 {/* Trip Header */}
                 <div className="flex items-start justify-between">
