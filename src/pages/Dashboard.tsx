@@ -52,30 +52,26 @@ export default function Dashboard() {
       />
 
       {isDemoMode && (
-        <Card className="border-amber-300 bg-amber-50/70 shadow-sm animate-in fade-in slide-in-from-top-4 duration-500">
-          <CardContent className="py-5 space-y-4">
-            <div className="flex items-start gap-4">
-              <div className="p-2 bg-amber-100 rounded-full text-amber-600">
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        <Card className="border-amber-200 bg-amber-50/30 shadow-sm overflow-hidden mb-4">
+          <CardContent className="p-3">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-amber-100 rounded-full text-amber-600 shrink-0">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                </div>
+                <div>
+                  <div className="text-sm font-bold text-amber-900 leading-none mb-1">Chế độ Trải nghiệm (Demo Only)</div>
+                  <p className="text-xs text-amber-800 leading-tight opacity-90">
+                    Không gian dùng chung. 💡 Để dùng <b>Dữ liệu thật</b> hãy thoát ra và "Tạo tài khoản mới".
+                  </p>
+                </div>
               </div>
-              <div className="space-y-1">
-                <div className="text-base font-bold text-amber-900">Chế độ Trải nghiệm (Demo Data Only)</div>
-                <p className="text-sm text-amber-800 leading-relaxed">
-                  Đây là không gian dùng chung với dữ liệu mẫu đầy đủ để anh/chị tham quan toàn bộ tính năng trên PC & Mobile.
-                </p>
-              </div>
-            </div>
-
-            <div className="bg-white/60 p-4 rounded-lg border border-amber-200/50 space-y-3">
-              <p className="text-sm font-medium text-slate-700 italic">
-                💡 Để sử dụng <b>Dữ liệu thật</b> cho đội xe của công ty bạn (miễn phí 14 ngày, đầy đủ tính năng), 
-                vui lòng thoát ra và chọn <b>"Tạo tài khoản mới"</b>.
-              </p>
               
-              <div className="flex flex-wrap gap-3">
+              <div className="flex items-center gap-2">
                 <Button
+                  size="sm"
                   variant="outline"
-                  className="bg-white border-amber-300 hover:bg-amber-100 text-amber-700"
+                  className="h-8 bg-white border-amber-300 hover:bg-amber-100 text-amber-700 text-xs px-3"
                   onClick={async () => {
                     if (!tenantId) return;
                     const res = await dataAdapter.auth.ensureTenantDemoReadiness({
@@ -85,22 +81,22 @@ export default function Dashboard() {
                       full_name: user?.full_name || '',
                       uid: userId || '',
                     });
-
                     if (res?.success) {
-                      toast({ title: '✅ Dữ liệu mẫu đã sẵn sàng', description: 'Đã kiểm tra và nạp dữ liệu demo đầy đủ.' });
+                      toast({ title: '✅ Dữ liệu mẫu đã sẵn sàng', description: 'Đã nạp dữ liệu chuẩn logic logistics.' });
                     }
                   }}
                 >
-                  <svg className="mr-2 h-4 w-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
-                  Tải lại dữ liệu mẫu (Reset Demo)
+                  <svg className="mr-1.5 h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+                  Reset Demo
                 </Button>
 
                 <Button
+                  size="sm"
                   variant="ghost"
-                  className="text-primary font-semibold hover:bg-primary/5"
+                  className="h-8 text-primary font-semibold hover:bg-primary/5 text-xs px-2"
                   onClick={() => window.location.href = '/auth?tab=register'}
                 >
-                  Đăng ký công ty mới (Thử thật 14 ngày) →
+                  Thử thật 14 ngày →
                 </Button>
               </div>
             </div>
