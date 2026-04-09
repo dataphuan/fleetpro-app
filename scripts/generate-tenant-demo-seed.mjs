@@ -415,43 +415,11 @@ const expenseCategories = Array.from(categoryCodeByName.entries()).map(([name, c
 }));
 
 const tripByCode = new Map(trips.map((t) => [t.trip_code, t]));
-const expenses = rawExpenses
-  .map((r, idx) => {
-    const code = toText(r['Mã phiếu']);
-    if (!code) return null;
-    const plate = toText(r['Biển số xe']);
-    const matchedTrip = Array.from(tripByCode.values()).find((t) => t.vehicle_id === (vehicleByPlate.get(plate) || '') && t.departure_date === toIsoDate(r['Ngày chi']));
-    const categoryName = toText(r['Loại chi phí']) || classifyExpenseTypeByKeyword(`${toText(r['Diễn giải'])} ${toText(r['Tên chi phí'])}`);
-    let categoryCode = categoryCodeByName.get(categoryName);
-    
-    // Fallback category if not found
-    if (!categoryCode) {
-      categoryCode = categoryCodeByName.values().next().value;
-    }
 
-    const fallbackTrip = matchedTrip || trips[idx % Math.max(trips.length, 1)];
-    return {
-      id: code,
-      expense_code: code,
-      expense_date: toIsoDate(r['Ngày chi']) || new Date().toISOString().slice(0, 10),
-      category_id: categoryCode,
-      trip_id: matchedTrip?.id || fallbackTrip?.id,
-      vehicle_id: vehicleByPlate.get(plate) || fallbackTrip?.vehicle_id,
-      description: toText(r['Diễn giải']) || categoryName,
-      amount: toNum(r['Số tiền']) || 0,
-      status: statusMap(r['Trạng thái'], {
-        draft: 'draft',
-        'nháp': 'draft',
-        confirmed: 'confirmed',
-        'đã duyệt': 'confirmed',
-        approved: 'confirmed',
-        cancelled: 'cancelled',
-        'đã hủy': 'cancelled',
-      }, 'confirmed'),
-    };
+
 // --- SỬA LỖI TẬN GỐC (ROOT CAUSE LOGIC) ---
-// Thay vì dùng "mẹo" giảm tỷ lệ tiền, chúng ta xây dựng chính xác các khoản Chi Phí
-// bám sát theo THỰC TẾ VẬN HÀNH của từng Chuyến (Trips) và Định Mức Tuyến (Routes).
+// Định hình lại các khoản Chi Phí bám sát theo THỰC TẾ VẬN HÀNH 
+// của từng Chuyến (Trips) và Định Mức Tuyến (Routes) do phần mềm định nghĩa.
 const realisticExpenses = [];
 let expIndex = 1;
 
@@ -463,12 +431,11 @@ trips.forEach(trip => {
   const date = trip.departure_date;
   const vid = trip.vehicle_id;
 
-  // Lấy định mức chuẩn từ Tuyến, nếu không có thì tự tính logic
+  // Lấy định mức chuẩn từ Tuyến
   const fuelCost = route.fuel_cost_standard || (route.distance_km * Math.max(1, trip.cargo_weight_tons) * 450);
   const tollCost = route.toll_cost || (route.distance_km * 200);
   const driverWage = route.driver_allowance_standard || (trip.total_revenue * 0.08);
 
-  // Tạo phiếu chi Tiền Dầu
   if (fuelCost > 0) {
     realisticExpenses.push({
       id: `EXP_F_${expIndex++}`,
@@ -483,7 +450,6 @@ trips.forEach(trip => {
     });
   }
 
-  // Tạo phiếu chi Cầu Đường
   if (tollCost > 0) {
     realisticExpenses.push({
       id: `EXP_T_${expIndex++}`,
@@ -498,7 +464,6 @@ trips.forEach(trip => {
     });
   }
 
-  // Tạo phiếu chi Lương tài xế (Nhân công chuyến)
   if (driverWage > 0) {
     realisticExpenses.push({
       id: `EXP_W_${expIndex++}`,
@@ -506,17 +471,16 @@ trips.forEach(trip => {
       expense_date: date,
       category_id: categoryCodeByName.get('Nhân công') || 'CAT003',
       trip_id: trip.id,
-      vehicle_id: vid, // Có thể null
-      description: `Lương chuyến ${trip.trip_code}`,
+      vehicle_id: vid,
+      description: `Lương MT chuyến ${trip.trip_code}`,
       amount: driverWage,
       status: 'confirmed'
     });
   }
 });
 
-// 2. Phân bổ Chi phí Mảng Xe (Fixed Costs theo tháng: Gửi xe, Đăng kiểm, Khấu hao)
+// 2. Phân bổ Chi phí Mảng Xe (Fixed Costs theo tháng)
 vehicles.forEach(vehicle => {
-  // Phí bãi gửi xe hàng tháng
   realisticExpenses.push({
     id: `EXP_V_${expIndex++}`,
     expense_code: `CPX${String(expIndex).padStart(5, '0')}`,
