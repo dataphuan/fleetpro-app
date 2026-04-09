@@ -38,13 +38,13 @@ export function ReportByProfitTable() {
             description: `${summary?.totalTrips || 0} chuyến`
         },
         {
-            title: "Chi phí đã xác nhận",
+            title: "Tổng chi phí",
             value: summary?.totalConfirmedExpense || 0,
             icon: TrendingDown,
             isCurrency: true,
             color: "text-red-600",
             bgColor: "bg-red-50",
-            description: `${summary?.totalExpenses || 0} khoản`
+            description: `${summary?.totalExpenses || 0} khoản chi thực tế`
         },
         {
             title: "Lợi nhuận",
@@ -101,7 +101,7 @@ export function ReportByProfitTable() {
         },
         {
             id: "confirmed_expense",
-            label: "Chi phí xác nhận",
+            label: "Tổng chi phí",
             align: "right",
             width: "180px",
             render: (row) => <span className="font-medium text-red-600">{formatCurrency(row.confirmed_expense)}</span>,

@@ -502,9 +502,9 @@ export const useProfitReport = (filters: ReportFilters) => {
             const fromDate = filters.dateRange?.from;
             const toDate = filters.dateRange?.to;
 
-            // Only confirmed expenses in period
-            const confirmedExpenses = allExpenses.filter((e: any) => {
-                if (e.status !== 'confirmed') return false;
+            // Include all active expenses (confirmed + draft/pending) for real-time demo impact
+            const activeExpenses = allExpenses.filter((e: any) => {
+                if (e.status === 'cancelled' || e.is_deleted === 1) return false;
                 if (!e.expense_date) return false;
                 const d = new Date(e.expense_date);
                 if (fromDate && d < fromDate) return false;
@@ -530,7 +530,7 @@ export const useProfitReport = (filters: ReportFilters) => {
                 periodMap.set(period, curr);
             });
 
-            confirmedExpenses.forEach((e: any) => {
+            activeExpenses.forEach((e: any) => {
                 const date = e.expense_date;
                 if (!date) return;
                 const period = date.substring(0, 7);

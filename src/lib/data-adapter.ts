@@ -2310,8 +2310,13 @@ const webDataAdapters: Record<string, any> = {
                 const uid = userCredential.user.uid;
 
                 // 2. Generate a unique tenant_id (standard SaaS provisioning)
-                const shortId = Math.random().toString(36).substring(2, 10);
-                const tenantId = `tenant-${shortId}`;
+                const slugifiedName = payload.company_name ? payload.company_name.toString().toLowerCase()
+                    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+                    .replace(/đ/g, 'd')
+                    .replace(/[^a-z0-9]+/g, '-')
+                    .replace(/(^-|-$)/g, '') : 'company';
+                const shortId = Math.random().toString(36).substring(2, 6); // Add 4 random chars to ensure uniqueness
+                const tenantId = `tenant-${slugifiedName}-${shortId}`;
 
                 // 3. Create Firestore user document (Admin for the new tenant)
                 await setDoc(doc(db, 'users', uid), {

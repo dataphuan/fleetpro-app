@@ -7,6 +7,7 @@ import { getCalApi } from "@calcom/embed-react";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import { useToast } from "@/hooks/use-toast";
 import { companySettingsAdapter } from "@/lib/data-adapter";
+import { Link } from "react-router-dom";
 
 export default function Pricing() {
     const { tenantId } = useAuth();
@@ -45,10 +46,10 @@ export default function Pricing() {
     
     // Default bank info for payments
     const bankInfo = {
-        bankName: "MB Bank (Ngân hàng Quân Đội)",
-        accountNumber: "099999999999",
-        accountName: "CONG TY CP CONG NGHE FLEETPRO",
-        branch: "Hà Nội"
+        bankName: "Techcombank (NH TMCP Kỹ Thương VN)",
+        accountNumber: "8486 5686 66",
+        accountName: "TRAN NGOC CHUYEN",
+        branch: ""
     };
 
     const handleUpgradeSuccess = async (details: any) => {
@@ -302,10 +303,10 @@ export default function Pricing() {
                             variant="default" 
                             className="w-full bg-amber-600 hover:bg-amber-700 text-white"
                             data-cal-namespace=""
-                            data-cal-link={import.meta.env.VITE_CAL_EVENT_PATH}
+                            data-cal-link="fleetpro-app/30min"
                             data-cal-config='{"layout":"month_view"}'
                         >
-                            <Building2 className="w-4 h-4 mr-2" /> Liên Hệ Tư Vấn Ngay
+                            <Building2 className="w-4 h-4 mr-2" /> Đặt Hẹn Tư Vấn (30 phút)
                         </Button>
                     </CardFooter>
                 </Card>
@@ -317,36 +318,32 @@ export default function Pricing() {
                      <ShieldCheck className="h-8 w-8 text-slate-400" />
                 </div>
                 <p>Hệ thống Đạt chuẩn an toàn bảo mật cấp cao. Thanh toán được SSL mã hóa 100%.</p>
-                <div className="mt-4 p-4 bg-muted/50 rounded-lg max-w-xl mx-auto border flex flex-col items-center gap-2">
-                    <p className="font-semibold text-slate-700">Thông tin chuyển khoản Ngân hàng</p>
-                    <p>{bankInfo.accountName} - STK: <span className="font-mono font-bold text-black">{bankInfo.accountNumber}</span></p>
-                    <p>Ngân hàng: {bankInfo.bankName}</p>
+                <div className="mt-4 p-4 bg-muted/50 rounded-lg max-w-xl mx-auto border flex flex-col md:flex-row items-center gap-6">
+                    <img 
+                        src={`https://img.vietqr.io/image/TCB-8486568666-compact2.png?amount=567000&addInfo=FleetPro%20${tenantId}&accountName=TRAN%20NGOC%20CHUYEN`} 
+                        alt="QR Code Thanh Toán" 
+                        className="w-48 h-48 bg-white p-2 rounded-lg shadow-sm border"
+                    />
+                    <div className="flex flex-col items-center md:items-start text-center md:text-left gap-2">
+                        <p className="font-semibold text-slate-700 text-lg">Thông tin chuyển khoản Ngân hàng</p>
+                        <p className="text-slate-600">👤 Tên TK: <span className="font-bold text-black uppercase">{bankInfo.accountName}</span></p>
+                        <p className="text-slate-600">🏦 Số TK: <span className="font-mono text-xl font-bold text-blue-600">{bankInfo.accountNumber}</span></p>
+                        <p className="text-slate-600">🏛️ Ngân hàng: <span className="font-medium text-black">{bankInfo.bankName}</span></p>
+                        <p className="text-sm text-amber-600 mt-2 bg-amber-50 p-2 rounded w-full border border-amber-100">
+                            💡 Sau khi quét mã CK, vui lòng chụp màn hình gửi Zalo Admin (0989.890.022) để được kích hoạt VIP lập tức.
+                        </p>
+                    </div>
                 </div>
 
                 <div className="my-10 flex flex-wrap gap-4 justify-center">
                     <Button variant="outline" className="gap-2 border-blue-500 text-blue-600 hover:bg-blue-50" asChild>
-                        <a href={import.meta.env.VITE_SUPPORT_ZALO_GROUP} target="_blank" rel="noreferrer">
-                            <MessageCircle className="w-4 h-4" /> Group Zalo Hỗ Trợ
+                        <a href="https://zalo.me/0989890022" target="_blank" rel="noreferrer">
+                            <MessageCircle className="w-4 h-4" /> Liên hệ Admin (Zalo/Viber)
                         </a>
                     </Button>
-                    <Button variant="outline" className="gap-2 border-indigo-500 text-indigo-600 hover:bg-indigo-50" asChild>
-                        <a href={import.meta.env.VITE_SUPPORT_FACEBOOK_GROUP} target="_blank" rel="noreferrer">
-                            <MessageCircle className="w-4 h-4" /> Group Facebook Hỗ Trợ
-                        </a>
-                    </Button>
-                    <Button variant="outline" className="gap-2 border-green-500 text-green-600 hover:bg-green-50" asChild>
-                        <a href={import.meta.env.VITE_SUPPORT_WHATSAPP_GROUP} target="_blank" rel="noreferrer">
-                            <MessageCircle className="w-4 h-4" /> Group WhatsApp Hỗ Trợ
-                        </a>
-                    </Button>
-                    <Button variant="outline" className="gap-2 border-blue-500 text-blue-600 hover:bg-blue-50" asChild>
-                        <a href={import.meta.env.VITE_SUPPORT_ZALO_ADMIN} target="_blank" rel="noreferrer">
-                            <MessageCircle className="w-4 h-4" /> Chat trực tiếp CSKH (Zalo)
-                        </a>
-                    </Button>
-                    <Button variant="outline" className="gap-2 border-sky-500 text-sky-600 hover:bg-sky-50" asChild>
-                        <a href={import.meta.env.VITE_SUPPORT_TELEGRAM} target="_blank" rel="noreferrer">
-                            <MessageCircle className="w-4 h-4" /> Liên hệ Telegram
+                    <Button variant="outline" className="gap-2 border-slate-500 text-slate-700 hover:bg-slate-50" asChild>
+                        <a href="mailto:contact@tnc.io.vn">
+                            <MessageCircle className="w-4 h-4" /> Email: contact@tnc.io.vn
                         </a>
                     </Button>
                 </div>
