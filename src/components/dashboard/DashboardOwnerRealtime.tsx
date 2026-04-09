@@ -5,7 +5,19 @@ import { useVehicles } from '@/hooks/useVehicles';
 import { useTrips } from '@/hooks/useTrips';
 import { useExpenses } from '@/hooks/useExpenses';
 import { useAlertsSummary } from '@/hooks/useAlerts';
-import { AlertTriangle, Circle, Truck, Wallet } from 'lucide-react';
+import { AlertTriangle, Circle, Truck, Wallet, Sparkles, TrendingUp, Info } from 'lucide-react';
+
+const AIInsightCard = ({ icon: Icon, title, message, colorClass }: { icon: any, title: string, message: string, colorClass: string }) => (
+    <div className={`flex items-start gap-3 p-3 rounded-xl border ${colorClass} bg-white/50 backdrop-blur-sm transition-all hover:shadow-md`}>
+        <div className="mt-0.5">
+            <Icon className="h-5 w-5" />
+        </div>
+        <div>
+            <p className="text-xs font-bold uppercase tracking-tight opacity-70">{title}</p>
+            <p className="text-sm font-medium leading-snug">{message}</p>
+        </div>
+    </div>
+);
 
 const toDateKey = (value: Date) => value.toISOString().slice(0, 10);
 
@@ -125,6 +137,61 @@ export function DashboardOwnerRealtime() {
       .slice(0, 20);
   }, [trips, expenses]);
 
+  const aiInsights = useMemo(() => {
+    const insights: Array<{ icon: any; title: string; message: string; colorClass: string }> = [];
+
+    // 1. Expiration Insights (from seeded data)
+    const expiringSoon = vehicles.filter((v: any) => {
+        const days = Math.min(
+            daysLeft(v.insurance_civil_expiry || v.insurance_expiry_civil),
+            daysLeft(v.inspection_expiry_date || v.registration_expiry_date)
+        );
+        return days >= 0 && days <= 7;
+    });
+    if (expiringSoon.length > 0) {
+        insights.push({
+            icon: AlertTriangle,
+            title: 'Hết hạn giấy tờ',
+            message: `Phát hiện ${expiringSoon.length} xe (${expiringSoon.map((v: any) => v.license_plate).join(', ')}) sắp hết hạn đăng kiểm/bảo hiểm trong tuần này.`,
+            colorClass: 'border-red-200 text-red-700 bg-red-50'
+        });
+    }
+
+    // 2. High Cost Insights (Logic based on seeded Premium cost data)
+    const highCostVehicles = vehicles.filter((v: any) => expenseTodayByVehicle.get(v.id) || 0 > 2000000);
+    if (highCostVehicles.length > 0) {
+        insights.push({
+            icon: TrendingUp,
+            title: 'Cảnh báo chi phí',
+            message: `Xe ${highCostVehicles[0].license_plate} đang có chi phí vận hành cao đột biến trong ngày (>2tr VND).`,
+            colorClass: 'border-amber-200 text-amber-700 bg-amber-50'
+        });
+    }
+
+    // 3. Efficiency Insights
+    if (runningTrips > 0) {
+        insights.push({
+            icon: Sparkles,
+            title: 'Hiệu suất vận hành',
+            message: `Hệ thống đang điều phối ${runningTrips} chuyến đi đồng thời. Tỉ lệ xe trống lệnh hiện tại là ${Math.round(((vehicles.length - runningTrips) / vehicles.length) * 100)}%.`,
+            colorClass: 'border-blue-200 text-blue-700 bg-blue-50'
+        });
+    }
+
+    // 4. Maintenance Insight
+    const inMaintenance = vehicles.filter((v: any) => v.status === 'maintenance');
+    if (inMaintenance.length > 0) {
+        insights.push({
+            icon: Info,
+            title: 'Bảo trì định kỳ',
+            message: `${inMaintenance.length} xe đang nằm bãi bảo dưỡng, cần đôn đốc giải phóng xe để nhận lệnh mới.`,
+            colorClass: 'border-slate-200 text-slate-700 bg-slate-50'
+        });
+    }
+
+    return insights;
+  }, [vehicles, runningTrips, expenseTodayByVehicle]);
+
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -157,6 +224,27 @@ export function DashboardOwnerRealtime() {
           </CardContent>
         </Card>
       </div>
+      
+      {/* AI OPERATING INSIGHTS - WOW FACTOR FOR CEO */}
+      <Card className="border-indigo-100 bg-gradient-to-br from-indigo-50/50 via-white to-purple-50/30">
+        <CardHeader className="pb-3">
+            <CardTitle className="text-sm font-bold flex items-center gap-2 text-indigo-800">
+                <Sparkles className="h-4 w-4 fill-indigo-500 text-indigo-500" />
+                Trợ Lý AI Phân Tích (Live Insights)
+            </CardTitle>
+        </CardHeader>
+        <CardContent>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {aiInsights.length > 0 ? aiInsights.map((insight, idx) => (
+                    <AIInsightCard key={idx} {...insight} />
+                )) : (
+                    <div className="col-span-2 text-center py-4 text-xs text-muted-foreground italic">
+                        Đang quét dữ liệu hoạt động để đưa ra phân tích...
+                    </div>
+                )}
+            </div>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-3">
         <div className="xl:col-span-2">

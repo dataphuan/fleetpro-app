@@ -1510,9 +1510,13 @@ const normalizeSeedRows = (rowsByCollection: Record<string, Array<Record<string,
         route.support_fee_standard = route.support_fee_standard ?? Math.round((route.transport_revenue_standard || 0) * 0.03);
         route.police_fee_standard = route.police_fee_standard ?? 120000;
         route.fuel_liters_standard = route.fuel_liters_standard ?? route.fuel_liters ?? 0;
-        route.fuel_cost_standard = route.fuel_cost_standard ?? route.fuel_cost ?? 0;
+        
+        // AUDIT FIX: Ensure realistic profit margin (15-25%)
+        const estimatedRevenue = route.transport_revenue_standard || 10000000;
+        route.fuel_cost_standard = route.fuel_cost_standard ?? Math.round(estimatedRevenue * 0.35); // 35% fuel cost
+        route.toll_cost = route.toll_cost ?? Math.round(estimatedRevenue * 0.10); // 10% toll
+        
         route.tire_service_fee_standard = route.tire_service_fee_standard ?? 80000;
-        route.toll_cost = route.toll_cost ?? 0;
         route.default_extra_fee = route.default_extra_fee ?? route.other_cost ?? 100000;
         route.total_cost_standard = route.total_cost_standard ?? (
             (route.driver_allowance_standard || 0)
@@ -1793,7 +1797,7 @@ const seedNewTenantDemoData = async (options: TenantSeedOptions) => {
     }
 
     const allCollections = Object.entries(seedRowsByCollection).map(([collectionName, rows]) => {
-        const mappedRows = rows.map((row) => {
+        const mappedRows = rows.map((row, idx) => {
             const sourceId = String(row.id || row.record_id || `${collectionName}_${Math.random().toString(36).slice(2, 8)}`);
             const payload = { ...row };
             delete payload.id;
@@ -1806,6 +1810,20 @@ const seedNewTenantDemoData = async (options: TenantSeedOptions) => {
                 const [localPart] = payload.email.split('@');
                 payload.email = `${localPart}+${tenantId}@fleetpro.vn`;
                 payload.company_name = companyName;
+            }
+
+            if (collectionName === 'vehicles') {
+                const expiringVehicleIdx = 3; // XE0004
+                if (idx === expiringVehicleIdx) {
+                    // Set some dates to expire VERY soon (within 3-5 days) to trigger CEO alerts
+                    const soon = new Date();
+                    soon.setDate(soon.getDate() + 4);
+                    const soonIso = soon.toISOString().slice(0, 10);
+                    payload.insurance_expiry_date = soonIso;
+                    payload.registration_expiry_date = soonIso;
+                    payload.inspection_expiry_date = soonIso;
+                    payload.notes = '⚠️ Cần bảo trì và đăng kiểm gấp (Dữ liệu Demo thực tế)';
+                }
             }
 
             if (collectionName === 'companySettings') {

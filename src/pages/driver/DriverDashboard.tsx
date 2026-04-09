@@ -1663,26 +1663,34 @@ export default function DriverDashboard() {
                             <span className="font-medium">{trip.cargo_description || "N/A"} - {trip.cargo_weight_tons || 0} Tấn</span>
                         </div>
 
-                        {/* Quick Action Grid - One Page Experience FUNNEL */}
+                        {/* Quick Action Grid - Condensed & Professional */}
                         <div className="mt-4 border-t pt-4">
-                            <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Thao Tác Nhanh</h4>
-                            <div className="grid grid-cols-4 gap-2">
-                                <Link to="/driver/menu" className="flex flex-col items-center justify-center min-h-[64px] py-2 w-full bg-blue-50 border border-blue-100/50 rounded-xl text-blue-700 shadow-sm active:scale-95 transition-transform">
-                                    <CheckSquare className="w-5 h-5 mb-1" />
+                            <div className="grid grid-cols-4 gap-3">
+                                <Link to="/driver/menu" className="flex flex-col items-center justify-center p-2 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-700 shadow-sm active:scale-95 transition-all">
+                                    <CheckSquare className="w-6 h-6 mb-1" />
                                     <span className="text-[10px] font-bold">Nhận Xe</span>
                                 </Link>
-                                <Link to="/driver/menu" className="flex flex-col items-center justify-center min-h-[64px] py-2 w-full bg-blue-50 border border-blue-100/50 rounded-xl text-blue-700 shadow-sm active:scale-95 transition-transform">
-                                    <MapPin className="w-5 h-5 mb-1" />
-                                    <span className="text-[10px] font-bold">Check-in</span>
-                                </Link>
-                                <Link to="/driver/menu" className="flex flex-col items-center justify-center min-h-[64px] py-2 w-full bg-blue-50 border border-blue-100/50 rounded-xl text-blue-700 shadow-sm active:scale-95 transition-transform">
-                                    <FileText className="w-5 h-5 mb-1" />
+                                <button 
+                                    onClick={() => {
+                                        if (trip.customer?.address) {
+                                            window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(trip.customer.address)}`, '_blank');
+                                        } else {
+                                            toast({ title: 'Thiếu địa chỉ', description: 'Khách hàng này chưa có địa chỉ cập nhật.' });
+                                        }
+                                    }}
+                                    className="flex flex-col items-center justify-center p-2 rounded-xl bg-sky-50 border border-sky-100 text-sky-700 shadow-sm active:scale-95 transition-all"
+                                >
+                                    <Navigation className="w-6 h-6 mb-1" />
+                                    <span className="text-[10px] font-bold">Dẫn Đường</span>
+                                </button>
+                                <Link to="/driver/menu" className="flex flex-col items-center justify-center p-2 rounded-xl bg-violet-50 border border-violet-100 text-violet-700 shadow-sm active:scale-95 transition-all">
+                                    <FileText className="w-6 h-6 mb-1" />
                                     <span className="text-[10px] font-bold">Giấy Tờ</span>
                                 </Link>
-                                <Link to="/driver/menu" className="flex flex-col items-center justify-center min-h-[64px] py-2 w-full border rounded-xl shadow-sm text-slate-500 active:scale-95 transition-transform cursor-not-allowed opacity-70">
-                                    <FlagOff className="w-5 h-5 mb-1" />
-                                    <span className="text-[10px] font-bold">Kết Thúc</span>
-                                </Link>
+                                <div className="flex flex-col items-center justify-center p-2 rounded-xl bg-slate-50 border border-slate-100 text-slate-400 shadow-sm opacity-50">
+                                    <Camera className="w-6 h-6 mb-1" />
+                                    <span className="text-[10px] font-bold">Sự Cố</span>
+                                </div>
                             </div>
                         </div>
 
@@ -2009,36 +2017,33 @@ export default function DriverDashboard() {
                     <CardFooter className="pt-2">
                         {!isDriverRole ? (
                             <div className="w-full text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-md p-2">
-                                Chế độ xem cho vai trò không phải tài xế: không hiển thị thao tác bắt đầu/chốt chuyến/tải biên nhận/báo sự cố.
+                                Chế độ xem: các thao tác thực thi hành trình đã bị ẩn.
                             </div>
                         ) : trip.status === 'in_progress' ? (
                             <div className="flex gap-2 w-full">
-                                <Button className="w-full bg-green-600 hover:bg-green-700 font-bold py-6 text-lg" disabled={isUpdating || tripInputs[trip.id]?.isUploading} onClick={() => handleFinishTripWithSignature(trip)}>
-                                    <CheckCircle2 className="w-5 h-5 mr-3" /> CHỐT CHUYẾN & KÝ NHẬN
-                                </Button>
-                                <Button variant="destructive" size="icon" disabled={isUpdating || !FEATURE_GATES.incidentReport || incidentStateByTrip[trip.id] === 'loading'} onClick={() => handleReportIncident(trip)}>
-                                    <AlertTriangle className="w-4 h-4" />
+                                <Button className="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 font-extrabold py-7 text-xl shadow-lg shadow-emerald-200 animate-pulse-slow" disabled={isUpdating || tripInputs[trip.id]?.isUploading} onClick={() => handleFinishTripWithSignature(trip)}>
+                                    <CheckCircle2 className="w-6 h-6 mr-3" /> CHỐT CHUYẾN & KÝ NHẬN
                                 </Button>
                             </div>
                         ) : (
                             trip.status === 'dispatched' && !trip.accepted_at && !trip.accepted_by ? (
                                 <Button
-                                    className="w-full bg-amber-500 hover:bg-amber-600 text-lg py-6"
+                                    className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-xl font-extrabold py-7 shadow-lg shadow-orange-200 animate-pulse-slow"
                                     onClick={() => handleAcceptTrip(trip)}
                                     disabled={isUpdating}
                                 >
-                                    <CheckCircle2 className="w-5 h-5 mr-2" /> NHẬN CHUYẾN
+                                    <CheckCircle2 className="w-6 h-6 mr-3" /> NHẬN CHUYẾN
                                 </Button>
                             ) : (
                                 <Button 
-                                    className="w-full bg-blue-600 hover:bg-blue-700 text-lg py-6" 
+                                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-xl font-extrabold py-7 shadow-lg shadow-blue-200" 
                                     onClick={() => handleStartTrip(trip)}
                                     disabled={isUpdating || isCheckingInTripId === trip.id || !infoConfirmed || !isPrecheckComplete(trip.id)}
                                 >
                                     {isCheckingInTripId === trip.id ? (
-                                        <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> DANG CHECK-IN GPS...</>
+                                        <><Loader2 className="w-6 h-6 mr-3 animate-spin" /> ĐANG CHECK-IN GPS...</>
                                     ) : (
-                                        <><Play className="w-5 h-5 mr-2" /> CHECK-IN & BAT DAU CHAY</>
+                                        <><Play className="w-6 h-6 mr-3" /> BẮT ĐẦU CHẠY</>
                                     )}
                                 </Button>
                             )
