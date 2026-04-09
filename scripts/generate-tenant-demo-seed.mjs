@@ -65,6 +65,26 @@ const addDays = (isoDate, days) => {
   return dt.toISOString().slice(0, 10);
 };
 
+const getRandomPhone = () => {
+    const prefixes = ['090', '091', '098', '097', '093', '035', '038'];
+    const prefix = prefixes[Math.floor(Math.random() * prefixes.length)];
+    const suffix = Math.floor(1000000 + Math.random() * 9000000).toString();
+    return `${prefix}${suffix}`;
+};
+
+const getRandomAddress = (cityHint = 'TP.HCM') => {
+    const streets = ['Lê Lợi', 'Nguyễn Huệ', 'Trần Hưng Đạo', 'Cách Mạng Tháng 8', 'Lý Tự Trọng', 'Hai Bà Trưng', 'Phan Xích Long'];
+    const wards = ['Phường 1', 'Phường Bến Thành', 'Phường Đa Kao', 'Phường 15', 'Phường 5'];
+    const districts = ['Quận 1', 'Quận 3', 'Quận Phú Nhuận', 'Quận Tân Bình', 'Quận Bình Thạnh'];
+    
+    const street = streets[Math.floor(Math.random() * streets.length)];
+    const num = Math.floor(1 + Math.random() * 500);
+    const ward = wards[Math.floor(Math.random() * wards.length)];
+    const dist = districts[Math.floor(Math.random() * districts.length)];
+    
+    return `${num} ${street}, ${ward}, ${dist}, ${cityHint}`;
+};
+
 const classifyExpenseTypeByKeyword = (text) => {
   const s = toText(text).toLowerCase();
   if (s.includes('dầu') || s.includes('nhiên liệu') || s.includes('xăng')) return 'Nhiên liệu';
@@ -140,7 +160,7 @@ const vehicles = rawVehicles
   .filter(Boolean);
 
 vehicles.forEach((v, idx) => {
-  const fallbackInsurancePurchase = addDays('2025-01-01', idx * 3);
+  const fallbackInsurancePurchase = addDays('2025-06-01', idx * 5); // Shifted forward
   const fallbackInsuranceExpiry = addDays(fallbackInsurancePurchase, 365);
   const fallbackRegistrationDate = addDays('2026-01-15', idx * 7);
   const fallbackRegistrationExpiry = addDays(fallbackRegistrationDate, 180);
@@ -160,7 +180,9 @@ vehicles.forEach((v, idx) => {
   v.registration_expiry_date = v.registration_expiry_date || fallbackRegistrationExpiry;
   v.inspection_expiry_date = v.inspection_expiry_date || v.registration_expiry_date;
   v.registration_cost = typeof v.registration_cost === 'number' ? v.registration_cost : 350000;
-  v.current_location = v.current_location || 'Bãi xe TP.HCM';
+  
+  const hubs = ['Bãi xe Quận 12, TP.HCM', 'Bãi xe Sóng Thần, Bình Dương', 'Bãi xe Warehouse, Đồng Nai', 'VP Đại diện TP.HCM'];
+  v.current_location = v.current_location || hubs[idx % hubs.length];
 });
 
 const drivers = rawDrivers
@@ -207,16 +229,18 @@ const drivers = rawDrivers
   .filter(Boolean);
 
 drivers.forEach((driver, idx) => {
-  const fallbackDob = addDays('1988-01-01', idx * 170);
-  const fallbackHireDate = addDays('2023-01-01', idx * 30);
+  const fallbackDob = addDays('1985-01-01', idx * 210);
+  const fallbackHireDate = addDays('2022-01-01', idx * 45);
 
   driver.date_of_birth = driver.date_of_birth || fallbackDob;
   driver.birth_date = driver.birth_date || driver.date_of_birth;
   driver.hire_date = driver.hire_date || fallbackHireDate;
-  driver.license_issue_date = driver.license_issue_date || addDays(driver.hire_date, -180);
+  driver.license_issue_date = driver.license_issue_date || addDays(driver.hire_date, -365);
   driver.tax_code = driver.tax_code || `0${String(100000000 + idx).slice(-9)}`;
   driver.id_card = driver.id_card || `0790${String(100000 + idx).padStart(6, '0')}`;
   driver.id_issue_date = driver.id_issue_date || addDays(driver.date_of_birth, 6570);
+  driver.phone = driver.phone || getRandomPhone();
+  driver.address = driver.address || getRandomAddress();
   driver.contract_type = driver.contract_type || 'toan_thoi_gian';
 
   if (!driver.assigned_vehicle_id) {
@@ -225,7 +249,7 @@ drivers.forEach((driver, idx) => {
 });
 
 const customers = rawCustomers
-  .map((r) => {
+  .map((r, idx) => {
     const code = toText(r['Mã KH']);
     if (!code) return null;
     const customerName = toText(r['Tên khách hàng']);
@@ -241,15 +265,15 @@ const customers = rawCustomers
         business: 'business',
         individual: 'individual',
       }, 'business'),
-      tax_code: toText(r['MST']) || undefined,
-      contact_person: toText(r['Người liên hệ']) || undefined,
-      phone: toText(r['Điện thoại']) || undefined,
-      email: toText(r['Email']) || undefined,
-      address: toText(r['Địa chỉ']) || undefined,
-      credit_limit: toNum(r['Hạn mức công nợ']) || 0,
+      tax_code: toText(r['MST']) || `0${310000000 + idx}`,
+      contact_person: toText(r['Người liên hệ']) || `GĐ. ${customerName.split(' ')[0]}`,
+      phone: toText(r['Điện thoại']) || getRandomPhone(),
+      email: toText(r['Email']) || `contact@${customerName.toLowerCase().replace(/[^a-z]/g, '')}.com.vn`,
+      address: toText(r['Địa chỉ']) || getRandomAddress(),
+      credit_limit: toNum(r['Hạn mức công nợ']) || 50000000 + (idx * 10000000),
       current_debt: toNum(r['Công nợ hiện tại']) || 0,
-      payment_terms: toNum(r['Hạn TT (ngày)']) || undefined,
-      notes: toText(r['Ghi chú']) || undefined,
+      payment_terms: toNum(r['Hạn TT (ngày)']) || 30,
+      notes: toText(r['Ghi chú']) || 'Khách hàng đối tác chiến lược',
       status: statusMap(r['Trạng thái KH'], {
         active: 'active',
         'đang hoạt động': 'active',
@@ -359,6 +383,11 @@ const trips = rawTrips
     const driverName = toText(r['Tài xế']);
     const customerName = toText(r['Khách hàng']);
     const routeName = toText(r['Tuyến đường']);
+    
+    // Force all dates to April 2026 for a "fresh" demo feel
+    let originalDate = toIsoDate(r['Ngày đi']) || '2026-04-01';
+    let AprilDate = originalDate.replace(/-\d{2}-/, '-04-').replace(/^\d{4}/, '2026');
+
     return {
       id: code,
       trip_code: code,
@@ -366,7 +395,7 @@ const trips = rawTrips
       driver_id: driverByName.get(driverName.toLowerCase()) || undefined,
       route_id: routeByName.get(routeName.toLowerCase()) || undefined,
       customer_id: customerByName.get(customerName.toLowerCase()) || undefined,
-      departure_date: toIsoDate(r['Ngày đi']) || new Date().toISOString().slice(0, 10),
+      departure_date: AprilDate,
       cargo_weight_tons: toNum(r['Tải trọng (tấn)']),
       actual_distance_km: toNum(r['Km thực tế']),
       freight_revenue: toNum(r['Doanh thu cước']) || 0,
@@ -389,8 +418,10 @@ const trips = rawTrips
         'đã đóng': 'closed',
         cancelled: 'cancelled',
         'đã hủy': 'cancelled',
-      }, 'draft'),
-      notes: toText(r['Ghi chú']) || undefined,
+      }, 'completed'), // Default many to completed for full dashboard look
+      notes: toText(r['Ghi chú']) || 'Vận chuyển hàng hóa demo',
+      pod_status: 'RECEIVED', // Professional completeness
+      confirmed_at: AprilDate,
     };
   })
   .filter(Boolean);
@@ -404,15 +435,12 @@ for (const row of rawExpenses) {
   categoryIndex += 1;
 }
 
-const expenseCategories = Array.from(categoryCodeByName.entries()).map(([name, code]) => ({
-  id: code,
-  category_code: code,
-  category_name: name,
-  category_type: 'variable',
-  is_trip_related: 1,
-  is_vehicle_related: 1,
-  notes: 'Auto-generated from DATA-DEMO expense categories',
-}));
+const expenseCategories = [
+  { id: 'CAT001', category_code: 'CAT001', category_name: 'Nhiên liệu', category_type: 'variable', is_trip_related: 1, is_vehicle_related: 1, notes: 'Dầu Diesel' },
+  { id: 'CAT002', category_code: 'CAT002', category_name: 'Cầu đường', category_type: 'variable', is_trip_related: 1, is_vehicle_related: 0, notes: 'Vé BOT' },
+  { id: 'CAT003', category_code: 'CAT003', category_name: 'Nhân công', category_type: 'variable', is_trip_related: 1, is_vehicle_related: 0, notes: 'Lương khoán/bốc xếp' },
+  { id: 'CAT004', category_code: 'CAT004', category_name: 'Khác', category_type: 'variable', is_trip_related: 1, is_vehicle_related: 1, notes: 'Phí bãi/sửa chữa nhỏ' },
+];
 
 const tripByCode = new Map(trips.map((t) => [t.trip_code, t]));
 
@@ -435,17 +463,18 @@ trips.forEach(trip => {
   const fuelCost = route.fuel_cost_standard || (route.distance_km * Math.max(1, trip.cargo_weight_tons) * 450);
   const tollCost = route.toll_cost || (route.distance_km * 200);
   const driverWage = route.driver_allowance_standard || (trip.total_revenue * 0.08);
+  const supportFee = route.support_fee_standard || 150000;
 
   if (fuelCost > 0) {
     realisticExpenses.push({
       id: `EXP_F_${expIndex++}`,
       expense_code: `CPD${String(expIndex).padStart(5, '0')}`,
       expense_date: date,
-      category_id: categoryCodeByName.get('Nhiên liệu') || 'CAT001',
+      category_id: 'CAT001',
       trip_id: trip.id,
       vehicle_id: vid,
       description: `Đổ dầu chuyến ${trip.trip_code} (${route.name})`,
-      amount: fuelCost,
+      amount: Math.round(fuelCost),
       status: 'confirmed'
     });
   }
@@ -455,11 +484,11 @@ trips.forEach(trip => {
       id: `EXP_T_${expIndex++}`,
       expense_code: `CPC${String(expIndex).padStart(5, '0')}`,
       expense_date: date,
-      category_id: categoryCodeByName.get('Cầu đường') || 'CAT002',
+      category_id: 'CAT002',
       trip_id: trip.id,
       vehicle_id: vid,
       description: `Phí cầu đường BOT chuyến ${trip.trip_code}`,
-      amount: tollCost,
+      amount: Math.round(tollCost),
       status: 'confirmed'
     });
   }
@@ -469,11 +498,25 @@ trips.forEach(trip => {
       id: `EXP_W_${expIndex++}`,
       expense_code: `CPL${String(expIndex).padStart(5, '0')}`,
       expense_date: date,
-      category_id: categoryCodeByName.get('Nhân công') || 'CAT003',
+      category_id: 'CAT003',
       trip_id: trip.id,
       vehicle_id: vid,
-      description: `Lương MT chuyến ${trip.trip_code}`,
-      amount: driverWage,
+      description: `Lương khoán chuyến ${trip.trip_code}`,
+      amount: Math.round(driverWage),
+      status: 'confirmed'
+    });
+  }
+
+  if (supportFee > 0) {
+    realisticExpenses.push({
+      id: `EXP_S_${expIndex++}`,
+      expense_code: `CPS${String(expIndex).padStart(5, '0')}`,
+      expense_date: date,
+      category_id: 'CAT004',
+      trip_id: trip.id,
+      vehicle_id: vid,
+      description: `Bồi dưỡng bốc xếp/phí khác ${trip.trip_code}`,
+      amount: Math.round(supportFee),
       status: 'confirmed'
     });
   }
@@ -484,11 +527,11 @@ vehicles.forEach(vehicle => {
   realisticExpenses.push({
     id: `EXP_V_${expIndex++}`,
     expense_code: `CPX${String(expIndex).padStart(5, '0')}`,
-    expense_date: '2026-03-01',
-    category_id: categoryCodeByName.get('Khác') || 'CAT004',
+    expense_date: '2026-04-01',
+    category_id: 'CAT004',
     trip_id: null,
     vehicle_id: vehicle.id,
-    description: `Phí bãi xe tháng 03/2026 - ${vehicle.license_plate}`,
+    description: `Phí bãi xe & thuê bao GPS tháng 04/2026 - ${vehicle.license_plate}`,
     amount: 1500000,
     status: 'confirmed'
   });
@@ -497,9 +540,9 @@ vehicles.forEach(vehicle => {
 const expenses = realisticExpenses;
 
 const accountingPeriods = [
-  { id: 'AP2026-01', name: 'Thang 01/2026', start_date: '2026-01-01', end_date: '2026-01-31', status: 'closed', total_revenue: 0, total_expense: 0, note: 'Auto from demo timeline' },
-  { id: 'AP2026-02', name: 'Thang 02/2026', start_date: '2026-02-01', end_date: '2026-02-28', status: 'closed', total_revenue: 0, total_expense: 0, note: 'Auto from demo timeline' },
-  { id: 'AP2026-03', name: 'Thang 03/2026', start_date: '2026-03-01', end_date: '2026-03-31', status: 'open', total_revenue: 0, total_expense: 0, note: 'Auto from demo timeline' },
+  { id: 'AP2026-02', name: 'Tháng 02/2026', start_date: '2026-02-01', end_date: '2026-02-28', status: 'closed', total_revenue: 0, total_expense: 0, note: 'Dữ liệu demo đã quyết toán' },
+  { id: 'AP2026-03', name: 'Tháng 03/2026', start_date: '2026-03-01', end_date: '2026-03-31', status: 'closed', total_revenue: 0, total_expense: 0, note: 'Dữ liệu demo đã quyết toán' },
+  { id: 'AP2026-04', name: 'Tháng 04/2026', start_date: '2026-04-01', end_date: '2026-04-30', status: 'open', total_revenue: 0, total_expense: 0, note: 'Kỳ hiện tại' },
 ];
 
 const inventory = [

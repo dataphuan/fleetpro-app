@@ -80,9 +80,14 @@ export default function Dashboard() {
                       email: user?.email || '',
                       full_name: user?.full_name || '',
                       uid: userId || '',
+                      force: true, // Trigger clean wipe and logic-driven re-seed
                     });
                     if (res?.success) {
-                      toast({ title: '✅ Dữ liệu mẫu đã sẵn sàng', description: 'Đã nạp dữ liệu chuẩn logic logistics.' });
+                      toast({ 
+                        title: '✅ Hoàn tất Reset Dữ liệu', 
+                        description: 'Dữ liệu cũ đã được xóa sạch. Hệ thống đã nạp mới dữ liệu chuẩn logic vận tải tháng 04/2026.' 
+                      });
+                      setTimeout(() => window.location.reload(), 1500);
                     }
                   }}
                 >

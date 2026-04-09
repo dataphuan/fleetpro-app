@@ -47,7 +47,7 @@ export default function Pricing() {
     // Default bank info for payments
     const bankInfo = {
         bankName: "Techcombank (NH TMCP Kỹ Thương VN)",
-        accountNumber: "8486 5686 66",
+        accountNumber: "8486 568 666",
         accountName: "TRAN NGOC CHUYEN",
         branch: ""
     };

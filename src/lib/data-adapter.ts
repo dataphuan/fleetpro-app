@@ -1433,6 +1433,7 @@ type EnsureDemoReadinessPayload = {
     full_name?: string;
     uid?: string;
     company_name?: string;
+    force?: boolean;
 };
 
 type StartRealDataModePayload = {
@@ -1928,8 +1929,14 @@ const ensureTenantDemoReadiness = async (payload: EnsureDemoReadinessPayload) =>
     }
 
     const insufficient = await isTenantDemoDataInsufficient(tenantId);
-    if (!insufficient) {
+    if (!insufficient && !payload?.force) {
         return { success: true, seeded: false, message: 'Demo data already sufficient' };
+    }
+
+    if (payload?.force) {
+        console.log(`🧹 [ensureTenantDemoReadiness] Forced Reset: Wiping operational data for ${tenantId}`);
+        // We bypass the protection check for internal-tenant here because we handle it within ensureTenantDemoReadiness context
+        await clearTenantOperationalData({ tenantId, keepUserId: adminUid, isInternalForce: true });
     }
 
     const user = auth.currentUser;
@@ -2062,7 +2069,7 @@ const createIsolatedTenantWorkspace = async (payload: {
     };
 };
 
-const clearTenantOperationalData = async (payload: { tenantId: string; keepUserId?: string }) => {
+const clearTenantOperationalData = async (payload: { tenantId: string; keepUserId?: string; isInternalForce?: boolean }) => {
     const tenantId = String(payload?.tenantId || '').trim();
     const keepUserId = String(payload?.keepUserId || '').trim();
 
@@ -2070,7 +2077,7 @@ const clearTenantOperationalData = async (payload: { tenantId: string; keepUserI
         throw new Error('Thiếu tenantId để xóa dữ liệu demo.');
     }
 
-    if (isProtectedSharedDemoTenant(tenantId)) {
+    if (isProtectedSharedDemoTenant(tenantId) && !payload?.isInternalForce) {
         throw new Error('Tenant demo dùng chung được bảo vệ. Hãy dùng chế độ tách workspace riêng để nhập dữ liệu thật.');
     }
 
