@@ -449,31 +449,88 @@ const expenses = rawExpenses
         'đã hủy': 'cancelled',
       }, 'confirmed'),
     };
-  })
-  .filter(Boolean);
+// --- SỬA LỖI TẬN GỐC (ROOT CAUSE LOGIC) ---
+// Thay vì dùng "mẹo" giảm tỷ lệ tiền, chúng ta xây dựng chính xác các khoản Chi Phí
+// bám sát theo THỰC TẾ VẬN HÀNH của từng Chuyến (Trips) và Định Mức Tuyến (Routes).
+const realisticExpenses = [];
+let expIndex = 1;
 
-// Dữ liệu mẫu bị lỗi dẫn đến Chi phí 2 tỷ trong khi Doanh thu 400 triệu (âm -383%).
-// Để khách hàng trải nghiệm chân thực, chúng ta Audit và scale chi phí thực tế xuống mức biên lợi nhuận +22% (chuẩn vận tải logistics).
-const totalRev = trips.reduce((sum, t) => sum + (t.total_revenue || 0), 0);
-const rawTotalExp = expenses.reduce((sum, e) => sum + (e.amount || 0), 0);
-const targetExp = totalRev * 0.78; // Lợi nhuận chuẩn 22%
-const scaleFactor = targetExp / (rawTotalExp || 1);
+// 1. Phân bổ Chi phí Mảng Chuyến (Variable Costs: Dầu, Lương TX, Cầu đường...)
+trips.forEach(trip => {
+  const route = routes.find(r => r.id === trip.route_id);
+  if (!route) return;
 
-expenses.forEach((expense, idx) => {
-  const fallbackTrip = trips[idx % Math.max(trips.length, 1)];
-  if (!expense.trip_id) {
-    expense.trip_id = fallbackTrip?.id;
+  const date = trip.departure_date;
+  const vid = trip.vehicle_id;
+
+  // Lấy định mức chuẩn từ Tuyến, nếu không có thì tự tính logic
+  const fuelCost = route.fuel_cost_standard || (route.distance_km * Math.max(1, trip.cargo_weight_tons) * 450);
+  const tollCost = route.toll_cost || (route.distance_km * 200);
+  const driverWage = route.driver_allowance_standard || (trip.total_revenue * 0.08);
+
+  // Tạo phiếu chi Tiền Dầu
+  if (fuelCost > 0) {
+    realisticExpenses.push({
+      id: `EXP_F_${expIndex++}`,
+      expense_code: `CPD${String(expIndex).padStart(5, '0')}`,
+      expense_date: date,
+      category_id: categoryCodeByName.get('Nhiên liệu') || 'CAT001',
+      trip_id: trip.id,
+      vehicle_id: vid,
+      description: `Đổ dầu chuyến ${trip.trip_code} (${route.name})`,
+      amount: fuelCost,
+      status: 'confirmed'
+    });
   }
-  if (!expense.vehicle_id) {
-    expense.vehicle_id = fallbackTrip?.vehicle_id || vehicles[idx % Math.max(vehicles.length, 1)]?.id;
+
+  // Tạo phiếu chi Cầu Đường
+  if (tollCost > 0) {
+    realisticExpenses.push({
+      id: `EXP_T_${expIndex++}`,
+      expense_code: `CPC${String(expIndex).padStart(5, '0')}`,
+      expense_date: date,
+      category_id: categoryCodeByName.get('Cầu đường') || 'CAT002',
+      trip_id: trip.id,
+      vehicle_id: vid,
+      description: `Phí cầu đường BOT chuyến ${trip.trip_code}`,
+      amount: tollCost,
+      status: 'confirmed'
+    });
   }
-  
-  // Áp dụng thuật toán giới hạn chi phí để tạo WOW factor báo cáo CEO
-  expense.amount = Math.round((expense.amount * scaleFactor) / 1000) * 1000;
-  
-  // Đảm bảo không có khoản chi phí nào bằng 0
-  if (expense.amount === 0) expense.amount = 50000;
+
+  // Tạo phiếu chi Lương tài xế (Nhân công chuyến)
+  if (driverWage > 0) {
+    realisticExpenses.push({
+      id: `EXP_W_${expIndex++}`,
+      expense_code: `CPL${String(expIndex).padStart(5, '0')}`,
+      expense_date: date,
+      category_id: categoryCodeByName.get('Nhân công') || 'CAT003',
+      trip_id: trip.id,
+      vehicle_id: vid, // Có thể null
+      description: `Lương chuyến ${trip.trip_code}`,
+      amount: driverWage,
+      status: 'confirmed'
+    });
+  }
 });
+
+// 2. Phân bổ Chi phí Mảng Xe (Fixed Costs theo tháng: Gửi xe, Đăng kiểm, Khấu hao)
+vehicles.forEach(vehicle => {
+  // Phí bãi gửi xe hàng tháng
+  realisticExpenses.push({
+    id: `EXP_V_${expIndex++}`,
+    expense_code: `CPX${String(expIndex).padStart(5, '0')}`,
+    expense_date: '2026-03-01',
+    category_id: categoryCodeByName.get('Khác') || 'CAT004',
+    trip_id: null,
+    vehicle_id: vehicle.id,
+    description: `Phí bãi xe tháng 03/2026 - ${vehicle.license_plate}`,
+    amount: 1500000,
+    status: 'confirmed'
+  });
+});
+
+const expenses = realisticExpenses;
 
 const accountingPeriods = [
   { id: 'AP2026-01', name: 'Thang 01/2026', start_date: '2026-01-01', end_date: '2026-01-31', status: 'closed', total_revenue: 0, total_expense: 0, note: 'Auto from demo timeline' },
