@@ -204,7 +204,7 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
                           }
                         }}
                         className={cn(
-                          "nav-item",
+                          "nav-item flex items-center gap-3 py-2.5 px-3",
                           isActive ? "nav-item-active" : "nav-item-inactive",
                           isEffectivelyDisabled && "opacity-50 cursor-not-allowed hover:bg-transparent hover:text-sidebar-foreground"
                         )}

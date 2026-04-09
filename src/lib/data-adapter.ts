@@ -192,8 +192,8 @@ const logActivity = async (action: 'CREATE' | 'UPDATE' | 'DELETE' | 'RESTORE' | 
  * SaaS Quota Enforcement
  */
 const PLAN_LIMITS: Record<string, any> = {
-    trial: { vehicles: 10, drivers: 10, trips_per_month: 200 },
-    professional: { vehicles: 50, drivers: 50, trips_per_month: 1000 },
+    trial: { vehicles: 50, drivers: 50, trips_per_month: 200 },
+    professional: { vehicles: 100, drivers: 100, trips_per_month: 2000 },
     enterprise: { vehicles: Infinity, drivers: Infinity, trips_per_month: Infinity }
 };
 
@@ -2309,7 +2309,9 @@ const webDataAdapters: Record<string, any> = {
                     subscription: { plan: 'trial', status: 'active' }
                 });
 
-                // 5. Auto-provision realistic demo dataset for immediate full-feature onboarding
+                // 5. Initialize base metadata only (New accounts start with 100% Real Data)
+                // Removed automatic large demo seeding to ensure stability and quota compliance
+                /* 
                 await seedNewTenantDemoData({
                     tenantId,
                     companyName: payload.company_name,
@@ -2317,6 +2319,7 @@ const webDataAdapters: Record<string, any> = {
                     adminEmail: payload.email,
                     adminName: payload.full_name,
                 });
+                */
 
                 try {
                     await createTenantDemoAccounts(tenantId, payload.company_name);

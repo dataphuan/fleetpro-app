@@ -4,6 +4,9 @@ import { AppHeader } from "./AppHeader";
 import { GeminiChat } from "@/components/chat/GeminiChat";
 import { PaywallGuard } from "@/components/shared/PaywallGuard";
 
+import { Link, useLocation } from "react-router-dom";
+import { GuidedTour } from "@/components/onboarding/GuidedTour";
+
 interface AppLayoutProps {
   children: ReactNode;
 }
@@ -11,6 +14,7 @@ interface AppLayoutProps {
 export function AppLayout({ children }: AppLayoutProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(1280);
+  const location = useLocation();
 
   // UI mode follows viewport to keep desktop UX stable on touch-capable laptops.
   const useMobileShell = viewportWidth < 1024;
@@ -21,7 +25,7 @@ export function AppLayout({ children }: AppLayoutProps) {
     setViewportWidth(window.innerWidth);
 
     const handleResize = () => setViewportWidth(window.innerWidth);
-    window.addEventListener("resize", handleResize);
+    window.addEventListener("resize", handleResize, { passive: true });
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
@@ -36,6 +40,8 @@ export function AppLayout({ children }: AppLayoutProps) {
   return (
     <PaywallGuard>
       <div className="flex h-screen overflow-hidden bg-background relative">
+        <GuidedTour path={location.pathname} />
+        
         {/* Desktop sidebar */}
         {!useMobileShell && <AppSidebar />}
 
