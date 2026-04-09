@@ -50,7 +50,7 @@ import { ChangePasswordForm } from "@/components/settings/ChangePasswordForm";
 import { AISettingsForm } from "@/components/settings/AISettingsForm";
 import { GDriveSettingsForm } from "@/components/settings/GDriveSettingsForm";
 import { DataOwnershipExportCard } from "@/components/settings/DataOwnershipExportCard";
-import { TelegramGuideCard } from "@/components/settings/TelegramGuideCard";
+import { TelegramSettingsForm } from "@/components/settings/TelegramSettingsForm";
 
 export default function Settings() {
   const { toast } = useToast();
@@ -754,7 +754,7 @@ export default function Settings() {
         </TabsContent>
 
         <TabsContent value="notifications">
-          <TelegramGuideCard />
+          <TelegramSettingsForm />
         </TabsContent>
       </Tabs>
 

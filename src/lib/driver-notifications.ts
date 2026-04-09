@@ -1,5 +1,6 @@
-import { collection, addDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
+import { getTenantId } from '@/lib/data-adapter';
+import { getDoc, doc } from 'firebase/firestore';
 
 export type DriverDispatchNotificationPayload = {
   tripCode: string;
@@ -103,15 +104,36 @@ export const buildDriverInteractionReportMessage = (
   ].join('\n');
 };
 
+const getTenantTelegramConfig = async (tenantId: string) => {
+  if (!tenantId) return null;
+  try {
+    const snap = await getDoc(doc(db, 'company_settings', tenantId));
+    if (snap.exists()) {
+      return snap.data()?.telegram_config || null;
+    }
+  } catch (e) {
+    console.error('[getTenantTelegramConfig] Error:', e);
+  }
+  return null;
+};
+
 const sendViaTelegramBotApi = async (text: string, chatIdOverride?: string | null): Promise<NotifyResult> => {
-  const token = (import.meta.env.VITE_TELEGRAM_BOT_TOKEN || '').trim();
-  const chatId = String(chatIdOverride || import.meta.env.VITE_TELEGRAM_CHAT_ID || '').trim();
+  const tenantId = getTenantId();
+  const tenantConfig = await getTenantTelegramConfig(tenantId);
+
+  // If globally disabled for this tenant, stop here
+  if (tenantConfig && tenantConfig.is_enabled === false) {
+    return { ok: false, channel: 'none', message: 'Telegram notifications disabled for this tenant' };
+  }
+
+  const token = (tenantConfig?.bot_token || import.meta.env.VITE_TELEGRAM_BOT_TOKEN || '').trim();
+  const chatId = String(chatIdOverride || tenantConfig?.group_chat_id || import.meta.env.VITE_TELEGRAM_CHAT_ID || '').trim();
 
   if (!token || !chatId) {
     return {
       ok: false,
       channel: 'none',
-      message: 'Missing VITE_TELEGRAM_BOT_TOKEN or VITE_TELEGRAM_CHAT_ID',
+      message: 'Missing Telegram configuration (Bot Token or Chat ID)',
     };
   }
 
@@ -142,11 +164,19 @@ const sendViaTelegramBotApi = async (text: string, chatIdOverride?: string | nul
 };
 
 const sendViaTelegramBotApiWithPhoto = async (text: string, photoUrl: string | null, chatIdOverride?: string | null): Promise<NotifyResult> => {
-  const token = (import.meta.env.VITE_TELEGRAM_BOT_TOKEN || '').trim();
-  const chatId = String(chatIdOverride || import.meta.env.VITE_TELEGRAM_CHAT_ID || '').trim();
+  const tenantId = getTenantId();
+  const tenantConfig = await getTenantTelegramConfig(tenantId);
+
+  // If globally disabled for this tenant, stop here
+  if (tenantConfig && tenantConfig.is_enabled === false) {
+    return { ok: false, channel: 'none', message: 'Telegram notifications disabled for this tenant' };
+  }
+
+  const token = (tenantConfig?.bot_token || import.meta.env.VITE_TELEGRAM_BOT_TOKEN || '').trim();
+  const chatId = String(chatIdOverride || tenantConfig?.group_chat_id || import.meta.env.VITE_TELEGRAM_CHAT_ID || '').trim();
 
   if (!token || !chatId) {
-    return { ok: false, channel: 'none', message: 'Missing TELEGRAM env vars' };
+    return { ok: false, channel: 'none', message: 'Missing Telegram configuration' };
   }
 
   // If no photo, fallback to regular message
