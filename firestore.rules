@@ -68,10 +68,21 @@ service cloud.firestore {
       allow delete: if canAccessTenantData() && sameTenantOnReadUpdateDelete() && isTenantAdmin();
     }
 
-    // Company Settings: Admin Only
+    // Company Settings: Admin Only + Self-Provisioning for New Registration
     match /company_settings/{tid} {
-      allow read: if canAccessTenantData() && tid == tenantId();
-      allow create, update: if canAccessTenantData() && tid == tenantId() && isTenantAdmin();
+      allow read: if isAuthed() && (
+        (canAccessTenantData() && tid == tenantId()) ||
+        // Allow reading own company settings during registration flow
+        (userDocExists() && userDoc().data.tenant_id == tid)
+      );
+      allow create: if isAuthed() && (
+        // Normal admin create
+        (canAccessTenantData() && tid == tenantId() && isTenantAdmin()) ||
+        // Self-provisioning during registration: user just created their user doc
+        // and is now creating their company_settings with matching admin_id
+        (request.resource.data.admin_id == request.auth.uid)
+      );
+      allow update: if canAccessTenantData() && tid == tenantId() && isTenantAdmin();
       allow delete: if false; // SaaS: Cannot delete your own tenant record from UI
     }
 
