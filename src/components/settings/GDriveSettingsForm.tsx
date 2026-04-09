@@ -231,6 +231,9 @@ export function GDriveSettingsForm() {
                 </CardTitle>
               </CardHeader>
               <CardContent>
+                <div className="mb-4 p-2 bg-blue-100 border border-blue-200 rounded text-blue-800 text-xs font-medium">
+                  🛡️ Chế độ Demo: Bạn có thể nhấn "Kết nối" để trải nghiệm ngay tính năng mà không cần tài khoản thật.
+                </div>
                 <ol className="list-decimal list-inside space-y-2 text-sm text-amber-700">
                   <li>Nhấp vào nút "Kết nối Google Drive" ở trên</li>
                   <li>Cho phép truy cập khi được yêu cầu</li>

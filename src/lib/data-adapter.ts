@@ -56,7 +56,7 @@ export const setRuntimeTenantId = (id: string | null) => {
     runtimeTenantId = id;
 };
 
-const getTenantId = () => {
+export const getTenantId = () => {
     if (runtimeTenantId) return runtimeTenantId;
     
     // Fallback: Try to get tenant_id from current auth user's document
@@ -2023,7 +2023,7 @@ const ensureTenantDemoReadiness = async (payload: EnsureDemoReadinessPayload) =>
     return { success: true, seeded: true, message: 'Demo data has been auto-provisioned' };
 };
 
-const isProtectedSharedDemoTenant = (tenantId: string) => {
+export const isProtectedSharedDemoTenant = (tenantId: string) => {
     if (!tenantId) return false;
     if (tenantId === 'internal-tenant-1' || tenantId === 'internal-tenant-2') return true;
     if (tenantId.startsWith('internal-tenant-')) return true;

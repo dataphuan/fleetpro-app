@@ -8,6 +8,8 @@ declare global {
   }
 }
 
+import { getTenantId, isProtectedSharedDemoTenant } from '@/lib/data-adapter';
+
 export interface GoogleDriveFile {
   id: string;
   name: string;
@@ -37,6 +39,13 @@ class GoogleDriveService {
     if (this.isInitialized) return true;
 
     try {
+      // 🛡️ [Demo Mode Safeguard]
+      const tenantId = getTenantId();
+      if (isProtectedSharedDemoTenant(tenantId)) {
+        this.isInitialized = true;
+        return true;
+      }
+
       // Load Google API script if not loaded
       if (!window.gapi) {
         await this.loadGoogleAPIScript();
@@ -88,6 +97,15 @@ class GoogleDriveService {
     }
 
     try {
+      // 🛡️ [Demo Mode Safeguard]
+      const tenantId = getTenantId();
+      if (isProtectedSharedDemoTenant(tenantId)) {
+        console.log('✨ [Demo Mode] Simulating successful Google Drive authentication');
+        this.isAuthenticated = true;
+        this.accessToken = 'demo-token-12345';
+        return true;
+      }
+
       const authInstance = window.gapi.auth2.getAuthInstance();
       const isSignedIn = authInstance.isSignedIn.get();
 
