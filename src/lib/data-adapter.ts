@@ -1929,24 +1929,44 @@ const ensureTenantDemoReadiness = async (payload: EnsureDemoReadinessPayload) =>
     }
 
     const insufficient = await isTenantDemoDataInsufficient(tenantId);
-    if (!insufficient && !payload?.force) {
-        return { success: true, seeded: false, message: 'Demo data already sufficient' };
+    
+    // Check if we need an automatic version-based update
+    let versionMismatch = false;
+    try {
+        const tenantSnap = await getDoc(doc(db, 'tenants', tenantId));
+        if (tenantSnap.exists()) {
+            const currentVersion = tenantSnap.data()?.demo_data_version;
+            const targetVersion = TENANT_DEMO_SEED.metadata.generated_at;
+            if (!currentVersion || currentVersion !== targetVersion) {
+                console.log(`🆕 [ensureTenantDemoReadiness] Version mismatch: ${currentVersion} vs ${targetVersion}. Triggering auto-reset.`);
+                versionMismatch = true;
+            }
+        } else {
+            // New tenant doc needed
+            versionMismatch = true;
+        }
+    } catch (e) {
+        console.error("Failed to check tenant version:", e);
     }
 
-    if (payload?.force) {
-        console.log(`🧹 [ensureTenantDemoReadiness] Forced Reset: Wiping operational data for ${tenantId}`);
-        // We bypass the protection check for internal-tenant here because we handle it within ensureTenantDemoReadiness context
-        await clearTenantOperationalData({ tenantId, keepUserId: adminUid, isInternalForce: true });
+    if (!insufficient && !payload?.force && !versionMismatch) {
+        return { success: true, seeded: false, message: 'Demo data already sufficient and up-to-date.' };
     }
 
     const user = auth.currentUser;
     if (!user) {
         return { success: false, skipped: true, reason: 'missing_auth_user' };
     }
+    let adminUid = '';
+
+    if (payload?.force || versionMismatch) {
+        console.log(`🧹 [ensureTenantDemoReadiness] Wipe Triggered: ${payload?.force ? 'Manual' : 'Version mismatch'}. Wiping ${tenantId}`);
+        await clearTenantOperationalData({ tenantId, keepUserId: adminUid, isInternalForce: true });
+    }
 
     const companyName = String(payload?.company_name || '').trim() || 'FleetPro Demo Company';
 
-    let adminUid = user.uid;
+    adminUid = user.uid;
     let adminEmail = String(payload?.email || '').trim() || user.email || '';
     let adminName = String(payload?.full_name || '').trim() || user.displayName || user.email || 'Admin';
 
@@ -1986,6 +2006,17 @@ const ensureTenantDemoReadiness = async (payload: EnsureDemoReadinessPayload) =>
             await createTenantDemoAccounts(tenantId, companyName);
         } catch (error) {
             console.warn('[ensureTenantDemoReadiness] createTenantDemoAccounts failed:', error);
+        }
+    }
+
+    if (result.success) {
+        try {
+            await setDoc(doc(db, 'tenants', tenantId), {
+                demo_data_version: TENANT_DEMO_SEED.metadata.generated_at,
+                updated_at: new Date().toISOString()
+            }, { merge: true });
+        } catch (e) {
+            console.error("Failed to update tenant version:", e);
         }
     }
 

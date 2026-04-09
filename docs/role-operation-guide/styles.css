@@ -28,15 +28,15 @@ body {
 .hero {
   position: relative;
   overflow: hidden;
-  padding: 48px 18px 26px;
+  padding: 24px 18px 12px;
 }
 
 .hero__content {
   max-width: 980px;
   margin: 0 auto;
   background: linear-gradient(120deg, #0c2f68, #0f4f88 52%, #0d8a94);
-  border-radius: 22px;
-  padding: 28px;
+  border-radius: 16px;
+  padding: 20px;
   color: #f7fbff;
   box-shadow: var(--shadow);
   position: relative;
@@ -139,17 +139,17 @@ h1 {
 
 .layout {
   max-width: 1060px;
-  margin: 22px auto 40px;
+  margin: 12px auto 30px;
   padding: 0 16px;
   display: grid;
-  gap: 16px;
+  gap: 12px;
 }
 
 .panel {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 16px;
-  padding: 18px;
+  border-radius: 12px;
+  padding: 14px;
   box-shadow: 0 8px 22px rgba(15, 45, 89, 0.06);
 }
 
