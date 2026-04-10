@@ -89,7 +89,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                     // QA AUDIT FIX: Auto-create user document for first-time users on new tenant
                     // Generate a unique tenant ID based on email domain (or use user's email as tenant ID)
                     const emailParts = firebaseUser.email.split('@');
-                    currentTenantId = `tenant-${emailParts[0]}-${Date.now()}`.toLowerCase().replace(/[^a-z0-9\-]/g, '');
+                    currentTenantId = `tenant-${emailParts[0]}-${Date.now()}`.toLowerCase().replace(/[^a-z0-9-]/g, '');
                     currentRole = 'admin'; // First user on new tenant is admin
                     fullName = firebaseUser.displayName || firebaseUser.email;
                     avatarUrl = firebaseUser.photoURL || '';

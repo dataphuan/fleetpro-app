@@ -104,12 +104,7 @@ async function createDemoAccounts() {
   console.log('🚀 Creating 4 Demo Accounts with Full Access\n');
   console.log('═'.repeat(70));
 
-  const results: Array<{
-    email: string;
-    uid: string;
-    role: string;
-    status: string;
-  }> = [];
+  const results = [];
 
   for (const account of demoAccounts) {
     try {
@@ -118,7 +113,7 @@ async function createDemoAccounts() {
       console.log(`   Role: ${account.role}`);
 
       // Create Firebase Auth user
-      let userRecord: UserRecord;
+      let userRecord;
       try {
         userRecord = await auth.getUserByEmail(account.email);
         console.log(`   ℹ️  Already exists (UID: ${userRecord.uid})`);
@@ -217,7 +212,7 @@ async function createDemoAccounts() {
   console.log('\n🎉 DEMO ACCOUNTS READY FOR TESTING\n');
 }
 
-function generateCredentialsMarkdown(accounts: DemoAccount[]): string {
+function generateCredentialsMarkdown(accounts) {
   return `# 🎯 FleetPro Demo Accounts - Full Access
 
 ## Setup Date: ${new Date().toISOString()}
