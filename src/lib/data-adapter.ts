@@ -1922,10 +1922,15 @@ const ensureTenantDemoReadiness = async (payload: EnsureDemoReadinessPayload) =>
         return { success: false, skipped: true, reason: 'missing_tenant' };
     }
 
-    // 🛡️ CRITICAL GUARD: Only seed demo data for internal demo tenants
-    // Real/trial tenants must NEVER be auto-seeded — they use 100% real data
-    if (!tenantId.startsWith('internal-tenant-')) {
+    // 🛡️ CRITICAL GUARD: Only seed demo data for demo tenants or when force=true
+    // Allow resetting demo data on demo-tenant-* or internal-tenant-* (either auto or manual force)
+    const isDemoTenant = tenantId.startsWith('internal-tenant-') || tenantId.startsWith('demo-tenant-');
+    
+    if (!isDemoTenant && !payload?.force) {
         return { success: true, seeded: false, skipped: true, message: 'Tài khoản thật — không cần nạp dữ liệu demo.' };
+    }
+    if (!isDemoTenant && payload?.force) {
+        console.warn(`⚠️ [ensureTenantDemoReadiness] Manual reset requested on non-demo tenant: ${tenantId}. Proceeding...`);
     }
 
     const insufficient = await isTenantDemoDataInsufficient(tenantId);
