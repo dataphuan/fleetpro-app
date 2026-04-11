@@ -127,6 +127,7 @@ export default function TransportOrders() {
     const [customerFilter, setCustomerFilter] = useState<string>("all");
     const [priorityFilter, setPriorityFilter] = useState<string>("all");
     const [statusFilter, setStatusFilter] = useState<string>("all");
+    const [isDriverFilterActive, setIsDriverFilterActive] = useState(false);
 
     // Data Hooks
     const { data: orders, isLoading } = useTransportOrders();
@@ -319,7 +320,7 @@ export default function TransportOrders() {
     };
 
     // Check if any filter is active
-    const hasActiveFilters = dateRange.from || dateRange.to || customerFilter !== "all" || priorityFilter !== "all" || statusFilter !== "all" || searchQuery;
+    const hasActiveFilters = dateRange.from || dateRange.to || customerFilter !== "all" || priorityFilter !== "all" || statusFilter !== "all" || searchQuery || isDriverFilterActive;
 
     // Filter data with all smart filters
     const filteredOrders = useMemo(() => {
@@ -347,6 +348,11 @@ export default function TransportOrders() {
                 return false;
             }
 
+            // Driver requests filter
+            if (isDriverFilterActive && order.source !== 'driver-self-draft') {
+                return false;
+            }
+
             // Search query filter
             if (searchQuery) {
                 const query = searchQuery.toLowerCase();
@@ -361,7 +367,7 @@ export default function TransportOrders() {
 
             return true;
         });
-    }, [orders, dateRange, customerFilter, priorityFilter, statusFilter, searchQuery]);
+    }, [orders, dateRange, customerFilter, priorityFilter, statusFilter, searchQuery, isDriverFilterActive]);
 
     // KPI Summary
     const kpiSummary = useMemo(() => {
@@ -392,6 +398,16 @@ export default function TransportOrders() {
                             onClick={async () => { await confirmMutation.mutateAsync(selectedOrder.id); setDialogOpen(false); }}>
                             <CheckCircle className="w-4 h-4 mr-1" /> Xác nhận
                         </Button>
+                        {selectedOrder.source === 'driver-self-draft' && (
+                            <Button size="sm" variant="outline" className="border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100" disabled={anyPending}
+                                onClick={async () => { 
+                                    await confirmMutation.mutateAsync(selectedOrder.id);
+                                    setDialogOpen(false);
+                                    toast({ title: "Đã phê duyệt", description: "Yêu cầu của tài xế đã được chuyển thành đơn hàng chính thức." });
+                                }}>
+                                <Sparkles className="w-4 h-4 mr-1" /> Phê duyệt & Điều xe
+                            </Button>
+                        )}
                         <Button size="sm" variant="destructive" disabled={anyPending}
                             onClick={async () => { await cancelMutation.mutateAsync(selectedOrder.id); setDialogOpen(false); }}>
                             <XCircle className="w-4 h-4 mr-1" /> Hủy
@@ -442,6 +458,16 @@ export default function TransportOrders() {
             key: 'customer',
             header: 'Khách hàng',
             render: (_, row) => <span>{row.customer?.customer_name || '—'}</span>,
+        },
+        {
+            key: 'requested_by_driver_email',
+            header: 'Người yêu cầu',
+            render: (value, row) => (
+                <div className="flex flex-col">
+                    <span className="text-xs font-semibold text-blue-700">{value as string || '—'}</span>
+                    <span className="text-[10px] text-muted-foreground">{row.requested_area || ''}</span>
+                </div>
+            ),
         },
         {
             key: 'order_date',
@@ -617,6 +643,16 @@ export default function TransportOrders() {
                             <SelectItem value="cancelled">Đã hủy</SelectItem>
                         </SelectContent>
                     </Select>
+
+                    <Button 
+                        variant={isDriverFilterActive ? "default" : "outline"}
+                        size="sm"
+                        className={`h-9 gap-1 transition-all ${isDriverFilterActive ? "bg-blue-600 shadow-blue-200 shadow-md text-white hover:bg-blue-700" : "text-blue-600 border-blue-200"}`}
+                        onClick={() => setIsDriverFilterActive(!isDriverFilterActive)}
+                    >
+                        <Users className={`w-4 h-4 ${isDriverFilterActive ? "text-white" : "text-blue-600"}`} />
+                        <span className="hidden lg:inline text-xs font-semibold">Yêu cầu từ Tài xế</span>
+                    </Button>
 
                     {hasActiveFilters && (
                         <Button variant="ghost" size="sm" onClick={clearFilters} className="h-8 text-xs gap-1">

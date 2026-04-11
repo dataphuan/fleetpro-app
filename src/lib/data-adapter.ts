@@ -147,42 +147,43 @@ const updateTripDirectWrite = async (id: string, oldData: any, validatedData: an
 /**
  * Log administrative and data mutation activities for audit readiness
  */
+/**
+ * Helper to build log payload for batch writes or direct logging
+ */
+const buildLogPayload = (action: string, collectionName: string, entityId: string, metadata?: any) => {
+    const user = auth.currentUser;
+    const tenantId = getTenantId();
+    if (!user || !tenantId || collectionName === 'system_logs') return null;
+
+    let delta = metadata?.changes || null;
+    if (action === 'UPDATE' && metadata?.previous && metadata?.changes) {
+        delta = {};
+        for (const key in metadata.changes) {
+            if (metadata.changes[key] !== metadata.previous[key]) {
+                delta[key] = { from: metadata.previous[key] ?? null, to: metadata.changes[key] };
+            }
+        }
+        if (Object.keys(delta).length === 0) return null;
+    }
+
+    return {
+        timestamp: new Date().toISOString(),
+        user_id: user.uid,
+        user_email: user.email,
+        tenant_id: tenantId,
+        action,
+        collection_name: collectionName,
+        entity_id: entityId,
+        metadata: { ...metadata, delta }
+    };
+};
+
 const logActivity = async (action: 'CREATE' | 'UPDATE' | 'DELETE' | 'RESTORE' | 'LOGIN' | 'ROLE_CHANGE', collectionName: string, entityId: string, metadata?: any) => {
     try {
-        const user = auth.currentUser;
-        const tenantId = getTenantId();
-        if (!user || !tenantId || collectionName === 'system_logs') return;
-
-        // Delta tracking for updates
-        let delta = metadata?.changes || null;
-        if (action === 'UPDATE' && metadata?.previous && metadata?.changes) {
-            delta = {};
-            // Capture only changed fields
-            for (const key in metadata.changes) {
-                if (metadata.changes[key] !== metadata.previous[key]) {
-                    delta[key] = {
-                        from: metadata.previous[key] ?? null,
-                        to: metadata.changes[key]
-                    };
-                }
-            }
-            // If nothing changed, don't log an empty update
-            if (Object.keys(delta).length === 0) return;
+        const payload = buildLogPayload(action, collectionName, entityId, metadata);
+        if (payload) {
+            await addDoc(collection(db, 'system_logs'), payload);
         }
-
-        await addDoc(collection(db, 'system_logs'), {
-            timestamp: new Date().toISOString(),
-            user_id: user.uid,
-            user_email: user.email,
-            tenant_id: tenantId,
-            action,
-            collection_name: collectionName,
-            entity_id: entityId,
-            metadata: {
-                ...metadata,
-                delta
-            }
-        });
     } catch (e) {
         console.error("Audit Log Failure:", e);
     }
@@ -680,15 +681,21 @@ const createFirestoreAdapter = (collectionName: string) => ({
 
         const payload = { ...validatedData, tenant_id: tenantId, created_at: new Date().toISOString() };
         
-        if (documentId) {
-            await setDoc(doc(db, collectionName, documentId), payload);
-            await logActivity('CREATE', collectionName, documentId, { payload });
-            return { id: documentId, ...payload };
-        } else {
-            const docRef = await addDoc(collection(db, collectionName), payload);
-            await logActivity('CREATE', collectionName, docRef.id, { payload });
-            return { id: docRef.id, ...payload };
+        // --- ATOMIC BATCH WRITE (Data + Log) ---
+        const batch = writeBatch(db);
+        const finalId = documentId || doc(collection(db, collectionName)).id;
+        const targetDocRef = doc(db, collectionName, finalId);
+        
+        batch.set(targetDocRef, payload);
+        
+        const logData = buildLogPayload('CREATE', collectionName, finalId, { payload });
+        if (logData) {
+            const logDocRef = doc(collection(db, 'system_logs'));
+            batch.set(logDocRef, logData);
         }
+        
+        await batch.commit();
+        return { id: finalId, ...payload };
     },
     update: async (id: string, data: any) => {
         enforceMutationThrottle(collectionName, 'update', id, data);
@@ -748,11 +755,23 @@ const createFirestoreAdapter = (collectionName: string) => ({
         }
         // -----------------------------------------------------------
 
-        await updateDoc(docRef, { ...validatedData, updated_at: new Date().toISOString() });
-        await logActivity('UPDATE', collectionName, id, { 
+        // --- ATOMIC BATCH WRITE (Data Update + Log) ---
+        const batch = writeBatch(db);
+        const updatePayload = { ...validatedData, updated_at: new Date().toISOString() };
+        
+        batch.update(docRef, updatePayload);
+        
+        const logData = buildLogPayload('UPDATE', collectionName, id, { 
             previous: oldData, 
             changes: validatedData 
         });
+        
+        if (logData) {
+            const logDocRef = doc(collection(db, 'system_logs'));
+            batch.set(logDocRef, logData);
+        }
+        
+        await batch.commit();
         return true;
     },
     delete: async (id: string) => {
@@ -2294,6 +2313,32 @@ const webDataAdapters: Record<string, any> = {
                             updated_at: new Date().toISOString(),
                         }, { merge: true });
                     }
+                }
+
+                // FIX: Auto-sync predefined demo accounts to the admin's tenantId if missing or mismatched
+                const demoEmails = ['quanlydemo@tnc.io.vn', 'ketoandemo@tnc.io.vn', 'taixedemo@tnc.io.vn'];
+                if (user.email && demoEmails.includes(user.email)) {
+                     const adminByEmail = await getDocs(query(collection(db, 'users'), where('email', '==', 'admindemo@tnc.io.vn')));
+                     if (!adminByEmail.empty) {
+                         const adminTenantId = adminByEmail.docs[0].data().tenant_id;
+                         if (adminTenantId && (!userData || userData.tenant_id !== adminTenantId)) {
+                             userData = {
+                                 ...(userData || {}),
+                                 tenant_id: adminTenantId,
+                                 email: user.email,
+                                 status: 'active'
+                             };
+                             if (user.email === 'ketoandemo@tnc.io.vn') userData.role = 'accountant';
+                             else if (user.email === 'taixedemo@tnc.io.vn') userData.role = 'driver';
+                             else if (user.email === 'quanlydemo@tnc.io.vn') userData.role = 'manager';
+                             else if (!userData.role) userData.role = 'viewer';
+                             
+                             await setDoc(doc(db, 'users', user.uid), {
+                                 ...userData,
+                                 updated_at: new Date().toISOString(),
+                             }, { merge: true });
+                         }
+                     }
                 }
 
                 if (!userData) {

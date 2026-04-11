@@ -48,7 +48,7 @@ export function AppHeader({ onOpenMobileSidebar, forceShowMenuButton = false }: 
   const isTrialEnding = trialDaysRemaining !== null && trialDaysRemaining <= 3;
 
   return (
-    <header className="sticky top-0 z-20 flex h-14 items-center justify-between border-b bg-card/95 px-3 backdrop-blur supports-[backdrop-filter]:bg-card/85 sm:px-4 lg:px-6">
+    <header className="sticky top-0 z-20 flex h-14 items-center justify-between glass-nav px-3 sm:px-4 lg:px-6">
       <div className="flex min-w-0 items-center gap-2 sm:gap-3 lg:w-80">
         <Button
           type="button"

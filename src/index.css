@@ -59,11 +59,22 @@
     --profit: 145 65% 40%;
     --loss: 0 72% 51%;
 
+    /* Glassmorphism & Premium UI Tokens */
+    --glass-background: 0 0% 100% / 0.6;
+    --glass-border: 0 0% 100% / 0.4;
+    --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+    
+    /* Branding Customization Placeholders */
+    --brand-primary: 215 60% 25%;
+    --brand-secondary: 215 15% 92%;
+    --brand-accent: 175 60% 40%;
+    --brand-radius: 0.75rem;
+
     --border: 215 20% 88%;
     --input: 215 20% 88%;
     --ring: 215 60% 25%;
 
-    --radius: 0.5rem;
+    --radius: var(--brand-radius);
 
     /* Sidebar */
     --sidebar-background: 215 60% 20%;
@@ -99,6 +110,10 @@
 
     --popover: 215 30% 12%;
     --popover-foreground: 215 15% 95%;
+
+    /* Glassmorphism Dark mode */
+    --glass-background: 215 30% 12% / 0.65;
+    --glass-border: 215 30% 20% / 0.5;
 
     --primary: 175 60% 45%;
     --primary-foreground: 215 30% 10%;
@@ -285,6 +300,39 @@
   .nav-item-inactive {
     @apply text-sidebar-foreground/70 hover:bg-sidebar-accent/50 hover:text-sidebar-foreground;
   }
+
+  /* Glassmorphism Utilities */
+  .glass-card {
+    background: hsl(var(--glass-background));
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid hsl(var(--glass-border));
+    box-shadow: var(--glass-shadow);
+  }
+
+  .glass-sidebar {
+    background: hsla(215, 60%, 15%, 0.7);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-right: 1px solid hsla(215, 40%, 30%, 0.4);
+  }
+
+  .glass-nav {
+    background: hsla(0, 0%, 100%, 0.1);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid hsla(0, 0%, 100%, 0.1);
+  }
+
+  /* Premium Hover Effects */
+  .premium-hover {
+    @apply transition-all duration-300;
+  }
+  
+  .premium-hover:hover {
+    @apply shadow-lg -translate-y-1;
+    box-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.2);
+  }
 }
 
 @layer base {
@@ -409,5 +457,65 @@
   .print-template .border-t,
   .print-template .border-2 {
     border-color: #000 !important;
+  }
+}
+
+@layer utilities {
+  .animate-bounce-subtle {
+    animation: bounce-subtle 3s infinite;
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 2s infinite;
+  }
+
+  .scanning-laser-effect {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .scanning-laser-effect::after {
+    content: '';
+    position: absolute;
+    top: -100%;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      to bottom,
+      transparent 0%,
+      rgba(59, 130, 246, 0.4) 50%,
+      transparent 100%
+    );
+    animation: laser-scan 2s linear infinite;
+    z-index: 10;
+    pointer-events: none;
+  }
+}
+
+@keyframes bounce-subtle {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 15px rgba(59, 130, 246, 0);
+  }
+}
+
+@keyframes laser-scan {
+  0% {
+    top: -100%;
+  }
+  100% {
+    top: 100%;
   }
 }

@@ -97,9 +97,13 @@ service cloud.firestore {
 
     // Tenants: Master collection — SERVER-SIDE ONLY (Cloud Functions / Admin SDK)
     // QA AUDIT FIX 1.1: No client-side writes to tenant records
-    match /tenants/{tenantId} {
-      allow read: if isAuthed();
-      allow create, update, delete: if false;
+    // Tenants: Master collection — SECURE ISOLATION
+    match /tenants/{tid} {
+      allow read: if isAuthed() && (
+        (userDocExists() && userDoc().data.tenant_id == tid) ||
+        (request.auth.token.tenant_id == tid)
+      );
+      allow create, update, delete: if false; // Server-side only
     }
 
     // Trips: SECURITY HARDENING — Server-side Writes Only + Driver Isolation

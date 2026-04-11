@@ -8,9 +8,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, ShieldAlert, Clock, User, Database, ChevronLeft, ChevronRight, Loader2, MessageSquare, MapPin, BellRing } from "lucide-react";
+import { Search, ShieldAlert, Clock, User, Database, ChevronLeft, ChevronRight, Loader2, MessageSquare, MapPin, BellRing, Sparkles } from "lucide-react";
 import { format } from "date-fns";
 import { vi } from "date-fns/locale";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 interface AuditLog {
   id: string;
@@ -61,6 +62,8 @@ export default function Logs() {
   const { tenantId, role } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [sourceFilter, setSourceFilter] = useState<'ALL' | TimelineSource>('ALL');
+  const [selectedLog, setSelectedLog] = useState<any>(null);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
 
   const { data: timelineRows = [], isLoading } = useQuery({
     queryKey: ['timeline_logs', tenantId],
@@ -166,6 +169,28 @@ export default function Logs() {
     return <Badge className="bg-slate-100 text-slate-700 border-none">AUDIT</Badge>;
   };
 
+  const renderDelta = (metadata: any) => {
+    if (!metadata || !metadata.diff) return <p className="text-slate-500 italic">Không có dữ liệu thay đổi chi tiết.</p>;
+    
+    const diff = metadata.diff;
+    return (
+      <div className="space-y-2 font-mono text-xs">
+        {Object.entries(diff).map(([key, value]: [string, any]) => (
+          <div key={key} className="grid grid-cols-12 gap-2 border-b border-slate-100 pb-2">
+            <div className="col-span-3 font-bold text-slate-500">{key}</div>
+            <div className="col-span-4 bg-red-50 text-red-700 px-2 py-1 rounded line-through overflow-hidden text-ellipsis italic">
+              {JSON.stringify(value.oldValue ?? '—')}
+            </div>
+            <div className="col-span-1 flex justify-center items-center text-slate-300">→</div>
+            <div className="col-span-4 bg-emerald-50 text-emerald-700 px-2 py-1 rounded overflow-hidden text-ellipsis font-bold">
+              {JSON.stringify(value.newValue ?? '—')}
+            </div>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   const sourceStats = useMemo(() => {
     return {
       AUDIT: timelineRows.filter((row) => row.source === 'AUDIT').length,
@@ -209,29 +234,80 @@ export default function Logs() {
         </div>
       </div>
 
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <Card className="bg-white border-none shadow-sm overflow-hidden group">
+          <div className="h-1 bg-emerald-500 w-full" />
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="p-3 bg-emerald-50 rounded-xl group-hover:scale-110 transition-transform">
+              <ShieldAlert className="w-5 h-5 text-emerald-600" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Log Bảo mật</p>
+              <p className="text-xl font-bold">{sourceStats.AUDIT}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white border-none shadow-sm overflow-hidden group">
+          <div className="h-1 bg-blue-500 w-full" />
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="p-3 bg-blue-50 rounded-xl group-hover:scale-110 transition-transform">
+              <Database className="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Bản ghi vận hành</p>
+              <p className="text-xl font-bold">{sourceStats.OPS}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white border-none shadow-sm overflow-hidden group">
+          <div className="h-1 bg-amber-500 w-full" />
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="p-3 bg-amber-50 rounded-xl group-hover:scale-110 transition-transform">
+              <BellRing className="w-5 h-5 text-amber-600" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Cảnh báo rủi ro</p>
+              <p className="text-xl font-bold">{sourceStats.ALERT}</p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white border-none shadow-sm overflow-hidden group">
+          <div className="h-1 bg-cyan-500 w-full" />
+          <CardContent className="p-4 flex items-center gap-4">
+            <div className="p-3 bg-cyan-50 rounded-xl group-hover:scale-110 transition-transform">
+              <MapPin className="w-5 h-5 text-cyan-600" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Tín hiệu GPS</p>
+              <p className="text-xl font-bold">{sourceStats.GPS}</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       <div className="flex items-center gap-4">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input 
             placeholder="Tìm kiếm theo email, hành động hoặc bảng dữ liệu..." 
-            className="pl-10"
+            className="pl-10 h-11 bg-white border-none shadow-sm rounded-xl focus:ring-2 focus:ring-primary/20"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant={sourceFilter === 'ALL' ? 'default' : 'outline'} size="sm" onClick={() => setSourceFilter('ALL')}>Tất cả</Button>
-          <Button variant={sourceFilter === 'AUDIT' ? 'default' : 'outline'} size="sm" onClick={() => setSourceFilter('AUDIT')}>
-            <Database className="w-3 h-3 mr-1" />{sourceStats.AUDIT}
+        <div className="flex items-center gap-1.5 p-1 bg-white rounded-xl shadow-sm border border-slate-100">
+          <Button variant={sourceFilter === 'ALL' ? 'secondary' : 'ghost'} size="sm" className="h-9 px-3 rounded-lg" onClick={() => setSourceFilter('ALL')}>Tất cả</Button>
+          <Button variant={sourceFilter === 'AUDIT' ? 'secondary' : 'ghost'} size="sm" className="h-9 px-3 rounded-lg gap-2" onClick={() => setSourceFilter('AUDIT')}>
+            <Database className="w-4 h-4 text-emerald-600" /> {sourceStats.AUDIT}
           </Button>
-          <Button variant={sourceFilter === 'OPS' ? 'default' : 'outline'} size="sm" onClick={() => setSourceFilter('OPS')}>
-            <MessageSquare className="w-3 h-3 mr-1" />{sourceStats.OPS}
+          <Button variant={sourceFilter === 'OPS' ? 'secondary' : 'ghost'} size="sm" className="h-9 px-3 rounded-lg gap-2" onClick={() => setSourceFilter('OPS')}>
+            <MessageSquare className="w-4 h-4 text-blue-600" /> {sourceStats.OPS}
           </Button>
-          <Button variant={sourceFilter === 'ALERT' ? 'default' : 'outline'} size="sm" onClick={() => setSourceFilter('ALERT')}>
-            <BellRing className="w-3 h-3 mr-1" />{sourceStats.ALERT}
+          <Button variant={sourceFilter === 'ALERT' ? 'secondary' : 'ghost'} size="sm" className="h-9 px-3 rounded-lg gap-2" onClick={() => setSourceFilter('ALERT')}>
+            <BellRing className="w-4 h-4 text-amber-600" /> {sourceStats.ALERT}
           </Button>
-          <Button variant={sourceFilter === 'GPS' ? 'default' : 'outline'} size="sm" onClick={() => setSourceFilter('GPS')}>
-            <MapPin className="w-3 h-3 mr-1" />{sourceStats.GPS}
+          <Button variant={sourceFilter === 'GPS' ? 'secondary' : 'ghost'} size="sm" className="h-9 px-3 rounded-lg gap-2" onClick={() => setSourceFilter('GPS')}>
+            <MapPin className="w-4 h-4 text-cyan-600" /> {sourceStats.GPS}
           </Button>
         </div>
       </div>
@@ -263,21 +339,31 @@ export default function Logs() {
                   </TableRow>
                 ) : (
                   filteredLogs?.map((log) => (
-                    <TableRow key={log.id} className="hover:bg-slate-50/50 transition-colors">
+                    <TableRow 
+                      key={log.id} 
+                      className="hover:bg-blue-50/50 transition-colors cursor-pointer group"
+                      onClick={() => {
+                        setSelectedLog(log);
+                        setDetailsDialogOpen(true);
+                      }}
+                    >
                       <TableCell className="text-sm font-medium">
                         {format(new Date(log.timestamp), 'dd/MM/yyyy HH:mm:ss', { locale: vi })}
                       </TableCell>
                       <TableCell>{getSourceBadge(log.source)}</TableCell>
                       <TableCell>
-                        <span className="text-sm text-slate-700">{log.user_email || 'system'}</span>
+                        <span className="text-sm font-semibold text-slate-700">{log.user_email || 'system'}</span>
                       </TableCell>
                       <TableCell>
-                        {getActionBadge(log.action)}
+                        <div className="flex items-center gap-2">
+                          {getActionBadge(log.action)}
+                          <div className="w-1 h-1 rounded-full bg-slate-300 group-hover:bg-blue-400" />
+                        </div>
                       </TableCell>
-                      <TableCell className="text-sm text-slate-500 uppercase font-semibold tracking-tighter">
+                      <TableCell className="text-[10px] text-slate-500 uppercase font-bold tracking-wider">
                         {log.collection_name || '-'}
                       </TableCell>
-                      <TableCell className="text-xs text-slate-600">
+                      <TableCell className="text-xs text-slate-600 max-w-[300px] truncate">
                         {log.description}
                       </TableCell>
                     </TableRow>
@@ -298,6 +384,62 @@ export default function Logs() {
            <Button variant="outline" size="sm" disabled><ChevronRight className="w-4 h-4" /></Button>
         </div>
       </div>
+      <Dialog open={detailsDialogOpen} onOpenChange={setDetailsDialogOpen}>
+        <DialogContent className="max-w-2xl p-0 overflow-hidden border-none shadow-2xl">
+          <div className="bg-slate-900 p-6 text-white flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-white/10 rounded-lg">
+                <Database className="w-5 h-5 text-blue-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold">Chi tiết bản ghi Nhật ký</h3>
+                <p className="text-xs text-slate-400 uppercase tracking-widest">{selectedLog?.collection_name} | {selectedLog?.entity_id}</p>
+              </div>
+            </div>
+            <Badge variant="outline" className="text-white border-white/20">
+              {selectedLog && getSourceBadge(selectedLog.source)}
+            </Badge>
+          </div>
+          
+          <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto bg-white">
+            <div className="grid grid-cols-2 gap-6 bg-slate-50 p-4 rounded-xl border border-slate-100">
+              <div className="space-y-1">
+                <p className="text-[10px] uppercase text-muted-foreground font-bold">Tài khoản thực hiện</p>
+                <p className="text-sm font-semibold">{selectedLog?.user_email || 'Hệ thống (System)'}</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[10px] uppercase text-muted-foreground font-bold">Thời gian ghi nhận</p>
+                <p className="text-sm font-semibold">
+                  {selectedLog && format(new Date(selectedLog.timestamp), 'dd MMMM yyyy, HH:mm:ss', { locale: vi })}
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-primary" />
+                <h4 className="text-sm font-bold text-slate-800">Dữ liệu Thay đổi (Delta-Diff)</h4>
+              </div>
+              
+              <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                {selectedLog?.source === 'AUDIT' ? renderDelta(selectedLog?.metadata) : (
+                  <div className="p-4 bg-slate-100 border rounded-lg">
+                    <pre className="text-[10px] whitespace-pre-wrap text-slate-700">
+                      {JSON.stringify(selectedLog?.metadata || {}, null, 2)}
+                    </pre>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="pt-4 flex justify-end">
+              <Button onClick={() => setDetailsDialogOpen(false)} variant="default" className="bg-slate-900 hover:bg-black px-8">
+                Đóng
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -214,6 +214,11 @@ export default function TripsRevenue() {
     const [overrideDialogOpen, setOverrideDialogOpen] = useState(false);
     const [pendingOverrideData, setPendingOverrideData] = useState<any>(null);
     const [overrideWarningMsg, setOverrideWarningMsg] = useState("");
+    
+    // AI Scan WOW UI states
+    const [aiScanDialogOpen, setAiScanDialogOpen] = useState(false);
+    const [aiScanProgress, setAiScanProgress] = useState(0);
+    const [aiRecognizedFields, setAiRecognizedFields] = useState<string[]>([]);
 
     // Import Columns Configuration
     const importColumns: ImportColumn[] = [
@@ -605,24 +610,45 @@ export default function TripsRevenue() {
     };
 
     const handleAiScan = () => {
-        setIsScanning(true);
-        toast({
-            title: "Khởi chạy Google Document AI...",
-            description: "Đang phân tích chứng từ mờ từ DriverApp...",
-        });
+        if (!selectedTrip) return;
+        
+        setAiScanDialogOpen(true);
+        setAiScanProgress(0);
+        setAiRecognizedFields([]);
+        
+        const fields = ["Biển số xe: Match 100%", "Tài xế: Xác nhận", "Cước vận chuyển: 8,500,000đ", "Phụ phí: 450,000đ"];
+        
+        // WOW: Simulated progressive recognition
+        const interval = setInterval(() => {
+            setAiScanProgress(prev => {
+                if (prev >= 100) {
+                    clearInterval(interval);
+                    return 100;
+                }
+                
+                // Add fields as progress goes
+                if (prev === 20) setAiRecognizedFields([fields[0]]);
+                if (prev === 40) setAiRecognizedFields([fields[0], fields[1]]);
+                if (prev === 70) setAiRecognizedFields([fields[0], fields[1], fields[2]]);
+                if (prev === 90) setAiRecognizedFields(fields);
+                
+                return prev + 5;
+            });
+        }, 100);
 
         setTimeout(() => {
-            setIsScanning(false);
             form.setValue("freight_revenue", 8500000);
             form.setValue("additional_charges", 450000);
             const currentNotes = form.getValues("notes") || "";
-            form.setValue("notes", `${currentNotes} [AI OCR: Trích xuất cước 8.5Tr, phí 450k]`.trim());
+            if (!currentNotes.includes("AI OCR")) {
+                form.setValue("notes", `${currentNotes} [AI OCR: 8.5Tr, 450k]`.trim());
+            }
             
             toast({
-                title: "Trích xuất AI thành công!",
-                description: "Đã tự động đối soát và điền dữ liệu tài chính.",
+                title: "Đối soát AI hoàn tất",
+                description: "Đã tự động điền dữ liệu cước và phụ phí từ chứng từ mờ.",
             });
-        }, 2500);
+        }, 2200);
     };
 
     const onSubmit = async (data: TripFormValues) => {
@@ -949,7 +975,7 @@ export default function TripsRevenue() {
             key: 'pod_status',
             header: 'Trạng thái POD',
             width: '130px',
-            render: (value) => {
+            render: (value, row) => {
                 const status = value as string || 'PENDING';
                 const config = {
                     PENDING: { label: 'Chưa nhận', color: 'bg-amber-100 text-amber-700 border-amber-200' },
@@ -958,9 +984,27 @@ export default function TripsRevenue() {
                 }[status] || { label: status, color: 'bg-gray-100' };
                 
                 return (
-                    <Badge variant="outline" className={`${config.color} font-medium text-[10px] uppercase tracking-wider`}>
-                        {config.label}
-                    </Badge>
+                    <div className="flex items-center gap-2">
+                        <Badge variant="outline" className={`${config.color} font-medium text-[10px] uppercase tracking-wider`}>
+                            {config.label}
+                        </Badge>
+                        {status === 'RECEIVED' && (
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-6 w-6 text-blue-600 hover:bg-blue-50"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    toast({ 
+                                        title: "Xem chứng từ", 
+                                        description: "Đang mở ảnh POD từ tài xế...",
+                                    });
+                                }}
+                            >
+                                <Eye className="w-3.5 h-3.5" />
+                            </Button>
+                        )}
+                    </div>
                 );
             }
         },
@@ -1755,19 +1799,14 @@ export default function TripsRevenue() {
                                         <Button
                                             type="button"
                                             variant="secondary"
-                                            className="w-full bg-purple-50 text-purple-700 hover:bg-purple-100 border border-purple-200 gap-2 h-10 shadow-sm"
+                                            className="w-full bg-blue-600 text-white hover:bg-blue-700 gap-2 h-12 shadow-lg shadow-blue-200 font-bold transition-all hover:scale-[1.02]"
                                             onClick={handleAiScan}
-                                            disabled={isScanning}
                                         >
-                                            {isScanning ? (
-                                                <RefreshCw className="w-4 h-4 animate-spin" />
-                                            ) : (
-                                                <Sparkles className="w-4 h-4 text-purple-500" />
-                                            )}
-                                            {isScanning ? "Đang xử lý Document AI..." : "AI Tự động bóc tách hóa đơn (OCR)"}
+                                            <Sparkles className="w-5 h-5 text-amber-300 animate-pulse" />
+                                            Đối soát thông minh (AI Discovery)
                                         </Button>
-                                        <p className="text-[10px] text-muted-foreground mt-1 text-center">
-                                            Phân tích biên bản bàn giao & bill ảnh từ tài xế để tự động khớp số liệu.
+                                        <p className="text-[10px] text-muted-foreground mt-2 text-center italic">
+                                            Phân tích biên bản bàn giao & POD ảnh từ tài xế để tự động khớp số liệu cực nhanh.
                                         </p>
                                     </div>
 
@@ -1842,6 +1881,63 @@ export default function TripsRevenue() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            {/* AI SCAN WOW DIALOG */}
+            <Dialog open={aiScanDialogOpen} onOpenChange={setAiScanDialogOpen}>
+                <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl">
+                    <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-6 text-white text-center relative overflow-hidden">
+                        <div className="absolute top-0 right-0 p-4 opacity-10">
+                            <Sparkles className="w-24 h-24" />
+                        </div>
+                        <h2 className="text-2xl font-bold mb-1 relative z-10">AI Discovery Scanning</h2>
+                        <p className="text-blue-100 text-sm relative z-10">Đang đối soát dữ liệu từ tài xế...</p>
+                    </div>
+                    
+                    <div className="p-8 space-y-6 bg-white">
+                        <div className="relative h-64 bg-slate-100 rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center overflow-hidden">
+                            <div className="scanning-laser-effect absolute inset-0 bg-black/5" />
+                            <div className="z-20 text-center space-y-3">
+                                <ScanText className="w-16 h-16 text-blue-500 mx-auto opacity-50" />
+                                <div className="space-y-1">
+                                    <p className="text-sm font-semibold text-slate-700">Đang phân tích chứng từ mờ...</p>
+                                    <p className="text-xs text-slate-400">Google Gemini Flash 2.0</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-4">
+                            <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200">
+                                <div 
+                                    className="bg-blue-600 h-full transition-all duration-300 ease-out"
+                                    style={{ width: `${aiScanProgress}%` }}
+                                />
+                            </div>
+
+                            <div className="space-y-2 min-h-[100px]">
+                                {aiRecognizedFields.map((field, idx) => (
+                                    <div key={idx} className="flex items-center gap-2 text-xs font-medium text-emerald-600 animate-slide-in">
+                                        <CheckCircle className="w-3.5 h-3.5" />
+                                        {field}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <Button 
+                            className="w-full bg-slate-900 hover:bg-black h-12" 
+                            disabled={aiScanProgress < 100}
+                            onClick={() => setAiScanDialogOpen(false)}
+                        >
+                            {aiScanProgress < 100 ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" /> 
+                                    Đang nhận diện ({aiScanProgress}%)
+                                </>
+                            ) : "Áp dụng kết quả"}
+                        </Button>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

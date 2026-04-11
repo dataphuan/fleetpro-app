@@ -10,22 +10,42 @@ export const ThemeInjector = () => {
     const { data: settings } = useCompanySettings();
 
     useEffect(() => {
-        if (settings?.primary_color) {
-            const hex = settings.primary_color;
+        const root = document.documentElement;
+        
+        // Helper to apply hex color to CSS variable as HSL
+        const applyColor = (hex: string, property: string) => {
             const hsl = hexToHsl(hex);
-            
             if (hsl) {
-                const root = document.documentElement;
-                // Format: "h s% l%"
                 const hslString = `${hsl.h} ${hsl.s}% ${hsl.l}%`;
-                root.style.setProperty('--primary', hslString);
+                root.style.setProperty(property, hslString);
+                return hslString;
+            }
+            return null;
+        };
+
+        if (settings?.primary_color) {
+            const hslString = applyColor(settings.primary_color, '--primary');
+            if (hslString) {
                 root.style.setProperty('--ring', hslString);
-                
-                // Also update sidebar if it uses primary
                 root.style.setProperty('--sidebar-primary', hslString);
+                root.style.setProperty('--brand-primary', hslString);
             }
         }
-    }, [settings?.primary_color]);
+
+        if (settings?.secondary_color) {
+            applyColor(settings.secondary_color, '--secondary');
+            applyColor(settings.secondary_color, '--brand-secondary');
+        }
+
+        if (settings?.accent_color) {
+            applyColor(settings.accent_color, '--accent');
+            applyColor(settings.accent_color, '--brand-accent');
+        }
+
+        if (settings?.border_radius) {
+            root.style.setProperty('--brand-radius', `${settings.border_radius}px`);
+        }
+    }, [settings?.primary_color, settings?.secondary_color, settings?.accent_color, settings?.border_radius]);
 
     return null;
 };

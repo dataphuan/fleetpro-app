@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { storage } from "@/lib/firebase";
 import { ref, uploadBytes, getDownloadURL, uploadString } from "firebase/storage";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from "@/components/ui/sheet";
 import { SignaturePad } from "@/components/shared/SignaturePad";
 import { DriverLiveMap } from "@/components/driver/DriverLiveMap";
 import { getBestCurrentPosition, geolocationErrorToMessage, startLocationWatch, stopLocationWatch, type DriverGeoPoint } from "@/lib/driver-location";
@@ -92,6 +93,7 @@ export default function DriverDashboard() {
     const [draftArea, setDraftArea] = useState('');
     const [draftNote, setDraftNote] = useState('');
     const [isCreatingDraftOrder, setIsCreatingDraftOrder] = useState(false);
+    const [isDraftSheetOpen, setIsDraftSheetOpen] = useState(false);
     const [availabilityStatus, setAvailabilityStatus] = useState<string>('available');
     const [isTogglingAvailability, setIsTogglingAvailability] = useState(false);
     const watchIdRef = useRef<number | null>(null);
@@ -734,6 +736,7 @@ export default function DriverDashboard() {
 
             setDraftArea('');
             setDraftNote('');
+            setIsDraftSheetOpen(false);
             toast({ title: 'Đã tạo lệnh nháp', description: `${nextCode} đã báo cho quản lý và kênh Telegram.` });
         } catch (error: any) {
             toast({ title: 'Tạo lệnh nháp thất bại', description: error?.message || 'Vui lòng thử lại.', variant: 'destructive' });
@@ -1303,6 +1306,53 @@ export default function DriverDashboard() {
             v.assignment_type === 'pool' && v.status === 'active'
         );
 
+        const DraftRequestForm = (
+            <div className="space-y-4">
+                <div>
+                    <Label className="text-xs">Khu vực dự kiến sẵn sàng</Label>
+                    <Input
+                        className="mt-1 h-11 text-sm bg-slate-50 border-slate-200"
+                        value={draftArea}
+                        onChange={(e) => setDraftArea(e.target.value)}
+                        placeholder="VD: Thủ Đức, Quận 12 hoặc TP.HCM"
+                    />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                    <div>
+                        <Label className="text-xs">Khung giờ từ</Label>
+                        <Input type="time" className="mt-1 h-11 text-sm bg-slate-50 border-slate-200" value={draftSlotFrom} onChange={(e) => setDraftSlotFrom(e.target.value)} />
+                    </div>
+                    <div>
+                        <Label className="text-xs">Đến</Label>
+                        <Input type="time" className="mt-1 h-11 text-sm bg-slate-50 border-slate-200" value={draftSlotTo} onChange={(e) => setDraftSlotTo(e.target.value)} />
+                    </div>
+                </div>
+                <div>
+                    <Label className="text-xs">Mong muốn (Ghi chú)</Label>
+                    <Input
+                        className="mt-1 h-11 text-sm bg-slate-50 border-slate-200"
+                        value={draftNote}
+                        onChange={(e) => setDraftNote(e.target.value)}
+                        placeholder="VD: Nhận tải nhẹ, đi tỉnh gần..."
+                    />
+                </div>
+                <Button
+                    className="w-full bg-blue-600 hover:bg-blue-700 h-12 text-base font-bold shadow-lg shadow-blue-200"
+                    disabled={isCreatingDraftOrder}
+                    onClick={handleCreateDraftOrder}
+                >
+                    {isCreatingDraftOrder ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Sparkles className="w-5 h-5 mr-2" />}
+                    Gửi yêu cầu nhận chuyến sớm
+                </Button>
+                <div className="p-3 bg-blue-50 rounded-lg border border-blue-100 flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
+                    <p className="text-[11px] text-blue-800 leading-relaxed">
+                        Thông tin của bạn sẽ được gửi thẳng đến Điều phối và báo qua Telegram để ưu tiên sắp xếp chuyến tiếp theo cho bạn.
+                    </p>
+                </div>
+            </div>
+        );
+
         return (
             <div className="p-4 space-y-3 pb-36">
                 {/* STATUS BAR: Driver Name + Vehicle + Availability Toggle */}
@@ -1453,58 +1503,40 @@ export default function DriverDashboard() {
                     </CardContent>
                 </Card>
 
-                {/* BƯỚC 4: Tạo lệnh nháp */}
-                <Card className="border-blue-200 bg-blue-50/70">
+                {/* BƯỚC 4: Tạo lệnh nháp - Integrated Sheet */}
+                <Card className="border-blue-200 bg-blue-50/70 overflow-hidden relative">
+                    <div className="absolute top-0 right-0 p-2 opacity-10">
+                        <Sparkles className="w-12 h-12 text-blue-900" />
+                    </div>
                     <CardHeader className="pb-1 pt-3">
-                        <CardTitle className="text-sm font-semibold text-blue-900">4️⃣ BƯỚC 4: Tạo lệnh nháp khi chưa có điều động</CardTitle>
+                        <CardTitle className="text-sm font-semibold text-blue-900">4️⃣ BƯỚC 4: Chủ động tìm việc</CardTitle>
                     </CardHeader>
-                    <CardContent className="space-y-2 pb-3">
-                        <div>
-                            <Label className="text-xs">Khu vực sẵn sàng nhận chuyến</Label>
-                            <Input
-                                className="mt-1 h-9 text-sm"
-                                value={draftArea}
-                                onChange={(e) => setDraftArea(e.target.value)}
-                                placeholder="VD: Thủ Đức - Quận 9 - Bình Thạnh"
-                            />
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                            <div>
-                                <Label className="text-xs">Khung giờ từ</Label>
-                                <Input type="time" className="mt-1 h-9 text-sm" value={draftSlotFrom} onChange={(e) => setDraftSlotFrom(e.target.value)} />
-                            </div>
-                            <div>
-                                <Label className="text-xs">Đến</Label>
-                                <Input type="time" className="mt-1 h-9 text-sm" value={draftSlotTo} onChange={(e) => setDraftSlotTo(e.target.value)} />
-                            </div>
-                        </div>
-                        <div>
-                            <Label className="text-xs">Ghi chú</Label>
-                            <Input
-                                className="mt-1 h-9 text-sm"
-                                value={draftNote}
-                                onChange={(e) => setDraftNote(e.target.value)}
-                                placeholder="VD: Sẵn sàng chạy tải nhẹ dưới 3 tấn"
-                            />
-                        </div>
-                        <Button
-                            className="w-full bg-blue-600 hover:bg-blue-700 h-10"
-                            disabled={isCreatingDraftOrder}
-                            onClick={handleCreateDraftOrder}
-                        >
-                            {isCreatingDraftOrder ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
-                            Tạo lệnh nháp và báo Telegram
-                        </Button>
-                        <p className="text-[11px] text-blue-800">Sau khi tạo nháp, hệ thống sẽ báo cho quản lý và kênh Telegram chung.</p>
+                    <CardContent className="pb-4">
+                        <p className="text-xs text-blue-800 mb-3">Chưa có chuyến? Gửi yêu cầu khu vực bạn đang ở để quản lý điều phối đơn gần đó.</p>
+                        
+                        <Sheet open={isDraftSheetOpen} onOpenChange={setIsDraftSheetOpen}>
+                            <SheetTrigger asChild>
+                                <Button className="w-full bg-blue-600 hover:bg-blue-700 h-10 shadow-md">
+                                    <Plus className="w-4 h-4 mr-2" /> Tạo yêu cầu nhận chuyến
+                                </Button>
+                            </SheetTrigger>
+                            <SheetContent side="bottom" className="rounded-t-3xl min-h-[60vh] px-6">
+                                <SheetHeader className="mb-6">
+                                    <SheetTitle className="text-xl">Yêu cầu nhận chuyến sớm</SheetTitle>
+                                    <SheetDescription>Báo cáo vị trí và thời gian bạn sẵn sàng để nhận việc nhanh hơn.</SheetDescription>
+                                </SheetHeader>
+                                {DraftRequestForm}
+                            </SheetContent>
+                        </Sheet>
                     </CardContent>
                 </Card>
 
                 <a
                     href="tel:0989890022"
-                    className="flex items-center justify-center gap-2 rounded-md border border-blue-300 bg-blue-50 px-3 py-2.5 text-sm font-semibold text-blue-700 w-full"
+                    className="flex items-center justify-center gap-2 rounded-xl border border-blue-300 bg-white px-3 py-3 text-sm font-semibold text-blue-700 w-full shadow-sm"
                 >
                     <PhoneCall className="w-4 h-4" />
-                    Liên hệ điều phối
+                    Hotline Điều phối: 0989.890.022
                 </a>
             </div>
         );
@@ -1578,6 +1610,24 @@ export default function DriverDashboard() {
             <div className="mb-6">
                 <h2 className="text-2xl font-bold text-slate-800">Chuyến đi của bạn</h2>
                 <p className="text-sm text-slate-500">Kéo xuống để xem tất cả ({myActiveTrips.length} chuyến)</p>
+            </div>
+
+            {/* Proactive Draft Form in a Sheet (Persistent floating button for WOW experience) */}
+            <div className="fixed bottom-20 right-4 z-50">
+                <Sheet open={isDraftSheetOpen} onOpenChange={setIsDraftSheetOpen}>
+                    <SheetTrigger asChild>
+                        <Button size="icon" className="w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-700 shadow-xl border-2 border-white animate-bounce-subtle">
+                            <Sparkles className="w-6 h-6 text-white" />
+                        </Button>
+                    </SheetTrigger>
+                    <SheetContent side="bottom" className="rounded-t-3xl min-h-[60vh] px-6">
+                        <SheetHeader className="mb-6">
+                            <SheetTitle className="text-xl">Đăng ký chuyến tiếp theo</SheetTitle>
+                            <SheetDescription>Thông báo vị trí và thời gian bạn sẽ trống xe để nhận chuyến sớm từ Điều phối.</SheetDescription>
+                        </SheetHeader>
+                        {DraftRequestForm}
+                    </SheetContent>
+                </Sheet>
             </div>
 
             <Card className="border-sky-200 bg-sky-50/70">

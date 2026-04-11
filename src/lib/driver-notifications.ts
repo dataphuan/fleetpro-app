@@ -1,6 +1,7 @@
 import { auth, db } from '@/lib/firebase';
 import { getTenantId } from '@/lib/data-adapter';
 import { getDoc, doc } from 'firebase/firestore';
+import { decryptToken } from './encryption';
 
 export type DriverDispatchNotificationPayload = {
   tripCode: string;
@@ -126,7 +127,8 @@ const sendViaTelegramBotApi = async (text: string, chatIdOverride?: string | nul
     return { ok: false, channel: 'none', message: 'Telegram notifications disabled for this tenant' };
   }
 
-  const token = (tenantConfig?.bot_token || import.meta.env.VITE_TELEGRAM_BOT_TOKEN || '').trim();
+  const rawToken = (tenantConfig?.bot_token || import.meta.env.VITE_TELEGRAM_BOT_TOKEN || '').trim();
+  const token = decryptToken(rawToken);
   const chatId = String(chatIdOverride || tenantConfig?.group_chat_id || import.meta.env.VITE_TELEGRAM_CHAT_ID || '').trim();
 
   if (!token || !chatId) {
@@ -172,7 +174,8 @@ const sendViaTelegramBotApiWithPhoto = async (text: string, photoUrl: string | n
     return { ok: false, channel: 'none', message: 'Telegram notifications disabled for this tenant' };
   }
 
-  const token = (tenantConfig?.bot_token || import.meta.env.VITE_TELEGRAM_BOT_TOKEN || '').trim();
+  const rawToken = (tenantConfig?.bot_token || import.meta.env.VITE_TELEGRAM_BOT_TOKEN || '').trim();
+  const token = decryptToken(rawToken);
   const chatId = String(chatIdOverride || tenantConfig?.group_chat_id || import.meta.env.VITE_TELEGRAM_CHAT_ID || '').trim();
 
   if (!token || !chatId) {

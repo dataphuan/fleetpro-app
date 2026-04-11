@@ -137,14 +137,19 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
   return (
     <aside
       className={cn(
-        "flex flex-col h-screen bg-sidebar border-r border-sidebar-border transition-all duration-300",
+        "flex flex-col h-screen glass-sidebar transition-all duration-300 relative z-40",
         collapsed ? "w-16" : "w-56"
       )}
     >
-      {/* Logo — Compact */}
-      <div className="flex items-center h-14 px-3 border-b border-sidebar-border">
+      {/* Decorative Brand Gradient — Premium Touch */}
+      {!collapsed && (
+        <div className="absolute top-0 left-0 w-1 h-24 bg-gradient-to-b from-[hsl(var(--brand-primary))] to-transparent opacity-80" />
+      )}
+
+      {/* Logo — Compact with Premium Borders */}
+      <div className="flex items-center h-14 px-3 border-b border-sidebar-border/30 backdrop-blur-md">
         <div className="flex items-center gap-2.5 min-w-0">
-          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-sidebar-primary text-sidebar-primary-foreground overflow-hidden flex-shrink-0">
+          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-[hsl(var(--brand-primary))] text-sidebar-primary-foreground shadow-lg shadow-[hsl(var(--brand-primary))/0.2] overflow-hidden flex-shrink-0 animate-fade-in">
             {companySettings?.logo_url ? (
               <img src={companySettings.logo_url} alt="Logo" className="w-full h-full object-cover" />
             ) : (

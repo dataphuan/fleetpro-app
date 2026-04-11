@@ -7,9 +7,10 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
-import { MessageCircle, Bot, Users, Save, Send, RefreshCw, CheckCircle, ExternalLink, Eye, EyeOff } from "lucide-react";
+import { MessageCircle, Bot, Users, Save, Send, RefreshCw, CheckCircle, ExternalLink, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { encryptToken, decryptToken } from "@/lib/encryption";
 
 interface TelegramConfig {
   is_enabled: boolean;
@@ -48,9 +49,12 @@ export function TelegramSettingsForm() {
         if (snap.exists()) {
           const data = snap.data();
           if (data?.telegram_config) {
+            const rawConfig = data.telegram_config;
             setConfig({
               ...DEFAULT_CONFIG,
-              ...data.telegram_config,
+              ...rawConfig,
+              // Decrypt token for UI display
+              bot_token: decryptToken(rawConfig.bot_token),
             });
           }
         }
@@ -67,20 +71,25 @@ export function TelegramSettingsForm() {
     if (!tenantId) return;
     setIsSaving(true);
     try {
+      // Encrypt token before saving
+      const encryptedConfig = {
+        ...config,
+        bot_token: encryptToken(config.bot_token),
+        updated_at: new Date().toISOString(),
+      };
+
       await setDoc(
         doc(db, "company_settings", tenantId),
         {
-          telegram_config: {
-            ...config,
-            updated_at: new Date().toISOString(),
-          },
+          telegram_config: encryptedConfig,
           updated_at: new Date().toISOString(),
         },
         { merge: true }
       );
+      
       toast({
-        title: "✅ Đã lưu cấu hình Telegram",
-        description: "Cấu hình thông báo Telegram của công ty đã được cập nhật.",
+        title: "✅ Bảo mật & Đã lưu",
+        description: "Cấu hình Telegram đã được mã hóa và lưu trữ an toàn.",
       });
     } catch (e: any) {
       console.error("Failed to save telegram config:", e);
@@ -98,14 +107,10 @@ export function TelegramSettingsForm() {
     const token = config.bot_token.trim();
     const chatId = config.group_chat_id.trim();
 
-    // Fallback to env vars if not provided
-    const effectiveToken = token || (import.meta.env.VITE_TELEGRAM_BOT_TOKEN || "").trim();
-    const effectiveChatId = chatId || (import.meta.env.VITE_TELEGRAM_CHAT_ID || "").trim();
-
-    if (!effectiveToken || !effectiveChatId) {
+    if (!token || !chatId) {
       toast({
         title: "Thiếu thông tin",
-        description: "Vui lòng nhập Bot Token và Chat ID nhóm trước khi kiểm tra.",
+        description: "Vui lòng nhập Bot Token và Chat ID nhóm riêng của bạn.",
         variant: "destructive",
       });
       return;
@@ -113,15 +118,15 @@ export function TelegramSettingsForm() {
 
     setIsTesting(true);
     try {
-      const text = `✅ FleetPro - Kiểm tra kết nối thành công!\n\nTenant: ${tenantId}\nThời gian: ${new Date().toLocaleString("vi-VN")}\n\nHệ thống sẵn sàng gửi thông báo điều phối, sự cố, và chi phí.`;
+      const text = `🚀 FleetPro Security Audit - Test Connection\n\n✅ Tenant: ${tenantId}\n🔒 Encryption: Active\n⏰ Time: ${new Date().toLocaleString("vi-VN")}\n\nThông báo này xác nhận Bot riêng của khách hàng đã kết nối thành công.`;
 
       const response = await fetch(
-        `https://api.telegram.org/bot${effectiveToken}/sendMessage`,
+        `https://api.telegram.org/bot${token}/sendMessage`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            chat_id: effectiveChatId,
+            chat_id: chatId,
             text,
             disable_web_page_preview: true,
           }),
@@ -131,16 +136,16 @@ export function TelegramSettingsForm() {
       const json = await response.json();
       if (json?.ok) {
         toast({
-          title: "✅ Kết nối thành công!",
-          description: "Tin nhắn thử nghiệm đã được gửi đến nhóm Telegram của bạn.",
+          title: "🚀 Kết nối Bot riêng thành công!",
+          description: "Tin nhắn đã được gửi đến nhóm Telegram của tenant.",
         });
       } else {
         throw new Error(json?.description || "Telegram API error");
       }
     } catch (e: any) {
       toast({
-        title: "❌ Kết nối thất bại",
-        description: e?.message || "Không thể gửi tin nhắn đến Telegram.",
+        title: "❌ Lỗi kết nối Bot",
+        description: "Vui lòng kiểm tra lại Token hoặc cấp quyền cho Bot trong nhóm.",
         variant: "destructive",
       });
     } finally {
