@@ -54,27 +54,31 @@ let runtimeTenantId: string | null = null;
 
 export const setRuntimeTenantId = (id: string | null) => {
     runtimeTenantId = id;
+    if (id && typeof localStorage !== 'undefined') {
+        localStorage.setItem('fleetpro_tenant_id', id);
+    }
 };
 
 export const getTenantId = () => {
     if (runtimeTenantId) return runtimeTenantId;
     
-    // Fallback: Try to get tenant_id from current auth user's document
-    if (auth.currentUser) {
-        // Try to get from cached user metadata (if available)
-        const customClaims = (auth.currentUser as any).customClaims || {};
-        if (customClaims.tenant_id) {
-            runtimeTenantId = customClaims.tenant_id;
-            return runtimeTenantId;
+    // Check localStorage first (persistent across refreshes)
+    if (typeof localStorage !== 'undefined') {
+        const cached = localStorage.getItem('fleetpro_tenant_id');
+        if (cached) {
+            runtimeTenantId = cached;
+            return cached;
         }
     }
-    
-    // Fallback dev tenant for local testing ONLY
-    if (import.meta.env.MODE === 'development') {
-        return import.meta.env.VITE_TENANT_ID || 'dev-tenant';
+
+    // Fallback: Try to get tenant_id from current auth user
+    if (auth.currentUser) {
+        // We can't easily wait for a doc fetch here synchronously, 
+        // but we can check if it was set in a previous session.
+        return ''; 
     }
     
-    return ''; // No tenant = No data for security
+    return ''; 
 };
 
 const US_CENTRAL1_FUNCTIONS = getFunctions(app, 'us-central1');
@@ -1562,11 +1566,14 @@ const normalizeSeedRows = (rowsByCollection: Record<string, Array<Record<string,
         if (!expense.category_name) {
             expense.category_name = classifyExpenseTypeByKeyword(`${expense.description || ''} ${expense.expense_code || ''}`);
         }
-        if (!expense.vehicle_id && expense.vehicleId && vehicleIds.has(String(expense.vehicleId))) {
-            expense.vehicle_id = expense.vehicleId;
+        // Relationship Audit Fix: ensure both key formats are mapped
+        const vId = expense.vehicle_id || expense.vehicleId;
+        if (vId && vehicleIds.has(String(vId))) {
+            expense.vehicle_id = vId;
         }
-        if (!expense.trip_id && expense.tripId && tripIds.has(String(expense.tripId))) {
-            expense.trip_id = expense.tripId;
+        const tId = expense.trip_id || expense.tripId;
+        if (tId && tripIds.has(String(tId))) {
+            expense.trip_id = tId;
         }
     });
 
@@ -1580,16 +1587,18 @@ const normalizeSeedRows = (rowsByCollection: Record<string, Array<Record<string,
     });
     trips.forEach((trip) => {
         const tid = String(trip.id || trip.trip_code || '');
-        if (!trip.total_expenses && expenseTotalsByTrip[tid]) {
-            trip.total_expenses = expenseTotalsByTrip[tid];
-        }
-        trip.freight_revenue = trip.freight_revenue ?? trip.total_revenue ?? 0;
-        trip.additional_charges = trip.additional_charges ?? 0;
-        const grossRev = Number(trip.freight_revenue || 0) + Number(trip.additional_charges || 0);
-        const totalCost = Number(trip.total_expenses || 0);
-        trip.gross_revenue = trip.gross_revenue ?? grossRev;
-        trip.total_cost = trip.total_cost ?? totalCost;
-        trip.gross_profit = trip.gross_profit ?? (grossRev - totalCost);
+        // Force recalculation of totals for accuracy
+        const tripExpenses = expenseTotalsByTrip[tid] || 0;
+        
+        trip.freight_revenue = Number(trip.freight_revenue || trip.total_revenue || 0);
+        trip.additional_charges = Number(trip.additional_charges || 0);
+        const grossRev = trip.freight_revenue + trip.additional_charges;
+        
+        trip.total_revenue = grossRev;
+        trip.gross_revenue = grossRev;
+        trip.total_expenses = tripExpenses;
+        trip.total_cost = tripExpenses;
+        trip.gross_profit = grossRev - tripExpenses;
     });
 
     // BUG #3 FIX: Supplement maintenance records if too few
@@ -1721,7 +1730,11 @@ const seedNewTenantDemoData = async (options: TenantSeedOptions) => {
         
         console.log(`🔄 [seedNewTenantDemoData] Starting demo data seed for tenant: ${tenantId}, company: ${companyName}`);
 
-    const toDocId = (collectionName: string, sourceId: string) => `${tenantId}_${collectionName}_${sourceId}`;
+    const toDocId = (collectionName: string, sourceId: string) => {
+        const cleanSourceId = String(sourceId || '').replace(/[^a-zA-Z0-9_-]/g, '');
+        return `${tenantId}_${collectionName}_${cleanSourceId}`;
+    };
+    
     const withAudit = (row: Record<string, any>) => ({
         ...row,
         tenant_id: tenantId,
@@ -1881,10 +1894,17 @@ const seedNewTenantDemoData = async (options: TenantSeedOptions) => {
 
     const writes: Array<{ collectionName: string; docId: string; data: Record<string, any> }> = [];
     allCollections.forEach(({ collectionName, rows }) => {
-        // Skip 'users' collection if it was already handled or empty
+        // Skip 'users' collection as it's handled above atomically
         if (collectionName === 'users') return;
+        
+        console.log(`📦 [seedNewTenantDemoData] Preparing ${rows.length} records for collection: ${collectionName}`);
         rows.forEach((row) => writes.push({ collectionName, ...row }));
     });
+
+    if (writes.length === 0) {
+        console.warn(`⚠️ [seedNewTenantDemoData] No records to write for tenant ${tenantId}. collections found: ${allCollections.length}`);
+        return;
+    }
 
     const chunkSize = 450;
     const totalRecords = writes.length;
@@ -1926,10 +1946,12 @@ const isTenantDemoDataInsufficient = async (tenantId: string) => {
             query(collection(db, collectionName), where('tenant_id', '==', tenantId))
         );
         if (snapshot.size < minExpected) {
+            console.log(`🚩 [Sufficiency Check] ${collectionName}: found ${snapshot.size}, expected ${minExpected}. (INSUFFICIENT)`);
             return true;
         }
     }
 
+    console.log(`✅ [Sufficiency Check] All collections meet minimum demo requirements for ${tenantId}.`);
     return false;
 };
 
@@ -2033,15 +2055,13 @@ const ensureTenantDemoReadiness = async (payload: EnsureDemoReadinessPayload) =>
         }
     }
 
-    if (result.success) {
-        try {
-            await setDoc(doc(db, 'tenants', tenantId), {
-                demo_data_version: TENANT_DEMO_SEED.metadata.generated_at,
-                updated_at: new Date().toISOString()
-            }, { merge: true });
-        } catch (e) {
-            console.error("Failed to update tenant version:", e);
-        }
+    try {
+        await setDoc(doc(db, 'tenants', tenantId), {
+            demo_data_version: TENANT_DEMO_SEED.metadata.generated_at,
+            updated_at: new Date().toISOString()
+        }, { merge: true });
+    } catch (e) {
+        console.error("Failed to update tenant version:", e);
     }
 
     return { success: true, seeded: true, message: 'Demo data has been auto-provisioned' };

@@ -480,90 +480,104 @@ const expenseCategories = [
 const tripByCode = new Map(trips.map((t) => [t.trip_code, t]));
 
 
-// --- SỬA LỖI TẬN GỐC (ROOT CAUSE LOGIC) ---
-// Định hình lại các khoản Chi Phí bám sát theo THỰC TẾ VẬN HÀNH 
-// của từng Chuyến (Trips) và Định Mức Tuyến (Routes) do phần mềm định nghĩa.
+// --- MÔ HÌNH VẬN HÀNH THỰC TẾ (OPERATIONAL LOGIC) ---
 const realisticExpenses = [];
 let expIndex = 1;
 
-// Generating enough expenses to reach the 867 claim
-// 1. Variable Costs from trips (Approx 200)
-// 2. Fixed Costs (Approx 20 vehicles * 12 months = 240)
-// 3. Historical Maintenance & Office costs to fill the gap.
+const FUEL_PRICE = 21500; // Giá dầu thực tế VND
 
-// 1. Phân bổ Chi phí Mảng Chuyến (Variable Costs: Dầu, Lương TX, Cầu đường...)
 trips.forEach(trip => {
   const route = routes.find(r => r.id === trip.route_id);
-  if (!route) return;
+  const vehicle = vehicles.find(v => v.id === trip.vehicle_id);
+  if (!route || !vehicle) return;
 
   const date = trip.departure_date;
-  const vid = trip.vehicle_id;
+  
+  // 1. Định mức tiêu hao nhiên liệu dựa trên tải trọng xe
+  let fuelNorm = 15; // Lít/100km cho xe nhỏ
+  if (vehicle.capacity_tons > 15) fuelNorm = 38;
+  else if (vehicle.capacity_tons >= 8) fuelNorm = 25;
 
-  const fuelCost = route.fuel_cost_standard || 1500000;
-  const tollCost = route.toll_cost || 200000;
-  const driverWage = route.driver_allowance_standard || 400000;
-  const supportFee = route.support_fee_standard || 150000;
+  const distance = trip.actual_distance_km || route.distance_km || 0;
+  const fuelCost = Math.round((distance / 100) * fuelNorm * FUEL_PRICE);
+  const tollCost = route.toll_cost || 0;
+  const driverWage = route.driver_allowance_standard || 0;
+  const supportFee = route.support_fee_standard || 0;
 
-  [
-    { cat: 'CAT001', desc: `Đổ dầu chuyến ${trip.trip_code}`, amt: fuelCost },
-    { cat: 'CAT002', desc: `Phí cầu đường BOT ${trip.trip_code}`, amt: tollCost },
-    { cat: 'CAT003', desc: `Lương khoán ${trip.trip_code}`, amt: driverWage },
-    { cat: 'CAT004', desc: `Bồi dưỡng ${trip.trip_code}`, amt: supportFee }
-  ].forEach(item => {
+  // THÊM CHI PHÍ NHIÊN LIỆU (FUEL)
+  if (fuelCost > 0) {
     realisticExpenses.push({
-      id: `EXP_T_${expIndex++}`,
-      expense_code: `CP${String(expIndex).padStart(6, '0')}`,
+      id: `EXP_FUEL_${expIndex++}`,
+      expense_code: `OIL-${String(expIndex).padStart(5, '0')}`,
       expense_date: date,
-      category_id: item.cat,
+      category_id: 'CAT001', // Nhiên liệu
       trip_id: trip.id,
-      vehicle_id: vid,
-      description: item.desc,
-      amount: Math.round(item.amt),
+      vehicle_id: vehicle.id,
+      description: `Đổ dầu Diesel - Tuyến ${route.route_name}`,
+      amount: fuelCost,
       status: 'confirmed'
     });
-  });
+  }
+
+  // THÊM CHI PHÍ CẦU ĐƯỜNG (TOLL)
+  if (tollCost > 0) {
+    realisticExpenses.push({
+      id: `EXP_TOLL_${expIndex++}`,
+      expense_code: `BOT-${String(expIndex).padStart(5, '0')}`,
+      expense_date: date,
+      category_id: 'CAT002', // Cầu đường
+      trip_id: trip.id,
+      vehicle_id: vehicle.id,
+      description: `Phí BOT - Chuyến ${trip.trip_code}`,
+      amount: tollCost,
+      status: 'confirmed'
+    });
+  }
+
+  // THÊM CHI PHÍ NHÂN CÔNG (WAGE)
+  if (driverWage > 0) {
+    realisticExpenses.push({
+      id: `EXP_WAGE_${expIndex++}`,
+      expense_code: `WAG-${String(expIndex).padStart(5, '0')}`,
+      expense_date: date,
+      category_id: 'CAT003', // Nhân công
+      trip_id: trip.id,
+      vehicle_id: vehicle.id,
+      description: `Lương khoán tài xế - Chuyến ${trip.trip_code}`,
+      amount: driverWage,
+      status: 'confirmed'
+    });
+  }
 });
 
-// 2. Phân bổ Chi phí Mảng Xe (Fixed Costs cho 12 tháng gần nhất để có dữ liệu dày)
-for (let m = 1; m <= 12; m++) {
-  const monthStr = String(m).padStart(2, '0');
-  const dateStr = `2025-${monthStr}-01`;
-  
-  vehicles.forEach(vehicle => {
+// THÊM CHI PHÍ BẢO DƯỠNG (MAINTENANCE) & CỐ ĐỊNH
+vehicles.forEach(vehicle => {
+  // 1. Phân bổ Bảo hiểm/Phí bãi (Allocation)
+  if (vehicle.insurance_cost) {
     realisticExpenses.push({
-      id: `EXP_V_${expIndex++}`,
-      expense_code: `CPX${String(expIndex).padStart(6, '0')}`,
-      expense_date: dateStr,
+      id: `EXP_FX_${vehicle.id}`,
+      expense_code: `FX-${vehicle.vehicle_code}`,
+      expense_date: '2026-04-01',
       category_id: 'CAT004',
-      trip_id: null,
       vehicle_id: vehicle.id,
-      description: `Bảo hiểm & Phí bãi tháng ${monthStr}/2025 - ${vehicle.license_plate}`,
-      amount: 2500000,
+      description: `Phân bổ bảo hiểm & phí quản lý - ${vehicle.license_plate}`,
+      amount: Math.round(vehicle.insurance_cost / 12) + 1000000,
       status: 'confirmed'
     });
+  }
+  
+  // 2. Chi phí sửa chữa phát sinh (Maintenance)
+  realisticExpenses.push({
+    id: `EXP_MAINT_${vehicle.id}`,
+    expense_code: `MAINT-${vehicle.vehicle_code}`,
+    expense_date: '2026-04-10',
+    category_id: 'CAT004',
+    vehicle_id: vehicle.id,
+    description: `Bảo dưỡng định kỳ / Thay nhớt - ${vehicle.license_plate}`,
+    amount: 1500000 + Math.round(Math.random() * 2000000),
+    status: 'confirmed'
   });
-}
-
-// 3. Historical padding to reach exactly 867 if needed
-const TARGET_EXPENSES = 867;
-while (realisticExpenses.length < TARGET_EXPENSES) {
-    const idx = realisticExpenses.length % vehicles.length;
-    realisticExpenses.push({
-      id: `EXP_PAD_${expIndex++}`,
-      expense_code: `CPH${String(expIndex).padStart(6, '0')}`,
-      expense_date: '2026-01-15',
-      category_id: 'CAT004',
-      trip_id: null,
-      vehicle_id: vehicles[idx].id,
-      description: `Phí quản lý văn phòng định kỳ - Row ${realisticExpenses.length}`,
-      amount: 1200000,
-      status: 'confirmed'
-    });
-}
-// Trim to exactly 867
-if (realisticExpenses.length > TARGET_EXPENSES) {
-  realisticExpenses.length = TARGET_EXPENSES;
-}
+});
 
 const expenses = realisticExpenses;
 
