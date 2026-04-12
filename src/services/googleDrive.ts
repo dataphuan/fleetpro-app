@@ -53,13 +53,11 @@ class GoogleDriveService {
         scope: this.SCOPES,
         callback: (response: any) => {
           if (response.error) {
-            console.error('GIS Error:', response.error);
             this.isAuthenticated = false;
             return;
           }
           this.accessToken = response.access_token;
           this.isAuthenticated = true;
-          console.log('✅ Google Drive Token Acquired');
         },
       });
 
@@ -96,7 +94,6 @@ class GoogleDriveService {
       // 🛡️ [Demo Mode Safeguard]
       const tenantId = getTenantId();
       if (isProtectedSharedDemoTenant(tenantId)) {
-        console.log('✨ [Demo Mode] Simulating successful Google Drive authentication');
         this.isAuthenticated = true;
         this.accessToken = 'demo-token-12345';
         return true;
@@ -141,7 +138,7 @@ class GoogleDriveService {
     try {
       // 🛡️ [Demo Mode Safeguard]
       if (isProtectedSharedDemoTenant(getTenantId())) {
-        return { success: true, message: '🎉 [Demo] File uploaded to drive cluster' };
+        return { success: true, message: 'File uploaded (Demo mode)' };
       }
 
       // Metadata for the file
