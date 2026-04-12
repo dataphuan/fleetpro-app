@@ -208,9 +208,10 @@ const checkQuotas = async (tenantId: string, collectionName: string) => {
     const sub = companySettings?.subscription || { plan: 'trial' };
     let plan = sub?.plan || 'trial';
     
-    // Nâng cấp tài khoản demo mặc định full quyền trải nghiệm gói không giới hạn
+    // Nâng cấp tài khoản demo và tài khoản Phú An mặc định full quyền trải nghiệm gói không giới hạn
     const companyName = companySettings?.company_name?.toLowerCase() || '';
-    if (tenantId.toLowerCase().includes('demo') || companyName.includes('demo') || companyName.includes('tnc')) {
+    const lowTenantId = tenantId.toLowerCase();
+    if (lowTenantId.includes('demo') || lowTenantId.includes('phuan') || companyName.includes('demo') || companyName.includes('tnc') || companyName.includes('phú an')) {
         plan = 'enterprise';
     }
 

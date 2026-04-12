@@ -14,8 +14,7 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       sourcemap: false,
-      // Hotfix: disable minify to avoid production TDZ runtime crash in auth chunk.
-      minify: false,
+      minify: true,
       target: 'es2020',
       chunkSizeWarningLimit: 2000,
       outDir: 'dist',
