@@ -70,7 +70,7 @@ import { getNextCodeByPrefix } from "@/lib/code-generator";
 
 // Form Schema
 const orderSchema = z.object({
-    order_code: z.string().optional(),
+    order_code: z.string().refine(val => !val || /^DH\d{4}$/.test(val), "Mã đơn hàng sai định dạng (Bắt buộc DH + 4 số, VD: DH0001)").optional(),
     customer_id: z.string().min(1, "Khách hàng là bắt buộc"),
     order_date: z.string().min(1, "Ngày đơn hàng là bắt buộc"),
     expected_delivery_date: z.string().optional().nullable(),
@@ -165,10 +165,9 @@ export default function TransportOrders() {
     // Handlers
     const handleAdd = useCallback(async () => {
         setSelectedOrder(null);
-        const monthlyPrefix = `DH${format(new Date(), 'yyMM')}`;
         const nextCode = getNextCodeByPrefix(
             (orders || []).map(o => o.order_code),
-            monthlyPrefix,
+            'DH',
             4
         );
 
@@ -188,7 +187,7 @@ export default function TransportOrders() {
             status: 'draft',
         });
         setDialogOpen(true);
-    }, [form]);
+    }, [orders, form]);
 
     const handleRowClick = useCallback((order: TransportOrder) => {
         setSelectedOrder(order);

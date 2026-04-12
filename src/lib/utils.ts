@@ -7,11 +7,11 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Generate a unique trip code using standard CD+YYMM+3-digit format
- * Format: CDYYMM001 (e.g., CD2603001)
- * This is a frontend fallback — backend getNextCode() is authoritative
+ * Generate a unique trip code using simple CD+4-digit format
+ * Format: CD0001
+ * This is a frontend fallback — backend getNextCode('trip') is authoritative
  */
 export function generateTripCode(): string {
-  const seq = Math.floor(Math.random() * 900) + 100; // Random 3-digit to avoid collisions
-  return generateDateCode(CODE_PREFIXES.TRIP, seq, getCurrentYYMM());
+  const seq = Math.floor(Math.random() * 9000) + 1000; // Random 4-digit fallback
+  return `CD${seq}`;
 }

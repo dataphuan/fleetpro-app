@@ -66,11 +66,11 @@ type CustomerStatus = 'active' | 'inactive';
 
 // Form Schema Validation
 const customerSchema = z.object({
-  customer_code: z.string().min(1, "Mã khách hàng là bắt buộc"),
+  customer_code: z.string().refine(val => !val || /^KH\d{4}$/.test(val), "Mã khách hàng sai định dạng (Bắt buộc KH + 4 số, VD: KH0001)").optional(),
   customer_name: z.string().min(1, "Tên khách hàng là bắt buộc"),
   customer_type: z.enum(['Doanh nghiệp', 'Cá nhân'] as const).default('Doanh nghiệp'),
   short_name: z.string().optional(),
-  tax_code: z.string().min(1, "Mã số thuế là bắt buộc"),
+  tax_code: z.string().optional().nullable(),
   phone: z.string().min(1, "Số điện thoại là bắt buộc").refine(
     (val) => /^(0[3-9])\d{8,9}$/.test(val.replace(/[\s.-]/g, '')),
     { message: "Số điện thoại không hợp lệ (VD: 0912345678)" }
@@ -80,7 +80,7 @@ const customerSchema = z.object({
   payment_terms: z.coerce.number().min(0, "Kỳ hạn phải >= 0"),
   credit_limit: z.coerce.number().min(0, "Hạn mức phải >= 0"),
   current_debt: z.coerce.number().default(0),
-  address: z.string().min(1, "Địa chỉ là bắt buộc"),
+  address: z.string().optional().nullable(),
   status: z.enum(['active', 'inactive'] as const).default('active'),
   notes: z.string().optional(),
 });
@@ -749,7 +749,7 @@ export default function Customers() {
                       name="tax_code"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-xs">Mã số thuế *</FormLabel>
+                          <FormLabel className="text-xs">Mã số thuế</FormLabel>
                           <FormControl>
                             <Input placeholder="012..." {...field} className="h-8" />
                           </FormControl>
@@ -846,7 +846,7 @@ export default function Customers() {
                     name="address"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-xs">Địa chỉ công ty *</FormLabel>
+                        <FormLabel className="text-xs">Địa chỉ công ty</FormLabel>
                         <FormControl>
                           <Input placeholder="Địa chỉ..." {...field} className="h-8" />
                         </FormControl>

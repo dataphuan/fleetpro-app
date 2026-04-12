@@ -15,8 +15,8 @@ export const CODE_PREFIXES = {
     ROUTE: 'TD',        // Tuyến đường
     TRIP: 'CD',         // Chuyến đi
     REVENUE: 'DT',      // Doanh thu
-    EXPENSE: 'CP',      // Chi phí
-    MAINTENANCE: 'BT',  // Bảo trì
+    EXPENSE: 'PC',      // Phiếu chi (Cũ là CP)
+    MAINTENANCE: 'BD',  // Bảo trì (Cũ là BT)
     TRANSPORT_ORDER: 'DH', // Đơn hàng
 } as const;
 
@@ -53,46 +53,40 @@ export const CODE_FORMATS = {
         pattern: /^TD\d{4}$/,
         example: 'TD0008',
     },
-    // Date-based: PREFIX + YYMM + 3 digits = 9 chars
     TRIP: {
         prefix: CODE_PREFIXES.TRIP,
-        digitCount: 3,
-        length: 9,
-        pattern: /^CD\d{7}$/,
-        example: 'CD2603001',
-        hasDate: true,
+        digitCount: 4,
+        length: 6,
+        pattern: /^CD\d{4}$/,
+        example: 'CD0001',
     },
     REVENUE: {
         prefix: CODE_PREFIXES.REVENUE,
-        digitCount: 3,
-        length: 9,
-        pattern: /^DT\d{7}$/,
-        example: 'DT2602001',
-        hasDate: true,
+        digitCount: 4,
+        length: 6,
+        pattern: /^DT\d{4}$/,
+        example: 'DT0001',
     },
     EXPENSE: {
         prefix: CODE_PREFIXES.EXPENSE,
-        digitCount: 3,
-        length: 9,
-        pattern: /^CP\d{7}$/,
-        example: 'CP2602001',
-        hasDate: true,
+        digitCount: 4,
+        length: 6,
+        pattern: /^PC\d{4}$/,
+        example: 'PC0001',
     },
     MAINTENANCE: {
         prefix: CODE_PREFIXES.MAINTENANCE,
-        digitCount: 3,
-        length: 9,
-        pattern: /^BT\d{7}$/,
-        example: 'BT2602001',
-        hasDate: true,
+        digitCount: 4,
+        length: 6,
+        pattern: /^BD\d{4}$/,
+        example: 'BD0001',
     },
     TRANSPORT_ORDER: {
         prefix: CODE_PREFIXES.TRANSPORT_ORDER,
-        digitCount: 3,
-        length: 9,
-        pattern: /^DH\d{7}$/,
-        example: 'DH2602001',
-        hasDate: true,
+        digitCount: 4,
+        length: 6,
+        pattern: /^DH\d{4}$/,
+        example: 'DH0001',
     },
 } as const;
 

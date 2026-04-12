@@ -164,7 +164,7 @@ const getValidNextStatuses = (currentStatus: string, isNewTrip: boolean): typeof
 
 // Form Schema Validation
 const tripSchema = z.object({
-    trip_code: z.string().min(1, "Mã chuyến là bắt buộc"),
+    trip_code: z.string().refine(val => /^CD\d{4}$/.test(val), "Mã chuyến sai định dạng (Bắt buộc CD + 4 số, VD: CD0001)"),
     departure_date: z.string().min(1, "Ngày đi là bắt buộc"),
     vehicle_id: z.string().min(1, "Xe là bắt buộc"),
     driver_id: z.string().min(1, "Tài xế là bắt buộc"),

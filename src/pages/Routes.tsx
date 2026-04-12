@@ -81,11 +81,11 @@ type RouteData = Route;
 
 // Form Schema Validation
 const routeSchema = z.object({
-  route_code: z.string().refine(val => /^TD\d+$/.test(val), "Mã tuyến phải bắt đầu bằng 'TD' và theo sau là các chữ số (vd: TD0001)"),
+  route_code: z.string().refine(val => /^TD\d{4}$/.test(val), "Mã tuyến sai định dạng (Bắt buộc TD + 4 số, VD: TD0001)"),
   route_name: z.string().min(1, "Tên tuyến là bắt buộc"),
   origin: z.string().min(1, "Điểm đi là bắt buộc"),
   destination: z.string().min(1, "Điểm đến là bắt buộc"),
-  distance_km: z.coerce.number().min(0),
+  distance_km: z.coerce.number().min(0.1, "Khoảng cách phải > 0"),
   estimated_duration_hours: z.coerce.number().min(0),
   cargo_type: z.string().optional(),
   cargo_weight_standard: z.coerce.number().min(0),

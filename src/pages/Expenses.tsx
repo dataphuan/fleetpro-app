@@ -88,7 +88,7 @@ interface Expense {
 
 // Form Schema
 const expenseSchema = z.object({
-  expense_code: z.string().min(1, "Mã phiếu là bắt buộc"),
+  expense_code: z.string().refine(val => !val || /^PC\d{4}$/.test(val), "Mã phiếu sai định dạng (Bắt buộc PC + 4 số, VD: PC0001)").optional(),
   expense_date: z.string().min(1, "Ngày chi là bắt buộc"),
   category_id: z.string().min(1, "Loại chi phí là bắt buộc"),
   amount: z.coerce.number().min(0, "Số tiền phải lớn hơn hoặc bằng 0"),
@@ -236,10 +236,9 @@ export default function Expenses() {
   // Handlers
   const handleAdd = async () => {
     setSelectedExpense(null);
-    const monthlyPrefix = `CP${format(new Date(), 'yyMM')}`;
     const nextCode = getNextCodeByPrefix(
       (expenses || []).map(e => e.expense_code),
-      monthlyPrefix,
+      'PC',
       4
     );
 

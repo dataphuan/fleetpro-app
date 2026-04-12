@@ -101,6 +101,33 @@ export function QuickTripModal({
     return trips.find((trip: any) => trip.vehicle_id === vehicleId && ACTIVE_TRIP_STATUSES.has(String(trip.status || '')));
   }, [trips, vehicleId]);
 
+  const activeTripOnDriver = useMemo(() => {
+    if (!driverId) return null;
+    return trips.find((trip: any) => trip.driver_id === driverId && ACTIVE_TRIP_STATUSES.has(String(trip.status || '')));
+  }, [trips, driverId]);
+
+  const isVehicleExpired = useMemo(() => {
+    if (!selectedVehicle) return false;
+    const now = new Date();
+    const reg = selectedVehicle.registration_expiry ? new Date(selectedVehicle.registration_expiry) : null;
+    const ins = selectedVehicle.insurance_expiry ? new Date(selectedVehicle.insurance_expiry) : null;
+    return (reg && reg < now) || (ins && ins < now);
+  }, [selectedVehicle]);
+
+  const isDriverExpired = useMemo(() => {
+    if (!selectedDriver) return false;
+    const now = new Date();
+    const lic = selectedDriver.license_expiry ? new Date(selectedDriver.license_expiry) : null;
+    return (lic && lic < now);
+  }, [selectedDriver]);
+
+  const isOverloaded = useMemo(() => {
+    if (!selectedVehicle || !selectedRoute) return false;
+    const weight = Number(selectedRoute.cargo_weight_standard || selectedRoute.cargo_tons || 0);
+    const capacity = Number(selectedVehicle.payload_capacity || 0);
+    return capacity > 0 && weight > capacity;
+  }, [selectedVehicle, selectedRoute]);
+
   useEffect(() => {
     if (!selectedVehicle) return;
     const assignedDriverId = selectedVehicle.default_driver_id || selectedVehicle.assigned_driver_id;
@@ -367,9 +394,47 @@ export function QuickTripModal({
             </div>
 
             {activeTripOnVehicle && (
-              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                Cảnh báo: Xe này đang có chuyến {activeTripOnVehicle.trip_code || activeTripOnVehicle.id} chưa hoàn tất.
-                Bạn vẫn có thể tạo chuyến mới theo yêu cầu điều phối.
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 flex items-start gap-2">
+                <div className="mt-0.5">⚠️</div>
+                <div>
+                  Cảnh báo: Xe này đang có chuyến {activeTripOnVehicle.trip_code || activeTripOnVehicle.id} chưa hoàn tất (Trạng thái: {activeTripOnVehicle.status}).
+                </div>
+              </div>
+            )}
+
+            {activeTripOnDriver && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 flex items-start gap-2">
+                <div className="mt-0.5">⚠️</div>
+                <div>
+                  Cảnh báo: Tài xế này đang bận thực hiện chuyến {activeTripOnDriver.trip_code || activeTripOnDriver.id}.
+                </div>
+              </div>
+            )}
+
+            {isVehicleExpired && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900 flex items-start gap-2">
+                <div className="mt-0.5">🚫</div>
+                <div>
+                  <strong>NGUY HIỂM:</strong> Xe này đã hết hạn Đăng kiểm hoặc Bảo hiểm. Vui lòng kiểm tra giấy tờ trước khi cho xe lăn bánh để tránh bị phạt nặng!
+                </div>
+              </div>
+            )}
+
+            {isDriverExpired && (
+              <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900 flex items-start gap-2">
+                <div className="mt-0.5">🚫</div>
+                <div>
+                  <strong>CẢNH BÁO PHÁP LÝ:</strong> Bằng lái của tài xế này đã hết hạn. Không được phép điều phối tài xế này.
+                </div>
+              </div>
+            )}
+
+            {isOverloaded && (
+              <div className="rounded-lg border border-orange-200 bg-orange-50 p-3 text-sm text-orange-900 flex items-start gap-2">
+                <div className="mt-0.5">⚖️</div>
+                <div>
+                  <strong>CẢNH BÁO TẢI TRỌNG:</strong> Khối hàng ({Number(selectedRoute?.cargo_weight_standard || 0)}T) đang vượt quá tải trọng cho phép của xe ({selectedVehicle?.payload_capacity}T).
+                </div>
               </div>
             )}
           </div>

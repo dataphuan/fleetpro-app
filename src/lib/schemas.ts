@@ -3,7 +3,12 @@ import { z } from 'zod';
 // ID formats
 export const vehicleIdSchema = z.string().regex(/^XE\d{4}$/, { message: 'Mã xe phải bắt đầu bằng XE và 4 số (VD: XE0001)' });
 export const driverIdSchema = z.string().regex(/^TX\d{4}$/, { message: 'Mã tài xế phải đúng chuẩn TX kèm 4 số (VD: TX0001)' });
-export const tripIdSchema = z.string().startsWith('TD', { message: 'Mã chuyến đi phải bắt đầu bằng TD (VD: TD0001)' });
+export const tripIdSchema = z.string().regex(/^CD\d{4}$/, { message: 'Mã chuyến đi phải bắt đầu bằng CD và 4 số (VD: CD0001)' });
+export const routeIdSchema = z.string().regex(/^TD\d{4}$/, { message: 'Mã tuyến đường phải bắt đầu bằng TD và 4 số (VD: TD0001)' });
+export const customerIdSchema = z.string().regex(/^KH\d{4}$/, { message: 'Mã khách hàng phải bắt đầu bằng KH và 4 số (VD: KH0001)' });
+export const orderIdSchema = z.string().regex(/^DH\d{4}$/, { message: 'Mã đơn hàng phải bắt đầu bằng DH và 4 số (VD: DH0001)' });
+export const expenseIdSchema = z.string().regex(/^PC\d{4}$/, { message: 'Mã phiếu chi phải bắt đầu bằng PC và 4 số (VD: PC0001)' });
+export const maintenanceIdSchema = z.string().regex(/^BD\d{4}$/, { message: 'Mã bảo dưỡng phải bắt đầu bằng BD và 4 số (VD: BD0001)' });
 
 // Absolute Financial Sanity
 export const amountSchema = z.number().min(0, { message: 'Số tiền/Chi phí phải lớn hơn hoặc bằng 0' });
@@ -12,18 +17,23 @@ export const amountSchema = z.number().min(0, { message: 'Số tiền/Chi phí p
 export const VehicleSchema = z.object({
   id: vehicleIdSchema.optional(),
   'Mã xe': vehicleIdSchema.optional(),
+  payload_capacity: z.number().min(0).optional(),
+  insurance_expiry: z.string().optional().nullable(),
+  registration_expiry: z.string().optional().nullable(),
 }).passthrough().refine(data => {
   const idValue = data.id || data['Mã xe'];
   if (idValue && typeof idValue === 'string') {
     return /^XE\d{4}$/.test(idValue);
   }
-  return true; // allow empty if not provided, though it shouldn't happen usually
+  return true;
 }, { message: 'Mã xe sai định dạng chuẩn (Bắt buộc XE + 4 số, VD: XE0001)', path: ['id'] });
 
 export const DriverSchema = z.object({
   id: driverIdSchema.optional(),
   'Mã tài xế': driverIdSchema.optional(),
   driver_code: driverIdSchema.optional(),
+  license_expiry: z.string().optional().nullable(),
+  health_check_expiry: z.string().optional().nullable(),
 }).passthrough().refine(data => {
   const idValue = data.id || data['Mã tài xế'] || data.driver_code;
   if (idValue && typeof idValue === 'string') {
@@ -35,6 +45,7 @@ export const DriverSchema = z.object({
 export const TripSchema = z.object({
   id: tripIdSchema.optional(),
   'Mã chuyến': tripIdSchema.optional(),
+  trip_code: tripIdSchema.optional(),
   status: z.string().optional().default('draft'),
   vehicle_id: z.string().optional().nullable(),
   driver_id: z.string().optional().nullable(),
@@ -58,30 +69,18 @@ export const TripSchema = z.object({
   adjustment_notes: z.string().optional().nullable(),
 }).passthrough()
 .refine(data => {
-  const idValue = data.id || data['Mã chuyến'];
+  const idValue = data.id || data['Mã chuyến'] || data.trip_code;
   if (idValue && typeof idValue === 'string') {
-    return idValue.startsWith('TD');
+    return /^CD\d{4}$/.test(idValue);
   }
   return true;
-}, { message: 'Mã chuyến đi không hợp lệ (Phải bắt đầu bằng TD)', path: ['id'] })
+}, { message: 'Mã chuyến đi không hợp lệ (Bắt buộc CD + 4 số, VD: CD0001)', path: ['id'] })
 .refine(data => {
   if (data.status !== 'draft' && data.status !== 'cancelled') {
     return !!data.vehicle_id && !!data.driver_id;
   }
   return true;
 }, { message: 'Chuyến đang hoạt động bắt buộc phải gắn Xe và Tài xế', path: ['status'] })
-.refine(data => {
-  if ((data.freight_revenue && data.freight_revenue > 0)) {
-    return !!data.customer_id;
-  }
-  return true;
-}, { message: 'Chuyến có doanh thu bắt buộc phải gắn Khách hàng', path: ['customer_id'] })
-.refine(data => {
-  if (data.created_at && data.departure_date) {
-    return new Date(data.created_at) <= new Date(data.departure_date);
-  }
-  return true;
-}, { message: 'Ngày tạo hệ thống không được sau ngày xuất phát dự kiến', path: ['departure_date'] })
 .refine(data => {
   if (data.departure_date && data.arrival_date) {
     return new Date(data.departure_date) <= new Date(data.arrival_date);
@@ -93,31 +92,18 @@ export const TripSchema = z.object({
     return data.end_odometer >= data.start_odometer;
   }
   return true;
-}, { message: 'ODO cuối không được nhỏ hơn ODO đầu', path: ['end_odometer'] })
-.refine(data => {
-  if (data.status === 'completed') {
-    return data.start_odometer !== undefined && data.start_odometer !== null && data.end_odometer !== undefined && data.end_odometer !== null;
-  }
-  return true;
-}, { message: 'Bắt buộc nhập ODO đầu và cuối trước khi chốt Hoàn Thành chuyến đi', path: ['end_odometer'] });
+}, { message: 'ODO cuối không được nhỏ hơn ODO đầu', path: ['end_odometer'] });
 
 export const ExpenseSchema = z.object({
-  amount: amountSchema.optional(),
-  'Số tiền': amountSchema.optional(),
-  category: z.string().optional(),
+  expense_code: expenseIdSchema.optional(),
+  amount: amountSchema,
   trip_id: z.string().optional().nullable(),
   vehicle_id: z.string().optional().nullable(),
   driver_id: z.string().optional().nullable(),
-  order_code: z.string().optional().nullable(),
-  payment_method: z.enum(['CASH', 'ETC', 'BANK_TRANSFER']).default('CASH'),
-  odometer_reading: z.number().min(0, { message: 'Chỉ số ODO phải >= 0' }).optional(),
-  is_reconciled: z.boolean().default(false),
-  reconciliation_date: z.string().optional().nullable(),
   status: z.enum(['draft', 'confirmed', 'cancelled', 'rejected']).default('draft'),
-  rejection_reason: z.string().optional().nullable(),
 }).passthrough()
 .refine(data => {
-  return !!(data.trip_id || data.vehicle_id || data.driver_id || data.order_code);
+  return !!(data.trip_id || data.vehicle_id || data.driver_id);
 }, { message: 'Phiếu chi không được mồ côi (Gắn ít nhất 1 Đối tượng)', path: ['amount'] });
 
 export const InventoryTransactionSchema = z.object({
@@ -127,38 +113,29 @@ export const InventoryTransactionSchema = z.object({
 
 // QA AUDIT FIX 3.1: Additional schemas for previously unvalidated collections
 export const MaintenanceSchema = z.object({
+  maintenance_code: maintenanceIdSchema.optional(),
   vehicle_id: z.string().min(1, { message: 'Phải chọn xe' }),
-  maintenance_type: z.string().min(1, { message: 'Phải chọn loại bảo trì' }),
   cost: z.number().min(0, { message: 'Chi phí bảo trì phải >= 0' }),
-  maintenance_date: z.string().min(1, { message: 'Phải nhập ngày bảo trì' }),
   odometer: z.number().min(0, { message: 'Chỉ số ODO phải >= 0' }).optional(),
 }).passthrough();
 
 export const RouteSchema = z.object({
+  route_code: routeIdSchema.optional(),
   route_name: z.string().min(1, { message: 'Phải nhập tên tuyến đường' }),
-  origin: z.string().min(1, { message: 'Phải nhập điểm đi' }),
-  destination: z.string().min(1, { message: 'Phải nhập điểm đến' }),
   distance_km: z.number().min(0, { message: 'Khoảng cách phải >= 0' }).optional(),
-  toll_cost: z.number().min(0, { message: 'Phí cầu đường phải >= 0' }).optional(),
   standard_freight_rate: z.number().min(0, { message: 'Cước chuẩn phải >= 0' }).optional(),
-}).passthrough()
-.refine(data => {
-  if (data.origin && data.destination) {
-    return data.origin.trim().toLowerCase() !== data.destination.trim().toLowerCase();
-  }
-  return true;
-}, { message: 'Điểm đến không được trùng với điểm xuất phát', path: ['destination'] });
+}).passthrough();
 
 export const CustomerSchema = z.object({
+  customer_code: customerIdSchema.optional(),
   customer_name: z.string().min(1, { message: 'Phải nhập tên khách hàng' }),
   credit_limit: z.number().min(0, { message: 'Hạn mức tín dụng phải >= 0' }).optional(),
-  payment_terms: z.number().min(0, { message: 'Số ngày thanh toán phải >= 0' }).optional(),
 }).passthrough();
 
 export const TransportOrderSchema = z.object({
-  order_code: z.string().optional(),
-  customer_id: z.string().optional(),
-  status: z.enum(['draft', 'pending', 'confirmed', 'in_progress', 'completed', 'cancelled']).default('draft'),
+  order_code: orderIdSchema.optional(),
+  customer_id: z.string().min(1, { message: 'Phải chọn khách hàng' }),
+  status: z.string(),
 }).passthrough();
 
 export const UserSchema = z.object({
