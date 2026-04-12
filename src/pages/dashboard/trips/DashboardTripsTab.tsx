@@ -66,8 +66,8 @@ export function DashboardTripsTab() {
             })
             .map(trip => {
                 // Determine financial status
-                const revenue = (trip.freight_revenue || 0) + (trip.additional_charges || 0);
-                const profit = revenue; // Placeholder: Real profit needs expense calculation
+                const revenue = (trip.total_revenue || trip.freight_revenue || 0) + (trip.additional_charges || 0);
+                const profit = trip.gross_profit ?? revenue; 
 
                 return {
                     id: trip.id,
@@ -81,6 +81,11 @@ export function DashboardTripsTab() {
                     revenue: revenue,
                     profit: profit,
                 } as DashboardTripRow;
+            })
+            .sort((a, b) => {
+                const dateA = a.departure_date ? new Date(a.departure_date).getTime() : 0;
+                const dateB = b.departure_date ? new Date(b.departure_date).getTime() : 0;
+                return dateB - dateA;
             });
     }, [trips, searchQuery, dateRange, statusFilter]);
 

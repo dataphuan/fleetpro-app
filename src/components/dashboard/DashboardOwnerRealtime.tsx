@@ -109,7 +109,7 @@ export function DashboardOwnerRealtime() {
         events.push({
           ts: String(trip.actual_departure_time),
           icon: '🚛',
-          text: `${trip.vehicle_plate || trip.vehicle_id || 'Xe'} xuất phát ${trip.route_name || ''}`.trim(),
+          text: `${trip.vehicle?.license_plate || trip.vehicle_plate || (trip.id ? trip.id.split('_').pop() : 'Xe')} xuất phát ${trip.route?.route_name || trip.route_name || ''}`.trim(),
         });
       }
       if (isToday(trip.actual_arrival_time) || isToday(trip.closed_at)) {
