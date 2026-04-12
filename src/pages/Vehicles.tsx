@@ -94,23 +94,23 @@ interface Vehicle {
 
 // Form Schema Validation - đầy đủ 18 trường theo Excel
 const vehicleSchema = z.object({
-  vehicle_code: z.string().refine(val => !val || /^XE\d+$/.test(val), "Mã xe phải bắt đầu bằng 'XE' và theo sau là các chữ số (vd: XE0001)").optional(), // Auto-generated if empty
+  vehicle_code: z.string().refine(val => !val || /^XE-\d+$/.test(val), "Mã xe sai chuẩn định dạng. Bắt buộc XE- (vd: XE-01)").optional(), // Auto-generated if empty
   license_plate: z.string().min(1, "Biển số là bắt buộc"),
   vehicle_type: z.string().min(1, "Loại xe là bắt buộc"),
-  brand: z.string().optional(),
-  capacity_tons: z.coerce.number().min(0, "Tải trọng phải >= 0").optional(),
-  fuel_type: z.string().optional(),
+  brand: z.string().min(1, "Nhãn hiệu xe là bắt buộc"),
+  capacity_tons: z.coerce.number().min(0.1, "Tải trọng phải > 0"),
+  fuel_type: z.string().min(1, "Loại nhiên liệu là bắt buộc"),
   usage_limit_years: z.string().optional(),
-  engine_number: z.string().optional(),
-  chassis_number: z.string().optional(),
+  engine_number: z.string().min(1, "Số máy là bắt buộc"),
+  chassis_number: z.string().min(1, "Số khung là bắt buộc"),
   insurance_purchase_date: z.string().optional(),
   insurance_expiry_date: z.string().optional(),
-  insurance_civil_expiry: z.string().optional().nullable(),
-  insurance_body_expiry: z.string().optional().nullable(),
+  insurance_civil_expiry: z.string().min(1, "Hạn BH Dân sự là bắt buộc"),
+  insurance_body_expiry: z.string().min(1, "Hạn BH Thân vỏ là bắt buộc"),
   insurance_cost: z.coerce.number().optional(),
   registration_cycle: z.string().optional(),
   registration_date: z.string().optional(),
-  registration_expiry_date: z.string().optional(),
+  registration_expiry_date: z.string().min(1, "Hạn đăng kiểm là bắt buộc"),
   registration_cost: z.coerce.number().optional(),
   current_location: z.string().optional(),
   notes: z.string().optional(),
@@ -255,21 +255,20 @@ export default function Vehicles() {
     // ----------------------------
 
     setSelectedVehicle(null);
-    let nextCode = `XE0001`;
+    let nextCode = `XE-01`;
     try {
       const res = await vehicleAdapter.getNextCode();
       if (res && typeof res === 'string') {
         nextCode = res;
       }
     } catch (err) {
-      console.error("[AUDIT] Failed to fetch next vehicle code - using fallback XE0001", err);
-      // Fallback: generate based on existing vehicles
+      console.error("[AUDIT] Failed to fetch next vehicle code", err);
       if (vehicles && vehicles.length > 0) {
         const maxCode = vehicles.reduce((max, v) => {
           const num = parseInt(v.vehicle_code?.replace(/[^0-9]/g, '') || '0');
           return Math.max(max, num);
         }, 0);
-        nextCode = `XE${String(maxCode + 1).padStart(4, '0')}`;
+        nextCode = `XE-${String(maxCode + 1).padStart(2, '0')}`;
       }
     }
 
@@ -973,8 +972,8 @@ export default function Vehicles() {
                     name="brand"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Nhãn hiệu xe</FormLabel>
-                        <FormControl>
+                      <FormLabel>Nhãn hiệu xe *</FormLabel>
+                      <FormControl>
                           <Input placeholder="VD: Hino, Hyundai..." {...field} />
                         </FormControl>
                         <FormMessage />
@@ -986,8 +985,8 @@ export default function Vehicles() {
                     name="capacity_tons"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Tải trọng (tấn)</FormLabel>
-                        <FormControl>
+                      <FormLabel>Tải trọng (Tấn) *</FormLabel>
+                      <FormControl>
                           <Input type="number" step="0.1" placeholder="VD: 5" {...field} />
                         </FormControl>
                         <FormMessage />
@@ -999,8 +998,8 @@ export default function Vehicles() {
                     name="fuel_type"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Nhiên liệu</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}>
+                      <FormLabel>Nhiên liệu *</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value || ''}>
                           <FormControl>
                             <SelectTrigger>
                               <SelectValue placeholder="Chọn nhiên liệu" />
@@ -1041,8 +1040,8 @@ export default function Vehicles() {
                     name="engine_number"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Số máy</FormLabel>
-                        <FormControl>
+                      <FormLabel>Số máy *</FormLabel>
+                      <FormControl>
                           <Input placeholder="Nhập số máy" {...field} />
                         </FormControl>
                         <FormMessage />
@@ -1054,8 +1053,8 @@ export default function Vehicles() {
                     name="chassis_number"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Số Khung</FormLabel>
-                        <FormControl>
+                      <FormLabel>Số Khung *</FormLabel>
+                      <FormControl>
                           <Input placeholder="Nhập số khung" {...field} />
                         </FormControl>
                         <FormMessage />
@@ -1090,8 +1089,8 @@ export default function Vehicles() {
                     name="insurance_civil_expiry"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Hạn BH Dân sự (TNDS)</FormLabel>
-                        <FormControl>
+                      <FormLabel>Hạn BH Dân sự (Trách nhiệm TS) *</FormLabel>
+                      <FormControl>
                           <DatePicker
                             value={field.value ? parseISO(field.value) : undefined}
                             onChange={(date) => field.onChange(date ? format(date, 'yyyy-MM-dd') : '')}
@@ -1179,8 +1178,8 @@ export default function Vehicles() {
                     name="registration_expiry_date"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Ngày hết hạn đăng kiểm</FormLabel>
-                        <FormControl>
+                      <FormLabel>Ngày hết hạn đăng kiểm *</FormLabel>
+                      <FormControl>
                           <DatePicker
                             value={field.value ? parseISO(field.value) : undefined}
                             onChange={(date) => field.onChange(date ? format(date, 'yyyy-MM-dd') : '')}
