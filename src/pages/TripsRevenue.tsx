@@ -745,13 +745,21 @@ export default function TripsRevenue() {
     };
 
     const handleExport = () => {
-        exportToCSV(filteredTrips, 'Danh_sach_chuyen', [
+        const exportData = filteredTrips.map(t => ({
+            ...t,
+            resolved_customer_name: t.customer?.customer_name || customers?.find(c => c.id === t.customer_id)?.customer_name || 'Khách vãng lai',
+            resolved_route_name: t.route?.route_name || routes?.find(r => r.id === t.route_id)?.route_name || 'Tuyến điều phối',
+            resolved_vehicle_plate: t.vehicle?.license_plate || '-',
+            resolved_driver_name: t.driver?.full_name || '-',
+        }));
+
+        exportToCSV(exportData, 'Danh_sach_chuyen', [
             { key: 'trip_code', header: 'Mã chuyến' },
             { key: 'departure_date', header: 'Ngày đi' },
-            { key: 'vehicle.license_plate', header: 'Biển số xe' },
-            { key: 'driver.full_name', header: 'Tài xế' },
-            { key: 'customer.customer_name', header: 'Khách hàng' },
-            { key: 'route.route_name', header: 'Tuyến đường' },
+            { key: 'resolved_vehicle_plate', header: 'Biển số xe' },
+            { key: 'resolved_driver_name', header: 'Tài xế' },
+            { key: 'resolved_customer_name', header: 'Khách hàng' },
+            { key: 'resolved_route_name', header: 'Tuyến đường' },
             { key: 'cargo_weight_tons', header: 'Tải trọng (tấn)' },
             { key: 'actual_distance_km', header: 'Km thực tế' },
             { key: 'freight_revenue', header: 'Doanh thu cước' },
@@ -886,13 +894,19 @@ export default function TripsRevenue() {
             key: 'customer',
             header: 'Khách hàng',
             width: '160px',
-            render: (_, row) => row.customer?.customer_name || row.customer?.short_name || '-',
+            render: (_, row) => {
+                const resolvedCustomer = row.customer || customers?.find(c => c.id === row.customer_id);
+                return <span className="font-medium text-emerald-800">{resolvedCustomer?.customer_name || resolvedCustomer?.short_name || '—'}</span>;
+            },
         },
         {
             key: 'route',
             header: 'Tuyến đường',
             width: '180px',
-            render: (_, row) => row.route?.route_name || '-',
+            render: (_, row) => {
+                const resolvedRoute = row.route || routes?.find(r => r.id === row.route_id);
+                return resolvedRoute?.route_name || '—';
+            },
         },
         {
             key: 'cargo_weight_tons',
