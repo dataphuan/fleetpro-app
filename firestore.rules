@@ -133,32 +133,30 @@ service cloud.firestore {
       allow delete: if canAccessTenantData() && sameTenantOnReadUpdateDelete() && isTenantAdmin();
     }
 
-    // Role-based Access for other collections
-    match /{collection}/{docId} {
-      function canDispatcherWrite() {
-        return userRole() == 'dispatcher' || userRole() == 'manager' || userRole() == 'admin';
+      // Role-based Access for other collections
+      function canWriteMasterData() {
+        return userRole() in ['admin', 'manager', 'dispatcher', 'accountant'];
       }
-      function canAccountantWrite() {
-        return userRole() == 'accountant' || userRole() == 'manager' || userRole() == 'admin';
+      function canWriteFinancialData() {
+        return userRole() in ['admin', 'manager', 'accountant'];
       }
-      function canManagerWrite() {
-        return userRole() == 'manager' || userRole() == 'admin';
+      function canWriteOperationalData() {
+        return userRole() in ['admin', 'manager', 'dispatcher'];
       }
 
       allow read: if !(collection in ['users', 'company_settings', 'system_logs', 'tenants', 'trips', 'drivers'])
                     && canAccessTenantData() && sameTenantOnReadUpdateDelete();
       
-      // QA AUDIT FIX: Allow authenticated tenant users to create/update vehicles, drivers, routes, customers (not just dispatcher)
+      // QA AUDIT FIX: Expanded permissions for Accountant (Master Data write)
       allow create, update: if !(collection in ['users', 'company_settings', 'system_logs', 'tenants', 'trips', 'drivers'])
                     && canAccessTenantData() && (
-                      (collection in ['vehicles', 'drivers', 'routes', 'customers'] && canAccessTenantData() && sameTenantOnCreate()) ||
-                      (collection == 'expenses' && canAccountantWrite()) ||
-                      (collection in ['maintenance', 'tires', 'inventory', 'inventoryTransactions', 'purchaseOrders', 'alerts', 'partners', 'transportOrders', 'expenseCategories', 'trip_location_logs'] && canManagerWrite())
+                      (collection in ['vehicles', 'drivers', 'routes', 'customers'] && sameTenantOnCreate() && canWriteMasterData()) ||
+                      (collection == 'expenses' && canWriteFinancialData()) ||
+                      (collection in ['maintenance', 'tires', 'inventory', 'inventoryTransactions', 'purchaseOrders', 'alerts', 'partners', 'transportOrders', 'expenseCategories', 'trip_location_logs'] && (canWriteOperationalData() || canWriteFinancialData()))
                     );
 
-      allow delete: if (collection in ['vehicles', 'drivers', 'expenses'])
-                    ? (canAccessTenantData() && sameTenantOnReadUpdateDelete() && isTenantAdmin())
-                    : false;
+      allow delete: if (collection in ['vehicles', 'drivers', 'expenses', 'routes', 'customers'])
+                    && canAccessTenantData() && sameTenantOnReadUpdateDelete() && isTenantAdmin();
     }
   }
 }

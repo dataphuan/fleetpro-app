@@ -434,26 +434,24 @@ export default function Auth() {
                             {/* LOGIN TAB */}
                             <TabsContent value="login">
                                 <div className="mb-4 rounded-xl border border-primary/30 bg-gradient-to-r from-primary/10 to-blue-50 p-3">
-                                    <div className="text-xs font-bold text-slate-800 mb-2">⚡ Trải nghiệm nhanh (1 chạm)</div>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            className="h-10 justify-start border-blue-300 bg-white hover:bg-blue-50"
-                                            onClick={() => handleDemoAccountClick(DEMO_ACCOUNTS[0])}
-                                            disabled={loading}
-                                        >
-                                            🖥️ Demo PC (Admin)
-                                        </Button>
-                                        <Button
-                                            type="button"
-                                            variant="outline"
-                                            className="h-10 justify-start border-emerald-300 bg-white hover:bg-emerald-50"
-                                            onClick={() => handleDemoAccountClick(DEMO_ACCOUNTS[3])}
-                                            disabled={loading}
-                                        >
-                                            📱 Demo Mobile (Tài xế)
-                                        </Button>
+                                    <div className="text-xs font-bold text-slate-800 mb-3 flex items-center gap-2">
+                                        <Key className="w-3 h-3 text-primary" />
+                                        ⚡ Trải nghiệm nhanh (1 chạm) - Gói PRO cao cấp
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {DEMO_ACCOUNTS.map((acc, idx) => (
+                                            <Button
+                                                key={idx}
+                                                type="button"
+                                                variant="outline"
+                                                className="h-12 flex flex-col items-start p-2 border-slate-200 bg-white hover:border-primary/50 hover:bg-primary/5 transition-all text-left"
+                                                onClick={() => handleDemoAccountClick(acc)}
+                                                disabled={loading}
+                                            >
+                                                <div className="text-[10px] font-bold text-slate-900 leading-tight">{acc.role}</div>
+                                                <div className="text-[8px] text-slate-500 font-medium">{acc.badge}</div>
+                                            </Button>
+                                        ))}
                                     </div>
                                 </div>
 
@@ -679,57 +677,11 @@ export default function Auth() {
                                     </div>
                                 </div>
 
-                                {/* Demo Accounts */}
-                                <div className="space-y-2">
-                                    <div className="flex items-center gap-2">
-                                        <Key className="h-4 w-4 text-primary" />
-                                        <span className="text-xs font-bold text-primary">Chọn tài khoản bạn muốn dùng thử</span>
-                                    </div>
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                                        {DEMO_ACCOUNTS.map((acc, idx) => (
-                                            <div
-                                                key={idx}
-                                                className={`p-3 rounded-lg border-2 border-slate-200 hover:border-primary/50 hover:bg-white transition-all text-left text-xs font-medium bg-white hover:shadow-md`}
-                                            >
-                                                <div className="flex items-start justify-between mb-2">
-                                                    <div>
-                                                        <div className="font-bold text-slate-900">{acc.role}</div>
-                                                        <div className="text-slate-600 text-[10px] mt-0.5">{acc.description}</div>
-                                                    </div>
-                                                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
-                                                        {acc.badge}
-                                                    </span>
-                                                </div>
-                                                <div className="text-slate-600 font-mono text-[9px] mb-2 break-all">{acc.email}</div>
-                                                <div className="flex items-center gap-1.5">
-                                                    <Button
-                                                        type="button"
-                                                        size="sm"
-                                                        onClick={() => handleDemoAccountClick(acc)}
-                                                        disabled={loading}
-                                                        className="h-7 px-2 text-[10px] font-semibold flex-1"
-                                                    >
-                                                        {loading ? "⏳" : "🚀 Login"}
-                                                    </Button>
-                                                    <Button
-                                                        type="button"
-                                                        size="sm"
-                                                        variant="outline"
-                                                        onClick={() => handleCopyDemoEmail(acc.email)}
-                                                        disabled={loading}
-                                                        className="h-7 px-2 text-[10px]"
-                                                    >
-                                                        <Copy className="w-3 h-3" />
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <div className="bg-primary/5 rounded-lg p-3 border border-primary/20 mt-3">
-                                        <p className="text-[10px] text-primary font-medium leading-relaxed">
-                                            💡 <b>Lưu ý:</b> Các tài khoản trên dùng chung dữ liệu mẫu. Để sử dụng <b>Dữ liệu thật</b> riêng biệt cho công ty bạn (FREE 14 ngày), vui lòng chọn tab <b>"Tạo tài khoản mới"</b> ở phía trên.
-                                        </p>
-                                    </div>
+                                {/* Information */}
+                                <div className="bg-primary/5 rounded-lg p-3 border border-primary/20">
+                                    <p className="text-[10px] text-primary font-medium leading-relaxed">
+                                        💡 <b>Lưu ý:</b> Các tài khoản trên dùng chung dữ liệu mẫu. Để sử dụng <b>Dữ liệu thật</b> riêng biệt cho doanh nghiệp (FREE Pro Plan), vui lòng chọn tab <b>"Tạo tài khoản mới"</b>.
+                                    </p>
                                 </div>
 
                                 {/* Password Info */}

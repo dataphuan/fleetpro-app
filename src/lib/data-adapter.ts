@@ -6,7 +6,7 @@
 import { app, db, auth, firebaseConfig, functions } from './firebase';
 import { collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, addDoc, writeBatch } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { getAuth, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { initializeApp, deleteApp } from 'firebase/app';
 import { normalizeUserRole } from './rbac';
 import { validateAdapterData } from './schemas';
@@ -2324,7 +2324,7 @@ const webDataAdapters: Record<string, any> = {
     inventory: inventoryFirestoreAdapter,
     tripLocationLogs: tripLocationFirestoreAdapter,
     transportOrders: transportOrderFirestoreAdapter,
-    companySettings: createFirestoreAdapter('companySettings'),
+    companySettings: createFirestoreAdapter('company_settings'),
     tripExpenses: createFirestoreAdapter('tripExpenses'),
     expenseCategories: createFirestoreAdapter('expenseCategories'),
     accountingPeriods: createFirestoreAdapter('accountingPeriods'),
@@ -2461,9 +2461,9 @@ const webDataAdapters: Record<string, any> = {
                     admin_id: uid,
                     created_at: new Date().toISOString(),
                     subscription: { 
-                        plan: 'trial', 
+                        plan: 'pro', 
                         status: 'active',
-                        trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
+                        trial_ends_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() // 1 year Pro trial
                     }
                 });
 

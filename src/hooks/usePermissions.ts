@@ -58,14 +58,16 @@ const permissionMatrix: Record<UserRole, Record<string, Partial<Permissions>>> =
     accountant: {
         _default: { canView: true, canCreate: false, canEdit: false, canDelete: false, canLock: false, canExport: true },
         // Accountant FULL quyền expenses + reports + lock sổ
+        // Accountant FULL quyền expenses + reports + lock sổ + MASTER DATA (Xe/Tài xế/...)
         expenses: { canView: true, canCreate: true, canEdit: true, canDelete: false, canLock: true, canExport: true },
         reports: { canView: true, canCreate: true, canEdit: true, canDelete: false, canLock: true, canExport: true },
         'transport-orders': { canView: true, canCreate: true, canEdit: true, canDelete: false, canLock: true, canExport: true },
-        // Accountant READ ONLY cho trips, vehicles, drivers, customers
+        // Accountant CÓ QUYỀN sửa Master Data theo yêu cầu (Xe, Tài xế, Tuyến, Khách hàng)
         trips: { canView: true, canCreate: false, canEdit: false, canDelete: false, canLock: false, canExport: true },
-        vehicles: { canView: true, canCreate: false, canEdit: false, canDelete: false, canLock: false, canExport: true },
-        drivers: { canView: true, canCreate: false, canEdit: false, canDelete: false, canLock: false, canExport: true },
-        customers: { canView: true, canCreate: false, canEdit: false, canDelete: false, canLock: false, canExport: true },
+        vehicles: { canView: true, canCreate: true, canEdit: true, canDelete: false, canLock: false, canExport: true },
+        drivers: { canView: true, canCreate: true, canEdit: true, canDelete: false, canLock: false, canExport: true },
+        routes: { canView: true, canCreate: true, canEdit: true, canDelete: false, canLock: false, canExport: true },
+        customers: { canView: true, canCreate: true, canEdit: true, canDelete: false, canLock: false, canExport: true },
     },
     driver: {
         _default: { canView: true, canCreate: false, canEdit: false, canDelete: false, canLock: false, canExport: false },

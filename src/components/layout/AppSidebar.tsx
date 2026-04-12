@@ -119,7 +119,7 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
   const { toast } = useToast();
   const { role } = useAuth();
   const { data: companySettings } = useCompanySettings();
-  const guideUrl = "/docs/role-operation-guide/index.html";
+  const guideUrl = "https://tnc.io.vn/docs/huong-dan-phu-an/";
   const videoUrl = import.meta.env.VITE_SUPPORT_VIDEO_URL || "";
   const hasVideoUrl = videoUrl.trim().length > 0;
 
