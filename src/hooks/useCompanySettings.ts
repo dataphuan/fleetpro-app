@@ -53,7 +53,7 @@ export const useCompanySettings = () => {
           primary_color: '#3b82f6', // Default Blue
           // Inject Default SaaS Subscription
           subscription: {
-              plan: 'pro',
+              plan: 'business',
               status: 'active',
               trial_ends_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
           }

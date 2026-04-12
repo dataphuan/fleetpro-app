@@ -2324,7 +2324,45 @@ const webDataAdapters: Record<string, any> = {
     inventory: inventoryFirestoreAdapter,
     tripLocationLogs: tripLocationFirestoreAdapter,
     transportOrders: transportOrderFirestoreAdapter,
-    companySettings: createFirestoreAdapter('company_settings'),
+    companySettings: {
+        get: async () => {
+            const tid = getTenantId();
+            if (!tid) return null;
+            const snap = await getDoc(doc(db, 'company_settings', tid));
+            return snap.exists() ? { id: snap.id, ...snap.data() } : null;
+        },
+        update: async (id: string, data: any) => {
+            const tid = getTenantId();
+            if (!tid) throw new Error("No tenant session");
+            // Standardize: even if 'id' is passed as tenant-xxx_main, we force it to just 'tid'
+            const docRef = doc(db, 'company_settings', tid);
+            await setDoc(docRef, { 
+                ...data, 
+                tenant_id: tid,
+                updated_at: new Date().toISOString() 
+            }, { merge: true });
+            await logActivity('UPDATE', 'company_settings', tid, { changes: data });
+            return true;
+        },
+        create: async (data: any) => {
+            const tid = data.tenant_id || getTenantId();
+            if (!tid) throw new Error("No tenant context for settings creation");
+            const docRef = doc(db, 'company_settings', tid);
+            await setDoc(docRef, {
+                ...data,
+                tenant_id: tid,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString()
+            }, { merge: true });
+            return { id: tid, ...data };
+        },
+        list: async () => {
+            const tid = getTenantId();
+            if (!tid) return [];
+            const snap = await getDoc(doc(db, 'company_settings', tid));
+            return snap.exists() ? [{ id: snap.id, ...snap.data() }] : [];
+        }
+    },
     tripExpenses: createFirestoreAdapter('tripExpenses'),
     expenseCategories: createFirestoreAdapter('expenseCategories'),
     accountingPeriods: createFirestoreAdapter('accountingPeriods'),
@@ -2461,9 +2499,9 @@ const webDataAdapters: Record<string, any> = {
                     admin_id: uid,
                     created_at: new Date().toISOString(),
                     subscription: { 
-                        plan: 'pro', 
+                        plan: 'business', 
                         status: 'active',
-                        trial_ends_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() // 1 year Pro trial
+                        trial_ends_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() // 1 year Business trial
                     }
                 });
 

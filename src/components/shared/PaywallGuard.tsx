@@ -28,9 +28,10 @@ export const PaywallGuard: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Vehicle quota limits per plan
     const quotaLimits: Record<string, number> = {
-        trial: Infinity, // Unlimited during trial
-        professional: 50,
-        business: Infinity,
+        trial: Infinity,      // Unlimited during trial
+        pro: 100,             // Pro Plan (Legacy Pro mapping)
+        professional: 100,    // Standard Pro Plan
+        business: Infinity,   // Business Plan (Enterprise)
     };
 
     const planName = sub.plan || 'trial';

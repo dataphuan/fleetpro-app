@@ -107,14 +107,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                     }, { merge: true });
 
                     // Create default company_settings for new tenant (PRO PLAN by default for "WOW" experience)
-                    await setDoc(doc(db, 'company_settings', `${currentTenantId}_main`), {
+                    await setDoc(doc(db, 'company_settings', currentTenantId), {
                         tenant_id: currentTenantId,
                         company_name: `${emailParts[0]}'s Company`,
                         email: firebaseUser.email,
                         subscription: { 
-                            plan: 'pro', 
+                            plan: 'business', 
                             status: 'active',
-                            trial_ends_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() // 1 year Pro trial
+                            trial_ends_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() // 1 year Business trial
                         },
                         created_at: new Date().toISOString(),
                         updated_at: new Date().toISOString(),
