@@ -2232,6 +2232,10 @@ const clearTenantOperationalData = async (payload: { tenantId: string; keepUserI
     };
 };
 
+const purgeAllData = async (payload: { tenantId: string; keepUserId?: string; isInternalForce?: boolean }) => {
+    return await clearTenantOperationalData(payload);
+};
+
 const startRealDataMode = async (payload: StartRealDataModePayload) => {
     const tenantId = String(payload?.tenantId || '').trim();
     const role = normalizeUserRole(payload?.role);
@@ -2367,6 +2371,7 @@ const webDataAdapters: Record<string, any> = {
     expenseCategories: createFirestoreAdapter('expenseCategories'),
     accountingPeriods: createFirestoreAdapter('accountingPeriods'),
     alerts: alertsFirestoreAdapter,
+    purgeAllData,
     auth: {
         login: async (payload: { email: string; password: string }) => {
             try {

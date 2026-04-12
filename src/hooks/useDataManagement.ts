@@ -353,15 +353,35 @@ export const usePurgeData = () => {
 
   const purgeAllData = async () => {
     try {
-      if (!isElectron()) return { success: false, error: 'Only available in Electron' };
-      // @ts-ignore
-      const res = await window.electronAPI.database.purgeAll();
+      if (isElectron()) {
+        // @ts-ignore
+        const res = await window.electronAPI.database.purgeAll();
+        if (res.success) {
+          queryClient.invalidateQueries();
+          toast({
+            title: 'Xóa dữ liệu thành công',
+            description: `Đã xóa tất cả dữ liệu. Bản sao lưu đã được tạo tự động.`,
+          });
+        }
+        return res;
+      }
+
+      // Web Version: Use Firestore data adapter to clear operational records
+      const { dataAdapter } = await import('@/lib/data-adapter');
+      const { auth: firebaseAuth } = await import('@/lib/firebase');
+      const user = firebaseAuth.currentUser;
+      const tenantId = dataAdapter.getTenantId();
+
+      const res = await dataAdapter.purgeAllData({ 
+        tenantId: tenantId || '', 
+        keepUserId: user?.uid 
+      });
+
       if (res.success) {
-        // Invalidate all caches so UI refreshes
         queryClient.invalidateQueries();
         toast({
-          title: 'Xóa dữ liệu thành công',
-          description: `Đã xóa tất cả dữ liệu. Bản sao lưu đã được tạo tự động.`,
+          title: '✅ Hệ thống đã sạch',
+          description: `Đã xóa toàn bộ ${res.deleted} bản ghi demo. Bạn có thể bắt đầu nhập liệu thật.`,
         });
       }
       return res;

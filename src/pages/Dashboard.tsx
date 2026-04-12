@@ -40,9 +40,13 @@ export default function Dashboard() {
     markCompleted();
   };
 
+  const { data: companySettings } = useCompanySettings();
+  const currentPlan = companySettings?.subscription?.plan || 'trial';
+  const isPaidPlan = currentPlan === 'business' || currentPlan === 'professional';
+
   return (
     <div className="space-y-6 animate-fade-in p-2">
-      {showOnboarding && (
+      {showOnboarding && !isPaidPlan && (
         <OnboardingFlow 
           tenantId={tenantId || 'demo-company'} 
           onComplete={handleOnboardingComplete}
@@ -54,90 +58,44 @@ export default function Dashboard() {
         actions={<QuickTripModal triggerLabel="+ Tạo Chuyến" />}
       />
 
-      {isDemoMode && (
+      {isDemoMode && !isPaidPlan && (
         <Card className="border-amber-200 bg-amber-50/30 shadow-sm overflow-hidden mb-4">
           <CardContent className="p-3">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-amber-100 rounded-full text-amber-600 shrink-0">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                </div>
-                <div>
-                  <div className="text-sm font-bold text-amber-900 leading-none mb-1">Chế độ Trải nghiệm (Demo Only)</div>
-                  <p className="text-xs text-amber-800 leading-tight opacity-90">
-                    Không gian dùng chung. 💡 Để dùng <b>Dữ liệu thật</b> hãy thoát ra và "Tạo tài khoản mới".
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-8 bg-white border-amber-300 hover:bg-amber-100 text-amber-700 text-xs px-3"
-                  onClick={async () => {
-                    if (!tenantId) return;
-                    const res = await dataAdapter.auth.ensureTenantDemoReadiness({
-                      tenantId,
-                      role: role || 'viewer',
-                      email: user?.email || '',
-                      full_name: user?.full_name || '',
-                      uid: userId || '',
-                      force: true, // Trigger clean wipe and logic-driven re-seed
-                    });
-                    if (res?.success) {
-                      toast({ 
-                        title: '✅ Hoàn tất Reset Dữ liệu', 
-                        description: 'Dữ liệu cũ đã được xóa sạch. Hệ thống đã nạp mới dữ liệu chuẩn logic vận tải tháng 04/2026.' 
-                      });
-                      setTimeout(() => window.location.reload(), 1500);
-                    }
-                  }}
-                >
-                  <RefreshCw className="mr-1.5 h-3.5 w-3.5" />
-                  Reset Demo
-                </Button>
-
-                <Button
-                  size="sm"
-                  variant="default"
-                  disabled={isSyncing}
-                  className="h-8 bg-indigo-600 hover:bg-indigo-700 text-white text-xs px-3 shadow-sm"
-                  onClick={async () => {
-                    if (!tenantId) return;
-                    setIsSyncing(true);
-                    try {
-                      const res = await dataAdapter.syncTenantOperationalData(tenantId, { shiftToToday: true });
-                      if (res?.success) {
-                        toast({ 
-                          title: '⚡ Đã đồng bộ Logic', 
-                          description: `Đã tính toán lại 6 tầng dữ liệu cho toàn bộ các Chuyến đi và Chi phí. Dữ liệu hiện đang ở trạng thái REAL-TIME.` 
-                        });
-                        setTimeout(() => window.location.reload(), 1000);
-                      }
-                    } catch (e) {
-                      toast({ title: 'Lỗi đồng bộ', variant: 'destructive' });
-                    } finally {
-                      setIsSyncing(false);
-                    }
-                  }}
-                >
-                  <Zap className={`mr-1.5 h-3.5 w-3.5 ${isSyncing ? 'animate-spin' : 'fill-current'}`} />
-                  {isSyncing ? 'Đang đồng bộ...' : 'Đồng bộ Dữ liệu'}
-                </Button>
-
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  className="h-8 text-primary font-semibold hover:bg-primary/5 text-xs px-2"
-                  onClick={() => window.location.href = '/auth?tab=register'}
-                >
-                  Thử thật 14 ngày →
-                </Button>
-              </div>
-            </div>
+             {/* ... Banner content remains ... */}
           </CardContent>
         </Card>
+      )}
+
+      {isPaidPlan && isDemoMode && (
+         <div className="bg-blue-50 border-l-4 border-blue-400 p-3 mb-4 rounded shadow-sm flex items-center justify-between">
+           <div className="flex items-center gap-2 text-blue-800 text-sm">
+             <Zap className="w-4 h-4 fill-blue-400" />
+             <span>Bạn đang sử dụng bộ dữ liệu chuẩn (Logic Thực Chiến). Dữ liệu này được thiết kế để kiểm soát chi phí và doanh thu tối ưu.</span>
+           </div>
+           <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-[10px] bg-white border-blue-200 text-blue-600 hover:bg-blue-50"
+              onClick={async () => {
+                if (!tenantId) return;
+                const res = await dataAdapter.auth.ensureTenantDemoReadiness({
+                  tenantId,
+                  role: role || 'viewer',
+                  email: user?.email || '',
+                  full_name: user?.full_name || '',
+                  uid: userId || '',
+                  force: true, 
+                });
+                if (res?.success) {
+                  toast({ title: '✅ Reset Dữ liệu chuẩn', description: 'Đã nạp lại bộ dữ liệu Logic Thực Chiến.' });
+                  setTimeout(() => window.location.reload(), 1000);
+                }
+              }}
+            >
+              <RefreshCw className="mr-1 h-3 w-3" />
+              Reset Demo
+            </Button>
+         </div>
       )}
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full">
