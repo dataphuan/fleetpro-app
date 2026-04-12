@@ -1,9 +1,8 @@
 // Google Drive API Service for FleetPro
-// Handles authentication, file upload/download, and synchronization
+// Handles authentication, file upload/download, and synchronization using modern GIS (Google Identity Services)
 
 declare global {
   interface Window {
-    gapi: any;
     google: any;
   }
 }
@@ -29,14 +28,13 @@ class GoogleDriveService {
   private isInitialized = false;
   private isAuthenticated = false;
   private accessToken: string | null = null;
+  private tokenClient: any = null;
 
   // Google Drive API configuration
-  private readonly CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || '';
-  private readonly API_KEY = import.meta.env.VITE_GOOGLE_API_KEY || '';
   private readonly SCOPES = 'https://www.googleapis.com/auth/drive.file';
 
-  async initialize(): Promise<boolean> {
-    if (this.isInitialized) return true;
+  async initialize(clientId: string): Promise<boolean> {
+    if (this.isInitialized && this.tokenClient) return true;
 
     try {
       // 🛡️ [Demo Mode Safeguard]
@@ -46,55 +44,53 @@ class GoogleDriveService {
         return true;
       }
 
-      // Load Google API script if not loaded
-      if (!window.gapi) {
-        await this.loadGoogleAPIScript();
-      }
+      // Load Google Identity Services script
+      await this.loadGISScript();
 
-      // Initialize GAPI
-      await new Promise<void>((resolve, reject) => {
-        window.gapi.load('client:auth2', {
-          callback: resolve,
-          onerror: reject,
-        });
-      });
-
-      // Initialize client
-      await window.gapi.client.init({
-        apiKey: this.API_KEY,
-        clientId: this.CLIENT_ID,
+      // Initialize Token Client
+      this.tokenClient = window.google.accounts.oauth2.initTokenClient({
+        client_id: clientId,
         scope: this.SCOPES,
-        discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
+        callback: (response: any) => {
+          if (response.error) {
+            console.error('GIS Error:', response.error);
+            this.isAuthenticated = false;
+            return;
+          }
+          this.accessToken = response.access_token;
+          this.isAuthenticated = true;
+          console.log('✅ Google Drive Token Acquired');
+        },
       });
 
       this.isInitialized = true;
       return true;
     } catch (error) {
-      console.error('Failed to initialize Google Drive API:', error);
+      console.error('Failed to initialize Google GIS:', error);
       return false;
     }
   }
 
-  private loadGoogleAPIScript(): Promise<void> {
+  private loadGISScript(): Promise<void> {
     return new Promise((resolve, reject) => {
-      if (document.querySelector('script[src*="apis.google.com"]')) {
+      if (document.querySelector('script[src*="accounts.google.com/gsi/client"]')) {
         resolve();
         return;
       }
 
       const script = document.createElement('script');
-      script.src = 'https://apis.google.com/js/api.js';
+      script.src = 'https://accounts.google.com/gsi/client';
+      script.async = true;
+      script.defer = true;
       script.onload = () => resolve();
-      script.onerror = () => reject(new Error('Failed to load Google API script'));
+      script.onerror = () => reject(new Error('Failed to load Google Identity Services script'));
       document.head.appendChild(script);
     });
   }
 
-  async authenticate(): Promise<boolean> {
-    if (!this.isInitialized) {
-      const initialized = await this.initialize();
-      if (!initialized) return false;
-    }
+  async authenticate(clientId: string): Promise<boolean> {
+    const initialized = await this.initialize(clientId);
+    if (!initialized) return false;
 
     try {
       // 🛡️ [Demo Mode Safeguard]
@@ -106,16 +102,21 @@ class GoogleDriveService {
         return true;
       }
 
-      const authInstance = window.gapi.auth2.getAuthInstance();
-      const isSignedIn = authInstance.isSignedIn.get();
+      return new Promise((resolve) => {
+        // Wrap the callback to resolve the promise
+        const originalCallback = this.tokenClient.callback;
+        this.tokenClient.callback = (response: any) => {
+          originalCallback(response);
+          if (response.access_token) {
+            resolve(true);
+          } else {
+            resolve(false);
+          }
+        };
 
-      if (!isSignedIn) {
-        await authInstance.signIn();
-      }
-
-      this.isAuthenticated = true;
-      this.accessToken = authInstance.currentUser.get().getAuthResponse().access_token;
-      return true;
+        // Request token (shows popup)
+        this.tokenClient.requestAccessToken({ prompt: 'consent' });
+      });
     } catch (error) {
       console.error('Authentication failed:', error);
       this.isAuthenticated = false;
@@ -129,7 +130,7 @@ class GoogleDriveService {
     mimeType: string,
     folderId?: string
   ): Promise<SyncResult> {
-    if (!this.isAuthenticated) {
+    if (!this.isAuthenticated || !this.accessToken) {
       return {
         success: false,
         message: 'Not authenticated',
@@ -138,34 +139,54 @@ class GoogleDriveService {
     }
 
     try {
-      // Create metadata
+      // 🛡️ [Demo Mode Safeguard]
+      if (isProtectedSharedDemoTenant(getTenantId())) {
+        return { success: true, message: '🎉 [Demo] File uploaded to drive cluster' };
+      }
+
+      // Metadata for the file
       const metadata = {
         name: fileName,
         mimeType: mimeType,
         parents: folderId ? [folderId] : undefined,
       };
 
-      // Create file content
-      let fileContent: any;
-      if (typeof content === 'string') {
-        fileContent = new Blob([content], { type: mimeType });
-      } else {
-        fileContent = content;
+      // Create a multi-part body
+      const formData = new FormData();
+      formData.append(
+        'metadata',
+        new Blob([JSON.stringify(metadata)], { type: 'application/json' })
+      );
+      
+      const fileBlob = typeof content === 'string' 
+        ? new Blob([content], { type: mimeType }) 
+        : content;
+        
+      formData.append('file', fileBlob);
+
+      // Upload using REST API v3
+      const response = await fetch(
+        'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',
+        {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${this.accessToken}`,
+          },
+          body: formData,
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error?.message || 'Upload failed');
       }
 
-      // Upload file
-      const response = await window.gapi.client.drive.files.create({
-        resource: metadata,
-        media: {
-          mimeType: mimeType,
-          body: fileContent,
-        },
-      });
+      const result = await response.json();
 
       return {
         success: true,
         message: 'File uploaded successfully',
-        fileId: response.result.id,
+        fileId: result.id,
       };
     } catch (error: any) {
       console.error('Upload failed:', error);
@@ -177,103 +198,49 @@ class GoogleDriveService {
     }
   }
 
-  async downloadFile(fileId: string): Promise<SyncResult> {
-    if (!this.isAuthenticated) {
-      return {
-        success: false,
-        message: 'Not authenticated',
-        error: 'User must authenticate first',
-      };
-    }
-
-    try {
-      const response = await window.gapi.client.drive.files.get({
-        fileId: fileId,
-        alt: 'media',
-      });
-
-      return {
-        success: true,
-        message: 'File downloaded successfully',
-        fileId: fileId,
-      };
-    } catch (error: any) {
-      console.error('Download failed:', error);
-      return {
-        success: false,
-        message: 'Failed to download file',
-        error: error.message,
-      };
-    }
-  }
-
-  async listFiles(query?: string): Promise<GoogleDriveFile[]> {
-    if (!this.isAuthenticated) return [];
-
-    try {
-      const response = await window.gapi.client.drive.files.list({
-        q: query || "trashed=false",
-        fields: 'files(id, name, mimeType, modifiedTime, size)',
-        orderBy: 'modifiedTime desc',
-      });
-
-      return response.result.files || [];
-    } catch (error) {
-      console.error('Failed to list files:', error);
-      return [];
-    }
-  }
-
   async createFolder(folderName: string, parentId?: string): Promise<SyncResult> {
-    if (!this.isAuthenticated) {
-      return {
-        success: false,
-        message: 'Not authenticated',
-        error: 'User must authenticate first',
-      };
+    if (!this.isAuthenticated || !this.accessToken) {
+      return { success: false, message: 'Not authenticated' };
     }
 
     try {
-      const metadata = {
-        name: folderName,
-        mimeType: 'application/vnd.google-apps.folder',
-        parents: parentId ? [parentId] : undefined,
-      };
-
-      const response = await window.gapi.client.drive.files.create({
-        resource: metadata,
+      const response = await fetch('https://www.googleapis.com/drive/v3/files', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: folderName,
+          mimeType: 'application/vnd.google-apps.folder',
+          parents: parentId ? [parentId] : undefined,
+        }),
       });
+
+      if (!response.ok) throw new Error('Failed to create folder');
+      const result = await response.json();
 
       return {
         success: true,
         message: 'Folder created successfully',
-        fileId: response.result.id,
+        fileId: result.id,
       };
     } catch (error: any) {
-      console.error('Failed to create folder:', error);
-      return {
-        success: false,
-        message: 'Failed to create folder',
-        error: error.message,
-      };
+      return { success: false, message: 'Folder creation failed', error: error.message };
     }
   }
 
-  async syncFleetData(data: any, tenantId: string): Promise<SyncResult> {
-    const folderName = `FleetPro-${tenantId}`;
+  async syncFleetData(data: any, tenantId: string, customFolderId?: string): Promise<SyncResult> {
     const fileName = `fleet-data-${new Date().toISOString().split('T')[0]}.json`;
 
     try {
-      // Create or get FleetPro folder
-      const folderResult = await this.createFolder(folderName);
-      if (!folderResult.success) {
-        // Try to find existing folder
-        const folders = await this.listFiles(`name='${folderName}' and mimeType='application/vnd.google-apps.folder'`);
-        if (folders.length > 0) {
-          folderResult.fileId = folders[0].id;
-          folderResult.success = true;
-        } else {
-          return folderResult;
+      let targetFolderId = customFolderId;
+
+      if (!targetFolderId) {
+        const folderName = `FleetPro-${tenantId}`;
+        const folderResult = await this.createFolder(folderName);
+        if (folderResult.success) {
+          targetFolderId = folderResult.fileId;
         }
       }
 
@@ -282,7 +249,7 @@ class GoogleDriveService {
         fileName,
         JSON.stringify(data, null, 2),
         'application/json',
-        folderResult.fileId
+        targetFolderId
       );
 
       return uploadResult;

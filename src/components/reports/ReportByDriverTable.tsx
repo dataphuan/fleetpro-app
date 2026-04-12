@@ -14,36 +14,37 @@ import { useTripsByDateRange } from "@/hooks/useTrips";
 import { DrillDownTripTable } from "./DrillDownTripTable";
 import { exportDriverReportToPDF } from "@/lib/pdf-export";
 import { ReportSummaryCards, SummaryCardProps } from "./ReportSummaryCards";
-import { Users, Truck, Wallet, Activity } from "lucide-react";
+import { Users, Truck, Wallet, Activity, Loader2 } from "lucide-react";
 import { googleDriveService } from "@/services/googleDrive";
 import { useToast } from "@/hooks/use-toast";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
 
 export function ReportByDriverTable() {
   const { toast } = useToast();
+  const { data: settings } = useCompanySettings();
   const [filters, setFilters] = useState<FilterState>({
     searchPromise: "",
-    dateRange: { from: startOfYear(new Date()), to: endOfYear(new Date()) },
+    dateRange: { from: startOfMonth(new Date()), to: endOfMonth(new Date()) },
     status: [],
     vehicleIds: [],
     driverIds: []
   });
 
   const [googleDriveConnected, setGoogleDriveConnected] = useState(false);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const { data: reportCombined, isLoading, refetch } = useDriverReport(filters);
   const reportData = reportCombined?.data || [];
   const summary = reportCombined?.summary;
 
   useEffect(() => {
-    // Check Google Drive connection status
-    const checkGoogleDriveStatus = async () => {
-      const initialized = await googleDriveService.initialize();
-      if (initialized) {
-        setGoogleDriveConnected(googleDriveService.isAuthenticatedStatus());
-      }
-    };
-    checkGoogleDriveStatus();
-  }, []);
+    // Sync UI state with gdrive_config
+    if (settings?.gdrive_config?.isConnected) {
+      setGoogleDriveConnected(true);
+    } else {
+      setGoogleDriveConnected(false);
+    }
+  }, [settings]);
 
   const summaryCards: SummaryCardProps[] = [
     {
@@ -209,30 +210,45 @@ export function ReportByDriverTable() {
   };
 
   const handleGoogleDriveSync = async () => {
-    if (!googleDriveConnected) {
+    const config = settings?.gdrive_config;
+    if (!config?.clientId || !config?.isConnected) {
       toast({
-        title: "Chưa kết nối Google Drive",
-        description: "Vui lòng kết nối Google Drive trong phần cài đặt.",
+        title: "Chưa cấu hình Google Drive",
+        description: "Vui lòng hoàn tất cài đặt Google Drive trong phần Cài đặt hệ thống.",
         variant: "destructive",
       });
       return;
     }
 
+    setIsSyncing(true);
     try {
+      // 1. Real Authentication Flow
+      const authenticated = await googleDriveService.authenticate(config.clientId);
+      if (!authenticated) {
+        throw new Error("Người dùng từ chối cấp quyền hoặc lỗi xác thực.");
+      }
+
+      // 2. Prepare Data
       const reportDataToSync = {
         reportType: 'driver-report',
         generatedAt: new Date().toISOString(),
+        tenantId: settings.id,
         filters: filters,
         data: reportData,
         summary: summary
       };
 
-      const result = await googleDriveService.syncFleetData(reportDataToSync, 'current-tenant');
+      // 3. Real Upload
+      const result = await googleDriveService.syncFleetData(
+        reportDataToSync, 
+        settings.id || 'internal-tenant',
+        config.folderId
+      );
 
       if (result.success) {
         toast({
-          title: "Đồng bộ thành công",
-          description: "Báo cáo tài xế đã được đồng bộ với Google Drive.",
+          title: "Đồng bộ thành công ✨",
+          description: "Báo cáo đã được tải lên Google Drive của bạn.",
         });
       } else {
         throw new Error(result.error || 'Đồng bộ thất bại');
@@ -244,6 +260,8 @@ export function ReportByDriverTable() {
         description: error.message || "Không thể đồng bộ với Google Drive.",
         variant: "destructive",
       });
+    } finally {
+      setIsSyncing(false);
     }
   };
 
@@ -275,6 +293,7 @@ export function ReportByDriverTable() {
               onGoogleDriveSync={handleGoogleDriveSync}
               onLocalSave={handleLocalSave}
               googleDriveConnected={googleDriveConnected}
+              isSyncing={isSyncing}
             />
           </div>
         </ExcelFilterBar>

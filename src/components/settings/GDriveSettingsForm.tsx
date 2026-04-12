@@ -1,52 +1,112 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { Cloud, Unlink, Save } from "lucide-react";
+import { Cloud, Unlink, Save, Loader2 } from "lucide-react";
+import { useCompanySettings, useSaveCompanySettings } from "@/hooks/useCompanySettings";
 
 export function GDriveSettingsForm() {
   const { toast } = useToast();
-  const [isConnected, setIsConnected] = useState(true); // Default to true to match screenshot state
+  const { data: settings, isLoading } = useCompanySettings();
+  const saveMutation = useSaveCompanySettings();
   
-  // State for form fields
-  const [clientId, setClientId] = useState("239300485878-48buuqogm89gfdrp8vjr1pracv0s3o0o.apps.googleusercontent.com");
-  const [clientSecret, setClientSecret] = useState("xxxxxxxxxxxxxxxxxxxxxxxxxxxx");
-  const [folderId, setFolderId] = useState("1a_Je1VuTA_mqQAMgMUlQrAfpxJZzfMZn");
+  // Local state for form fields
+  const [clientId, setClientId] = useState("");
+  const [clientSecret, setClientSecret] = useState("");
+  const [folderId, setFolderId] = useState("");
+  const [isConnected, setIsConnected] = useState(false);
 
-  const handleDisconnect = () => {
-    setIsConnected(false);
-    toast({
-      title: "Đã ngắt kết nối",
-      description: "Đã ngắt kết nối với Google Drive.",
-    });
+  // Sync with database when settings load
+  useEffect(() => {
+    if (settings?.gdrive_config) {
+      setClientId(settings.gdrive_config.clientId || "");
+      setClientSecret(settings.gdrive_config.clientSecret || "");
+      setFolderId(settings.gdrive_config.folderId || "");
+      setIsConnected(settings.gdrive_config.isConnected || false);
+    }
+  }, [settings]);
+
+  const handleSave = async () => {
+    if (!clientId) {
+      toast({ title: "Thiếu thông tin", description: "Vui lòng nhập Client ID", variant: "destructive" });
+      return;
+    }
+
+    try {
+      await saveMutation.mutateAsync({
+        ...settings,
+        gdrive_config: {
+          clientId,
+          clientSecret,
+          folderId,
+          isConnected: true, // Mark as connected when saved
+          lastSync: new Date().toISOString()
+        }
+      });
+      setIsConnected(true);
+      toast({
+        title: "Lưu thành công",
+        description: "Thông tin kết nối Google Drive đã được cập nhật.",
+      });
+    } catch (error) {
+      // Toast handled by mutation
+    }
   };
 
-  const handleSaveFolder = () => {
-    toast({
-      title: "Đã lưu thư mục",
-      description: `Đã cập nhật ID Thư mục: ${folderId}`,
-    });
+  const handleDisconnect = async () => {
+    try {
+      await saveMutation.mutateAsync({
+        ...settings,
+        gdrive_config: {
+          ...settings?.gdrive_config,
+          clientId,
+          folderId,
+          isConnected: false
+        }
+      });
+      setIsConnected(false);
+      toast({
+        title: "Đã ngắt kết nối",
+        description: "Đã ngắt kết nối với Google Drive.",
+      });
+    } catch (error) {
+       // Handled
+    }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center p-12">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+      </div>
+    );
+  }
 
   return (
-    <div className="bg-white border rounded-lg shadow-sm">
-      <div className="p-6 space-y-6">
+    <Card className="border-blue-100 shadow-sm overflow-hidden">
+      <div className="bg-blue-600/10 px-6 py-4 border-b border-blue-100 flex items-center justify-between">
+         <div className="flex items-center gap-3">
+             <div className="bg-blue-600 p-2 rounded-lg">
+                <Cloud className="w-5 h-5 text-white" />
+             </div>
+             <div>
+                <h3 className="font-bold text-blue-900">Sao lưu lên Google Drive</h3>
+                <p className="text-xs text-blue-700/70">Bảo mật dữ liệu an toàn tiêu chuẩn Google</p>
+             </div>
+         </div>
+         {isConnected && (
+           <div className="flex items-center gap-1.5 px-3 py-1 bg-green-100 text-green-700 rounded-full text-[10px] font-bold uppercase tracking-wider">
+              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+              Đã kết nối
+           </div>
+         )}
+      </div>
+      <div className="p-6 space-y-6 bg-white">
         
-        {/* Header */}
-        <div>
-          <h2 className="flex items-center text-xl font-semibold gap-2 mb-1">
-            <Cloud className="w-6 h-6 text-blue-500" />
-            Đồng bộ Google Drive
-          </h2>
-          <p className="text-sm text-gray-500">
-            Thiết lập đồng bộ file sao lưu tự động lên Google Drive.
-          </p>
-        </div>
-
         {/* Form Fields */}
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">
+            <label className="text-xs font-bold uppercase text-gray-400">
               Google OAuth Client ID
             </label>
             <Input 
@@ -54,68 +114,73 @@ export function GDriveSettingsForm() {
               value={clientId} 
               onChange={(e) => setClientId(e.target.value)}
               className="bg-gray-50/50"
+              placeholder="VD: 12345-abcde.apps.googleusercontent.com"
             />
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">
+            <label className="text-xs font-bold uppercase text-gray-400">
               Google OAuth Client Secret
             </label>
             <Input 
               type="password" 
               value={clientSecret} 
               onChange={(e) => setClientSecret(e.target.value)}
-              className="bg-gray-50/50 text-xl font-black tracking-widest"
-              placeholder="..................."
+              className="bg-gray-50/50"
+              placeholder="Nhập Client Secret của bạn..."
             />
           </div>
 
-          <div className="space-y-2">
-            <label className="text-sm font-medium text-gray-700">
-              ID Thư mục Google Drive lưu trữ
+          <div className="col-span-1 md:col-span-2 space-y-2">
+            <label className="text-xs font-bold uppercase text-gray-400">
+              ID Thư mục Google Drive lưu trữ (Tùy chọn)
             </label>
-            <div className="flex gap-2">
-              <Input 
-                type="text" 
-                value={folderId} 
-                onChange={(e) => setFolderId(e.target.value)}
-                className="bg-gray-50/50 flex-1"
-              />
-              <Button 
-                variant="outline" 
-                className="bg-gray-50"
-                onClick={handleSaveFolder}
-              >
-                Lưu Thư mục
-              </Button>
-            </div>
+            <Input 
+              type="text" 
+              value={folderId} 
+              onChange={(e) => setFolderId(e.target.value)}
+              className="bg-gray-50/50"
+              placeholder="Nhập ID thư mục Google Drive (để trống để tự động tạo)"
+            />
           </div>
         </div>
 
         {/* Status Line */}
-        {isConnected && (
-          <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-md flex items-center gap-2 font-medium text-sm">
-            <span className="flex items-center justify-center w-5 h-5 rounded-full border-2 border-green-600 text-green-600 shrink-0">
-              <svg width="12" height="12" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M11.6667 3.5L5.25004 9.91667L2.33337 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </span>
-            Đã kết nối tài khoản Google Drive thành công! Hệ thống sẽ tự động upload bản sao lưu.
+        {!isConnected && (
+          <div className="bg-slate-50 border px-4 py-3 rounded-md flex items-center gap-3 text-sm text-slate-600">
+             <AlertCircle className="w-4 h-4 text-slate-400" />
+             Chưa kết nối. Hệ thống cần quyền truy quyền Drive để tạo bản sao lưu an toàn.
           </div>
         )}
       </div>
 
       {/* Footer Action */}
-      <div className="px-6 pb-6 mt-2 relative">
+      <div className="px-6 pb-6 mt-2 flex flex-col md:flex-row gap-3">
          <Button 
-           variant="destructive" 
-           className="w-full bg-[#d32f2f] hover:bg-[#b71c1c] text-white h-11 text-base font-semibold"
-           onClick={handleDisconnect}
+           className="flex-1 bg-blue-600 hover:bg-blue-700 text-white h-11 text-base font-semibold shadow-lg shadow-blue-500/20"
+           onClick={handleSave}
+           disabled={saveMutation.isPending}
          >
-           <Unlink className="w-5 h-5 mr-2" />
-           Ngắt kết nối
+           {saveMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Save className="w-5 h-5 mr-2" />}
+           Lưu & Kết nối Google Drive
          </Button>
+
+         {isConnected && (
+           <Button 
+             variant="ghost" 
+             className="text-destructive hover:text-destructive hover:bg-destructive/10 h-11 text-base font-semibold"
+             onClick={handleDisconnect}
+             disabled={saveMutation.isPending}
+           >
+             <Unlink className="w-5 h-5 mr-2" />
+             Ngắt kết nối
+           </Button>
+         )}
       </div>
-    </div>
+    </Card>
   );
 }
+
+// Add these imports to Settings.tsx
+import { AlertCircle } from "lucide-react";
+import { Card } from "@/components/ui/card";

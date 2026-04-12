@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Download, FileDown, FileText, Sheet, Cloud, RefreshCw, HardDrive } from "lucide-react";
+import { Download, FileDown, FileText, Sheet, Cloud, RefreshCw, HardDrive, Loader2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,6 +14,7 @@ interface ExportButtonsProps {
   onGoogleDriveSync?: () => void;
   onLocalSave?: () => void;
   isLoading?: boolean;
+  isSyncing?: boolean;
   googleDriveConnected?: boolean;
 }
 
@@ -22,6 +23,7 @@ export function ExportButtons({
   onGoogleDriveSync,
   onLocalSave,
   isLoading,
+  isSyncing = false,
   googleDriveConnected = false
 }: ExportButtonsProps) {
   const { toast } = useToast();
@@ -58,10 +60,10 @@ export function ExportButtons({
     <div className="flex gap-2">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="sm" className="h-8 gap-1" disabled={isLoading}>
-            <Download className="h-3.5 w-3.5" />
+          <Button variant="outline" size="sm" className="h-8 gap-1" disabled={isLoading || isSyncing}>
+            {isSyncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
             <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-              Xuất file
+              {isSyncing ? "Đang sync..." : "Xuất file"}
             </span>
           </Button>
         </DropdownMenuTrigger>
@@ -86,7 +88,7 @@ export function ExportButtons({
           <DropdownMenuItem onClick={handleGoogleDriveSync}>
             <Cloud className="mr-2 h-4 w-4" />
             Đồng bộ Google Drive
-            {googleDriveConnected && <RefreshCw className="ml-2 h-3 w-3" />}
+            {googleDriveConnected && <RefreshCw className={`ml-2 h-3 w-3 ${isSyncing ? 'animate-spin' : ''}`} />}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -97,11 +99,11 @@ export function ExportButtons({
           size="sm"
           className="h-8 gap-1"
           onClick={handleGoogleDriveSync}
-          disabled={isLoading}
+          disabled={isLoading || isSyncing}
         >
-          <RefreshCw className="h-3.5 w-3.5" />
+          {isSyncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
           <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-            Sync Drive
+            {isSyncing ? "Syncing..." : "Sync Drive"}
           </span>
         </Button>
       )}

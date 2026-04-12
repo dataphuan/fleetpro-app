@@ -195,17 +195,7 @@ export default function Settings() {
 
           <div className="hidden lg:block w-px h-6 bg-border mx-1 self-center"></div>
 
-          <TabsTrigger 
-            value="cloud" 
-            className="gap-2 flex-1 lg:flex-none transition-all duration-300
-              data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-indigo-600 
-              data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-blue-500/20
-              data-[state=inactive]:text-blue-600 dark:data-[state=inactive]:text-blue-400
-              hover:bg-blue-50 dark:hover:bg-blue-950/30"
-          >
-            <Cloud className="w-4 h-4" />
-            <span className="hidden sm:inline font-medium">Đám mây Firebase</span>
-          </TabsTrigger>
+
         </TabsList>
 
         <TabsContent value="company">
@@ -749,9 +739,7 @@ export default function Settings() {
           <AISettingsForm />
         </TabsContent>
 
-        <TabsContent value="cloud">
-          <GDriveSettingsForm />
-        </TabsContent>
+
 
         <TabsContent value="notifications">
           <TelegramSettingsForm />

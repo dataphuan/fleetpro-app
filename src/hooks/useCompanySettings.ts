@@ -14,6 +14,13 @@ type CompanySettings = {
   logo_url?: string | null;
   primary_color?: string | null;
   metadata?: any;
+  gdrive_config?: {
+    clientId: string;
+    clientSecret?: string;
+    folderId: string;
+    isConnected: boolean;
+    lastSync?: string;
+  };
 };
 
 export const useCompanySettings = () => {
