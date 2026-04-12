@@ -137,9 +137,8 @@ class GoogleDriveService {
 
     try {
       // 🛡️ [Demo Mode Safeguard]
-      if (isProtectedSharedDemoTenant(getTenantId())) {
-        return { success: true, message: 'File uploaded (Demo mode)' };
-      }
+      // 🛡️ [Real-world Safeguard]
+      // No demo simulation here
 
       // Metadata for the file
       const metadata = {

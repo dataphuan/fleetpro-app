@@ -6,11 +6,13 @@
 import { app, db, auth, firebaseConfig, functions } from './firebase';
 import { collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, addDoc, writeBatch } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
-import { signInWithEmailAndPassword, signOut as firebaseSignOut, getAuth, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { getAuth, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { initializeApp, deleteApp } from 'firebase/app';
 import { normalizeUserRole } from './rbac';
 import { validateAdapterData } from './schemas';
 import { TENANT_DEMO_SEED } from '../data/tenantDemoSeed';
+import { getNextSequentialId } from './id-service';
+import { googleDriveService } from '../services/googleDrive';
 
 const mutationLastSeen = new Map<string, number>();
 const MUTATION_THROTTLE_WINDOW_MS = 800;
@@ -559,8 +561,10 @@ const createFirestoreAdapter = (collectionName: string) => ({
         const snapshot = await getDocs(q);
         let rows = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-        // Fallback: Use demo seed data if Firestore is empty (development mode)
-        if (rows.length === 0 && import.meta.env.DEV) {
+        const isDemo = isProtectedSharedDemoTenant(tenantId);
+        
+        // Fallback: Use demo seed data if Firestore is empty (ONLY FOR DEMO/TRIAL TENANTS IN DEV)
+        if (rows.length === 0 && import.meta.env.DEV && isDemo) {
             const demoCollection = (TENANT_DEMO_SEED.collections as any)[collectionName];
             if (demoCollection && Array.isArray(demoCollection)) {
                 rows = JSON.parse(JSON.stringify(demoCollection)).map((item: any) => ({ ...item }));
@@ -664,8 +668,12 @@ const createFirestoreAdapter = (collectionName: string) => ({
             throw new Error(`[${collectionName}] ${error.message}`);
         }
 
-        // Use provided id (e.g., Mã xe) if available, otherwise let Firestore auto-generate
-        const documentId = validatedData.id || validatedData['Mã xe'] || validatedData['Mã tài xế'] || validatedData['Mã KH'] || validatedData['Mã tuyến'] || validatedData['Mã chuyến'] || validatedData['Mã chi phí'] || validatedData['Mã lệnh'];
+        // 3. Centralized ID Sequential Generation (Làm Thật)
+        let finalId = validatedData.id || validatedData['Mã xe'] || validatedData['Mã tài xế'] || validatedData['Mã KH'] || validatedData['Mã tuyến'] || validatedData['Mã chuyến'] || validatedData['Mã chi phí'] || validatedData['Mã lệnh'];
+        
+        if (!finalId) {
+           finalId = await getNextSequentialId(tenantId, collectionName);
+        }
         
         // ---- SECURITY HARDENING: Use Cloud Functions for Trips ----
         // ---- SECURITY HARDENING: Use Cloud Functions for Trips ----
@@ -688,7 +696,6 @@ const createFirestoreAdapter = (collectionName: string) => ({
         
         // --- ATOMIC BATCH WRITE (Data + Log) ---
         const batch = writeBatch(db);
-        const finalId = documentId || doc(collection(db, collectionName)).id;
         const targetDocRef = doc(db, collectionName, finalId);
         
         batch.set(targetDocRef, payload);
@@ -700,6 +707,21 @@ const createFirestoreAdapter = (collectionName: string) => ({
         }
         
         await batch.commit();
+        
+        // --- AUTO-SYNC TO GOOGLE DRIVE (Làm Thật) ---
+        setTimeout(async () => {
+            try {
+                const settingsDoc = await getDoc(doc(db, 'company_settings', tenantId));
+                const config = settingsDoc.data()?.gdrive_config;
+                if (config?.isConnected && config?.clientId) {
+                    const allData = await (createFirestoreAdapter(collectionName) as any).list();
+                    await googleDriveService.syncFleetData(allData, tenantId, config.folderId);
+                }
+            } catch (e) {
+                console.warn('Auto-sync background failure:', e);
+            }
+        }, 1000);
+
         return { id: finalId, ...payload };
     },
     update: async (id: string, data: any) => {
@@ -858,12 +880,7 @@ const transportOrderFirestoreAdapter = {
         };
     },
     getNextCode: async () => {
-        const rows = await (createFirestoreAdapter('transportOrders') as any).list();
-        const maxNo = rows.reduce((m: number, r: any) => {
-            const n = Number(String(r.order_code || '').replace(/\D/g, ''));
-            return Number.isFinite(n) ? Math.max(m, n) : m;
-        }, 0);
-        return `DH${String(maxNo + 1).padStart(8, '0')}`;
+        return await getNextSequentialId(getTenantId(), 'transportOrders');
     },
     // QA AUDIT FIX 1.3: All status mutations must verify tenant ownership
     confirm: async (id: string) => {
