@@ -119,20 +119,41 @@ export function DriverQuickTripModal({
                             value={vehicleId}
                             onChange={(e) => setVehicleId(e.target.value)}
                         >
-                            <option value="" disabled>-- Chọn xe --</option>
-                            {/* Assigned Vehicle */}
-                            {assignedVehicleId && (
-                                <option value={assignedVehicleId} className="font-semibold">
-                                    Xe cố định của bạn
-                                </option>
+                            <option value="" disabled>-- Chọn xe thực hiện --</option>
+                            
+                            {availableVehicles.length === 0 && (
+                                <option value="" disabled>Không có xe nào được gán hoặc xe trống.</option>
                             )}
-                            {/* Pool Vehicles */}
-                            {availableVehicles.map(v => (
-                                <option key={v.id} value={v.id}>
-                                    {v.license_plate} {v.vehicle_type ? `(${v.vehicle_type})` : ''} - (Đang trống)
-                                </option>
-                            ))}
+
+                            {/* Xe của bạn */}
+                            <optgroup label="Xe Của Bạn (Được Giao Cố Định)">
+                                {availableVehicles
+                                    .filter(v => v.id === assignedVehicleId || v.assigned_driver_id === driverId)
+                                    .map(v => (
+                                        <option key={v.id} value={v.id} className="font-semibold text-slate-900">
+                                            {v.license_plate} {v.vehicle_type ? `(${v.vehicle_type})` : ''}
+                                        </option>
+                                    ))
+                                }
+                            </optgroup>
+
+                            {/* Xe đi chung */}
+                            <optgroup label="Xe Đi Theo Ca (Pool / Luân Chuyển)">
+                                {availableVehicles
+                                    .filter(v => v.assignment_type === 'pool' && v.id !== assignedVehicleId && v.assigned_driver_id !== driverId)
+                                    .map(v => (
+                                        <option key={v.id} value={v.id} className="text-blue-700">
+                                            [POOL] {v.license_plate} {v.vehicle_type ? `(${v.vehicle_type})` : ''} - (Đang trống)
+                                        </option>
+                                    ))
+                                }
+                            </optgroup>
                         </select>
+                        {availableVehicles.length === 0 && (
+                            <p className="text-xs text-red-600 mt-1">
+                                Cảnh báo: Quản lý chưa gán xe nào cho bạn và cũng không còn xe pool rảnh. Bạn không thể tạo lệnh nháp. Vui lòng liên hệ điều phối viên.
+                            </p>
+                        )}
                     </div>
 
                     <div className="space-y-2">

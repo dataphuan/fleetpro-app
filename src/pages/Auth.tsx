@@ -71,16 +71,11 @@ export default function Auth() {
     const { toast } = useToast();
     const { refreshAuth } = useAuth();
 
-    const isMobileViewport = () => {
-        if (typeof window === 'undefined') return false;
-        return window.matchMedia('(max-width: 1023px)').matches;
-    };
-
     const getPostLoginPath = (role?: string) => {
         const fromPath = (location.state as any)?.from?.pathname as string | undefined;
 
         if (role === 'driver') {
-            return isMobileViewport() ? '/driver' : '/';
+            return '/driver';
         }
 
         if (fromPath && fromPath !== '/auth') {

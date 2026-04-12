@@ -4,8 +4,10 @@ import { AppHeader } from "./AppHeader";
 import { GeminiChat } from "@/components/chat/GeminiChat";
 import { PaywallGuard } from "@/components/shared/PaywallGuard";
 
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, Navigate } from "react-router-dom";
 import { GuidedTour } from "@/components/onboarding/GuidedTour";
+import { useAuth } from "@/contexts/AuthContext";
+import { normalizeUserRole } from "@/lib/rbac";
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -15,6 +17,12 @@ export function AppLayout({ children }: AppLayoutProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(1280);
   const location = useLocation();
+  const { role } = useAuth();
+
+  // If driver accesses the main app layout, force redirect them to their PWA
+  if (normalizeUserRole(role) === 'driver') {
+      return <Navigate to="/driver" replace />;
+  }
 
   // UI mode follows viewport to keep desktop UX stable on touch-capable laptops.
   const useMobileShell = viewportWidth < 1024;
