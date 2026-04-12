@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 // ID formats
 export const vehicleIdSchema = z.string().startsWith('XE', { message: 'Mã xe phải bắt đầu bằng XE (VD: XE001)' });
-export const driverIdSchema = z.string().startsWith('TX', { message: 'Mã tài xế phải bắt đầu bằng TX (VD: TX001)' });
+export const driverIdSchema = z.string().regex(/^TX-\d+$/, { message: 'Mã tài xế phải đúng chuẩn TX- kèm số (VD: TX-01, TX-15)' });
 export const tripIdSchema = z.string().startsWith('TD', { message: 'Mã chuyến đi phải bắt đầu bằng TD (VD: TD001)' });
 
 // Absolute Financial Sanity
@@ -23,13 +23,14 @@ export const VehicleSchema = z.object({
 export const DriverSchema = z.object({
   id: driverIdSchema.optional(),
   'Mã tài xế': driverIdSchema.optional(),
+  driver_code: driverIdSchema.optional(),
 }).passthrough().refine(data => {
-  const idValue = data.id || data['Mã tài xế'];
+  const idValue = data.id || data['Mã tài xế'] || data.driver_code;
   if (idValue && typeof idValue === 'string') {
-    return idValue.startsWith('TX');
+    return /^TX-\d+$/.test(idValue);
   }
   return true;
-}, { message: 'Mã tài xế không hợp lệ (Phải bắt đầu bằng TX)', path: ['id'] });
+}, { message: 'Mã tài xế sai định dạng chuẩn (Bắt buộc TX-xx)', path: ['driver_code'] });
 
 export const TripSchema = z.object({
   id: tripIdSchema.optional(),

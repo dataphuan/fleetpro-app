@@ -86,7 +86,7 @@ interface Driver {
 
 // Form Schema Validation
 const driverSchema = z.object({
-  driver_code: z.string().refine(val => !val || /^TX\d+$/.test(val), "Mã tài xế phải bắt đầu bằng 'TX' và theo sau là các chữ số (vd: TX0001)").optional(), // Auto-generated if empty
+  driver_code: z.string().refine(val => !val || /^TX-\d+$/.test(val), "Mã tài xế sai chuẩn định dạng. Bắt buộc phải có dấu gạch ngang TX- (vd: TX-01, TX-16)").optional(), // Auto-generated if empty
   full_name: z.string().min(1, "Họ tên là bắt buộc"),
   phone: z.string().optional().refine(
     (val) => !val || /^(0[3-9])\d{8,9}$/.test(val.replace(/[\s.-]/g, '')),
@@ -203,7 +203,7 @@ export default function Drivers() {
   // Handlers
   const handleAdd = async () => {
     setSelectedDriver(null);
-    let nextCode = `TX0001`;
+    let nextCode = `TX-01`;
     try {
       const res = await driverAdapter.getNextCode();
       if (res && typeof res === 'string') {
@@ -217,7 +217,7 @@ export default function Drivers() {
           const num = parseInt(d.driver_code?.replace(/[^0-9]/g, '') || '0');
           return Math.max(max, num);
         }, 0);
-        nextCode = `TX${String(maxCode + 1).padStart(4, '0')}`;
+        nextCode = `TX-${String(maxCode + 1).padStart(2, '0')}`;
       }
     }
 
@@ -470,7 +470,7 @@ export default function Drivers() {
     for (const row of rows) {
       try {
         await createMutation.mutateAsync({
-          driver_code: String(row.driver_code || `TX0000`),
+          driver_code: String(row.driver_code || `TX-00`),
           full_name: String(row.full_name || 'Unknown'),
           phone: row.phone ? String(row.phone) : null,
           date_of_birth: row.date_of_birth ? String(row.date_of_birth) : null,
