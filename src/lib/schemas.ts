@@ -1,9 +1,9 @@
 import { z } from 'zod';
 
 // ID formats
-export const vehicleIdSchema = z.string().startsWith('XE', { message: 'Mã xe phải bắt đầu bằng XE (VD: XE001)' });
-export const driverIdSchema = z.string().regex(/^TX-\d+$/, { message: 'Mã tài xế phải đúng chuẩn TX- kèm số (VD: TX-01, TX-15)' });
-export const tripIdSchema = z.string().startsWith('TD', { message: 'Mã chuyến đi phải bắt đầu bằng TD (VD: TD001)' });
+export const vehicleIdSchema = z.string().regex(/^XE\d{4}$/, { message: 'Mã xe phải bắt đầu bằng XE và 4 số (VD: XE0001)' });
+export const driverIdSchema = z.string().regex(/^TX\d{4}$/, { message: 'Mã tài xế phải đúng chuẩn TX kèm 4 số (VD: TX0001)' });
+export const tripIdSchema = z.string().startsWith('TD', { message: 'Mã chuyến đi phải bắt đầu bằng TD (VD: TD0001)' });
 
 // Absolute Financial Sanity
 export const amountSchema = z.number().min(0, { message: 'Số tiền/Chi phí phải lớn hơn hoặc bằng 0' });
@@ -15,10 +15,10 @@ export const VehicleSchema = z.object({
 }).passthrough().refine(data => {
   const idValue = data.id || data['Mã xe'];
   if (idValue && typeof idValue === 'string') {
-    return idValue.startsWith('XE');
+    return /^XE\d{4}$/.test(idValue);
   }
   return true; // allow empty if not provided, though it shouldn't happen usually
-}, { message: 'Mã xe không hợp lệ (Phải bắt đầu bằng XE)', path: ['id'] });
+}, { message: 'Mã xe sai định dạng chuẩn (Bắt buộc XE + 4 số, VD: XE0001)', path: ['id'] });
 
 export const DriverSchema = z.object({
   id: driverIdSchema.optional(),
@@ -27,10 +27,10 @@ export const DriverSchema = z.object({
 }).passthrough().refine(data => {
   const idValue = data.id || data['Mã tài xế'] || data.driver_code;
   if (idValue && typeof idValue === 'string') {
-    return /^TX-\d+$/.test(idValue);
+    return /^TX\d{4}$/.test(idValue);
   }
   return true;
-}, { message: 'Mã tài xế sai định dạng chuẩn (Bắt buộc TX-xx)', path: ['driver_code'] });
+}, { message: 'Mã tài xế sai định dạng chuẩn (Bắt buộc TX + 4 số)', path: ['driver_code'] });
 
 export const TripSchema = z.object({
   id: tripIdSchema.optional(),

@@ -94,7 +94,7 @@ interface Vehicle {
 
 // Form Schema Validation - đầy đủ 18 trường theo Excel
 const vehicleSchema = z.object({
-  vehicle_code: z.string().refine(val => !val || /^XE-\d+$/.test(val), "Mã xe sai chuẩn định dạng. Bắt buộc XE- (vd: XE-01)").optional(), // Auto-generated if empty
+  vehicle_code: z.string().refine(val => !val || /^XE\d{4}$/.test(val), "Mã xe sai chuẩn định dạng. Bắt buộc XE + 4 số (vd: XE0001)").optional(), // Auto-generated if empty
   license_plate: z.string().min(1, "Biển số là bắt buộc"),
   vehicle_type: z.string().min(1, "Loại xe là bắt buộc"),
   brand: z.string().min(1, "Nhãn hiệu xe là bắt buộc"),
@@ -255,7 +255,7 @@ export default function Vehicles() {
     // ----------------------------
 
     setSelectedVehicle(null);
-    let nextCode = `XE-01`;
+    let nextCode = `XE0001`;
     try {
       const res = await vehicleAdapter.getNextCode();
       if (res && typeof res === 'string') {
@@ -268,7 +268,7 @@ export default function Vehicles() {
           const num = parseInt(v.vehicle_code?.replace(/[^0-9]/g, '') || '0');
           return Math.max(max, num);
         }, 0);
-        nextCode = `XE-${String(maxCode + 1).padStart(2, '0')}`;
+        nextCode = `XE${String(maxCode + 1).padStart(4, '0')}`;
       }
     }
 
