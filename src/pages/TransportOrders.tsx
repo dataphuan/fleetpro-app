@@ -292,9 +292,13 @@ export default function TransportOrders() {
 
     const handleExport = () => {
         import('@/lib/export').then(({ exportToCSV }) => {
-            exportToCSV(orders || [], 'Danh_sach_don_hang', [
+            const exportData = (orders || []).map(o => ({
+                ...o,
+                resolved_customer_name: customers?.find(c => c.id === o.customer_id)?.customer_name || 'Khách vãng lai'
+            }));
+            exportToCSV(exportData, 'Danh_sach_don_hang', [
                 { key: 'order_code', header: 'Mã đơn' },
-                { key: 'customer.customer_name', header: 'Khách hàng' },
+                { key: 'resolved_customer_name', header: 'Khách hàng' },
                 { key: 'order_date', header: 'Ngày đặt hàng' },
                 { key: 'expected_delivery_date', header: 'Ngày giao dự kiến' },
                 { key: 'cargo_description', header: 'Mô tả hàng' },
@@ -455,9 +459,12 @@ export default function TransportOrders() {
             render: (value) => <span className="font-mono font-medium">{value as string}</span>,
         },
         {
-            key: 'customer',
+            key: 'customer_id',
             header: 'Khách hàng',
-            render: (_, row) => <span>{row.customer?.customer_name || '—'}</span>,
+            render: (value) => {
+                const customerData = customers?.find(c => c.id === value);
+                return <span className="font-medium text-emerald-800">{customerData?.customer_name || '—'}</span>;
+            },
         },
         {
             key: 'requested_by_driver_email',
