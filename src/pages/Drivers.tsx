@@ -88,23 +88,23 @@ interface Driver {
 const driverSchema = z.object({
   driver_code: z.string().refine(val => !val || /^TX-\d+$/.test(val), "Mã tài xế sai chuẩn định dạng. Bắt buộc phải có dấu gạch ngang TX- (vd: TX-01, TX-16)").optional(), // Auto-generated if empty
   full_name: z.string().min(1, "Họ tên là bắt buộc"),
-  phone: z.string().optional().refine(
-    (val) => !val || /^(0[3-9])\d{8,9}$/.test(val.replace(/[\s.-]/g, '')),
+  phone: z.string().min(1, "Số điện thoại là bắt buộc").refine(
+    (val) => /^(0[3-9])\d{8,9}$/.test(val.replace(/[\s.-]/g, '')),
     { message: "Số điện thoại không hợp lệ (VD: 0912345678)" }
   ),
-  license_number: z.string().optional(),
-  license_class: z.string().optional(),
-  license_expiry: z.string().optional().or(z.literal('')),
-  health_check_expiry: z.string().optional().or(z.literal('')),
+  license_number: z.string().min(1, "Số GPLX là bắt buộc"),
+  license_class: z.string().min(1, "Hạng GPLX là bắt buộc"),
+  license_expiry: z.string().min(1, "Ngày hết hạn GPLX là bắt buộc"),
+  health_check_expiry: z.string().min(1, "Hết hạn khám sức khỏe là bắt buộc"),
   hire_date: z.string().optional().or(z.literal('')),
   base_salary: z.coerce.number().min(0, "Lương cơ bản phải lớn hơn hoặc bằng 0"),
   status: z.enum(['active', 'on_leave', 'inactive', 'on_trip'] as const),
   assigned_vehicle_id: z.string().optional().nullable(),
-  date_of_birth: z.string().optional().or(z.literal('')),
+  date_of_birth: z.string().min(1, "Ngày sinh là bắt buộc"),
   tax_code: z.string().optional(),
-  id_card: z.string().optional(),
-  id_issue_date: z.string().optional().or(z.literal('')),
-  address: z.string().optional(),
+  id_card: z.string().min(1, "Số CCCD là bắt buộc"),
+  id_issue_date: z.string().min(1, "Ngày cấp CCCD là bắt buộc"),
+  address: z.string().min(1, "Hộ khẩu thường trú là bắt buộc"),
   contract_type: z.string().optional(),
   notes: z.string().optional(),
 });
@@ -906,7 +906,7 @@ export default function Drivers() {
                   name="date_of_birth"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Ngày sinh</FormLabel>
+                      <FormLabel>Ngày sinh *</FormLabel>
                       <FormControl>
                         <DatePicker
                           value={field.value ? parseISO(field.value) : undefined}
@@ -923,7 +923,7 @@ export default function Drivers() {
                   name="phone"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Số điện thoại</FormLabel>
+                      <FormLabel>Số điện thoại *</FormLabel>
                       <FormControl>
                         <Input placeholder="0912345678" {...field} value={field.value || ''} />
                       </FormControl>
@@ -937,7 +937,7 @@ export default function Drivers() {
                   name="id_card"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Số CCCD</FormLabel>
+                      <FormLabel>Số CCCD *</FormLabel>
                       <FormControl>
                         <Input placeholder="CCCD/CMND" {...field} value={field.value || ''} />
                       </FormControl>
@@ -951,7 +951,7 @@ export default function Drivers() {
                   name="id_issue_date"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Ngày cấp CCCD</FormLabel>
+                      <FormLabel>Ngày cấp CCCD *</FormLabel>
                       <FormControl>
                         <DatePicker
                           value={field.value ? parseISO(field.value) : undefined}
@@ -982,7 +982,7 @@ export default function Drivers() {
                   name="address"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Hộ khẩu thường trú</FormLabel>
+                      <FormLabel>Hộ khẩu thường trú *</FormLabel>
                       <FormControl>
                         <Input placeholder="Địa chỉ..." {...field} value={field.value || ''} />
                       </FormControl>
@@ -996,7 +996,7 @@ export default function Drivers() {
                   name="license_number"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Số GPLX</FormLabel>
+                      <FormLabel>Số GPLX *</FormLabel>
                       <FormControl>
                         <Input placeholder="B2-123456" {...field} value={field.value || ''} />
                       </FormControl>
@@ -1035,7 +1035,7 @@ export default function Drivers() {
                   name="license_expiry"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Ngày hết hạn GPLX</FormLabel>
+                      <FormLabel>Ngày hết hạn GPLX *</FormLabel>
                       <FormControl>
                         <DatePicker
                           value={field.value ? new Date(field.value) : undefined}
@@ -1052,7 +1052,7 @@ export default function Drivers() {
                   name="health_check_expiry"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Hết hạn khám SK</FormLabel>
+                      <FormLabel>Hết hạn khám SK *</FormLabel>
                       <FormControl>
                         <DatePicker
                           value={field.value ? new Date(field.value) : undefined}
