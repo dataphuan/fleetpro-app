@@ -71,11 +71,13 @@ export function DashboardFleetPerformanceTab() {
         const rows = Array.from(vehicleMap.values()).map(row => {
             row.avg_profit_per_trip = row.total_trips > 0 ? row.total_profit / row.total_trips : 0;
 
-            // Mock utilization for now or calculate based on days in period?
-            // Simple logic: if > 20 trips/month = 100%? 
-            // Let's keep it simple: relative to max trips in list?
-            // For now, let's leave it as 0 or mock slightly based on trips
-            row.utilization_rate = Math.min(100, Math.round((row.total_trips / 30) * 100)); // Rough est: trips/days * 100
+            // Tính Utilization = (Số ngày hoạt động thực tế trong kỳ) / 30 * 100
+            const activeDays = new Set(
+                trips.filter(t => t.vehicle_id === row.vehicle_id && t.departure_date)
+                     .map(t => t.departure_date)
+            ).size;
+            
+            row.utilization_rate = Math.min(100, Math.round((activeDays / 30) * 100));
 
             return { ...row, id: row.vehicle_id };
         });

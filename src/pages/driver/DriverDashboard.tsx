@@ -5,7 +5,7 @@ import { useDrivers } from "@/hooks/useDrivers";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Navigation, AlertTriangle, CheckCircle2, Package, Play, Camera, Loader2, LocateFixed, Wifi, WifiOff, PhoneCall, CheckSquare, FileText, FlagOff } from "lucide-react";
+import { MapPin, Navigation, AlertTriangle, CheckCircle2, Package, Play, Camera, Loader2, LocateFixed, Wifi, WifiOff, PhoneCall, CheckSquare, FileText, FlagOff, Sparkles, Plus, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Label } from "@/components/ui/label";
@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescription } from "@/components/ui/sheet";
 import { SignaturePad } from "@/components/shared/SignaturePad";
 import { DriverLiveMap } from "@/components/driver/DriverLiveMap";
+import { DriverQuickTripModal } from "@/components/trips/DriverQuickTripModal";
 import { getBestCurrentPosition, geolocationErrorToMessage, startLocationWatch, stopLocationWatch, type DriverGeoPoint } from "@/lib/driver-location";
 import { alertsAdapter, driverAdapter, expenseAdapter, transportOrderAdapter, tripAdapter, tripLocationAdapter } from "@/lib/data-adapter";
 import { evaluateLocationIntegrity, getIntegrityProfileByVehicleType } from "@/lib/location-integrity";
@@ -103,6 +104,11 @@ export default function DriverDashboard() {
     const lastPointByTripRef = useRef<Record<string, DriverGeoPoint>>({});
     const lastFraudToastRef = useRef<number>(0);
     const lastAlertByTripRef = useRef<Record<string, number>>({});
+
+    // --- QUICK TRIP MODAL ---
+    const [isQuickTripModalOpen, setIsQuickTripModalOpen] = useState(false);
+
+    // (Removed old DraftRequestForm)
 
     useEffect(() => {
         const onOnline = () => setIsOnline(true);
@@ -663,87 +669,6 @@ export default function DriverDashboard() {
         }
     };
 
-    const handleCreateDraftOrder = async () => {
-        if (!isDriverRole) {
-            toast({ title: 'Không có quyền', description: 'Chỉ tài xế mới được tạo lệnh nháp.', variant: 'destructive' });
-            return;
-        }
-        if (!isOnline) {
-            toast({ title: 'Mất kết nối mạng', description: 'Vui lòng bật mạng để tạo lệnh nháp.', variant: 'destructive' });
-            return;
-        }
-        if (!draftArea.trim()) {
-            toast({ title: 'Thiếu khu vực', description: 'Nhập khu vực sẵn sàng nhận lệnh.', variant: 'destructive' });
-            return;
-        }
-
-        setIsCreatingDraftOrder(true);
-        try {
-            const adapterAny = transportOrderAdapter as any;
-            const nextCode = typeof adapterAny.getNextCode === 'function'
-                ? await adapterAny.getNextCode()
-                : `DH${Date.now()}`;
-
-            await transportOrderAdapter.create({
-                order_code: nextCode,
-                status: 'draft',
-                customer_id: '',
-                requested_by_driver_id: user?.id || null,
-                requested_by_driver_email: user?.email || null,
-                requested_slot_from: draftSlotFrom,
-                requested_slot_to: draftSlotTo,
-                requested_area: draftArea.trim(),
-                note: draftNote.trim(),
-                source: 'driver-self-draft',
-            } as any);
-
-            await alertsAdapter.create(buildReleaseSafeCreatePayload('driver-draft-order', {
-                alert_type: 'info',
-                title: 'Tai xe tao lenh nhap',
-                message: `${user?.email || 'Tai xe'} tao lenh nhap ${nextCode}.`,
-                reference_type: 'transport_order',
-                reference_id: nextCode,
-                severity: 'low',
-                is_read: false,
-                date: new Date().toISOString(),
-                metadata: {
-                    area: draftArea.trim(),
-                    slot_from: draftSlotFrom,
-                    slot_to: draftSlotTo,
-                    note: draftNote.trim() || null,
-                },
-            }));
-
-            sendOpsEventNotification({
-                event: {
-                    event_type: 'DRIVER_DRAFT_ORDER_CREATED',
-                    actor_role: 'driver',
-                    actor_name: user?.email || user?.id || 'driver',
-                    action: 'create_draft_order',
-                    trip_code: nextCode,
-                    status_after_action: 'DRAFT',
-                    tenant_id: tenantId || null,
-                    extra: {
-                        tenant_id: tenantId || null,
-                        area: draftArea.trim(),
-                        slot_from: draftSlotFrom,
-                        slot_to: draftSlotTo,
-                        note: draftNote.trim() || '',
-                    },
-                },
-                text: 'Tai xe chu dong tao lenh nhap va bao ve kenh Telegram chung.',
-            }).catch(console.error);
-
-            setDraftArea('');
-            setDraftNote('');
-            setIsDraftSheetOpen(false);
-            toast({ title: 'Đã tạo lệnh nháp', description: `${nextCode} đã báo cho quản lý và kênh Telegram.` });
-        } catch (error: any) {
-            toast({ title: 'Tạo lệnh nháp thất bại', description: error?.message || 'Vui lòng thử lại.', variant: 'destructive' });
-        } finally {
-            setIsCreatingDraftOrder(false);
-        }
-    };
 
     const handleSubmitLocationReport = async (trip: any) => {
         if (!isDriverRole) {
@@ -1306,52 +1231,7 @@ export default function DriverDashboard() {
             v.assignment_type === 'pool' && v.status === 'active'
         );
 
-        const DraftRequestForm = (
-            <div className="space-y-4">
-                <div>
-                    <Label className="text-xs">Khu vực dự kiến sẵn sàng</Label>
-                    <Input
-                        className="mt-1 h-11 text-sm bg-slate-50 border-slate-200"
-                        value={draftArea}
-                        onChange={(e) => setDraftArea(e.target.value)}
-                        placeholder="VD: Thủ Đức, Quận 12 hoặc TP.HCM"
-                    />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                    <div>
-                        <Label className="text-xs">Khung giờ từ</Label>
-                        <Input type="time" className="mt-1 h-11 text-sm bg-slate-50 border-slate-200" value={draftSlotFrom} onChange={(e) => setDraftSlotFrom(e.target.value)} />
-                    </div>
-                    <div>
-                        <Label className="text-xs">Đến</Label>
-                        <Input type="time" className="mt-1 h-11 text-sm bg-slate-50 border-slate-200" value={draftSlotTo} onChange={(e) => setDraftSlotTo(e.target.value)} />
-                    </div>
-                </div>
-                <div>
-                    <Label className="text-xs">Mong muốn (Ghi chú)</Label>
-                    <Input
-                        className="mt-1 h-11 text-sm bg-slate-50 border-slate-200"
-                        value={draftNote}
-                        onChange={(e) => setDraftNote(e.target.value)}
-                        placeholder="VD: Nhận tải nhẹ, đi tỉnh gần..."
-                    />
-                </div>
-                <Button
-                    className="w-full bg-blue-600 hover:bg-blue-700 h-12 text-base font-bold shadow-lg shadow-blue-200"
-                    disabled={isCreatingDraftOrder}
-                    onClick={handleCreateDraftOrder}
-                >
-                    {isCreatingDraftOrder ? <Loader2 className="w-5 h-5 mr-2 animate-spin" /> : <Sparkles className="w-5 h-5 mr-2" />}
-                    Gửi yêu cầu nhận chuyến sớm
-                </Button>
-                <div className="p-3 bg-blue-50 rounded-lg border border-blue-100 flex items-start gap-2">
-                    <AlertCircle className="w-4 h-4 text-blue-600 mt-0.5 shrink-0" />
-                    <p className="text-[11px] text-blue-800 leading-relaxed">
-                        Thông tin của bạn sẽ được gửi thẳng đến Điều phối và báo qua Telegram để ưu tiên sắp xếp chuyến tiếp theo cho bạn.
-                    </p>
-                </div>
-            </div>
-        );
+        // Removed local DraftRequestForm definition from here
 
         return (
             <div className="p-4 space-y-3 pb-36">
@@ -1503,31 +1383,23 @@ export default function DriverDashboard() {
                     </CardContent>
                 </Card>
 
-                {/* BƯỚC 4: Tạo lệnh nháp - Integrated Sheet */}
+                {/* BƯỚC 4: Tự Tạo Lệnh Nháp */}
                 <Card className="border-blue-200 bg-blue-50/70 overflow-hidden relative">
                     <div className="absolute top-0 right-0 p-2 opacity-10">
                         <Sparkles className="w-12 h-12 text-blue-900" />
                     </div>
                     <CardHeader className="pb-1 pt-3">
-                        <CardTitle className="text-sm font-semibold text-blue-900">4️⃣ BƯỚC 4: Chủ động tìm việc</CardTitle>
+                        <CardTitle className="text-sm font-semibold text-blue-900">4️⃣ BƯỚC 4: Tự Tạo Lệnh Nháp</CardTitle>
                     </CardHeader>
                     <CardContent className="pb-4">
-                        <p className="text-xs text-blue-800 mb-3">Chưa có chuyến? Gửi yêu cầu khu vực bạn đang ở để quản lý điều phối đơn gần đó.</p>
+                        <p className="text-xs text-blue-800 mb-3">Chưa có lệnh điều xe từ Quản lý? Bạn có thể tự điền lệnh nháp để Quản lý duyệt nhanh hơn.</p>
                         
-                        <Sheet open={isDraftSheetOpen} onOpenChange={setIsDraftSheetOpen}>
-                            <SheetTrigger asChild>
-                                <Button className="w-full bg-blue-600 hover:bg-blue-700 h-10 shadow-md">
-                                    <Plus className="w-4 h-4 mr-2" /> Tạo yêu cầu nhận chuyến
-                                </Button>
-                            </SheetTrigger>
-                            <SheetContent side="bottom" className="rounded-t-3xl min-h-[60vh] px-6">
-                                <SheetHeader className="mb-6">
-                                    <SheetTitle className="text-xl">Yêu cầu nhận chuyến sớm</SheetTitle>
-                                    <SheetDescription>Báo cáo vị trí và thời gian bạn sẵn sàng để nhận việc nhanh hơn.</SheetDescription>
-                                </SheetHeader>
-                                {DraftRequestForm}
-                            </SheetContent>
-                        </Sheet>
+                        <Button 
+                            className="w-full bg-blue-600 hover:bg-blue-700 h-10 shadow-md"
+                            onClick={() => setIsQuickTripModalOpen(true)}
+                        >
+                            <Plus className="w-4 h-4 mr-2" /> Tạo Lệnh Điểu Xe Nháp
+                        </Button>
                     </CardContent>
                 </Card>
 
@@ -1612,22 +1484,15 @@ export default function DriverDashboard() {
                 <p className="text-sm text-slate-500">Kéo xuống để xem tất cả ({myActiveTrips.length} chuyến)</p>
             </div>
 
-            {/* Proactive Draft Form in a Sheet (Persistent floating button for WOW experience) */}
+            {/* Proactive Draft Modal (Persistent floating button) */}
             <div className="fixed bottom-20 right-4 z-50">
-                <Sheet open={isDraftSheetOpen} onOpenChange={setIsDraftSheetOpen}>
-                    <SheetTrigger asChild>
-                        <Button size="icon" className="w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-700 shadow-xl border-2 border-white animate-bounce-subtle">
-                            <Sparkles className="w-6 h-6 text-white" />
-                        </Button>
-                    </SheetTrigger>
-                    <SheetContent side="bottom" className="rounded-t-3xl min-h-[60vh] px-6">
-                        <SheetHeader className="mb-6">
-                            <SheetTitle className="text-xl">Đăng ký chuyến tiếp theo</SheetTitle>
-                            <SheetDescription>Thông báo vị trí và thời gian bạn sẽ trống xe để nhận chuyến sớm từ Điều phối.</SheetDescription>
-                        </SheetHeader>
-                        {DraftRequestForm}
-                    </SheetContent>
-                </Sheet>
+                <Button 
+                    size="icon" 
+                    className="w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-700 shadow-xl border-2 border-white animate-bounce-subtle"
+                    onClick={() => setIsQuickTripModalOpen(true)}
+                >
+                    <Plus className="w-6 h-6 text-white" />
+                </Button>
             </div>
 
             <Card className="border-sky-200 bg-sky-50/70">
@@ -2168,6 +2033,16 @@ export default function DriverDashboard() {
                     )}
                 </div>
             )}
+
+            <DriverQuickTripModal
+                isOpen={isQuickTripModalOpen}
+                onClose={() => setIsQuickTripModalOpen(false)}
+                driverId={linkedDriver?.id || user?.id || ''}
+                driverName={linkedDriver?.full_name || user?.email || ''}
+                tenantId={tenantId}
+                availableVehicles={vehicles.filter((v: any) => v.status === 'active' && v.assignment_type === 'pool')}
+                assignedVehicleId={linkedDriver?.assigned_vehicle_id}
+            />
         </div>
     );
 }

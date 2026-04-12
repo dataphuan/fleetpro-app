@@ -46,10 +46,10 @@ export const AISuggestionDrawer = ({ open, onOpenChange, suggestions, isLoading,
                 <SheetHeader className="p-6 bg-indigo-600 text-white">
                     <SheetTitle className="text-white flex items-center gap-2">
                         <Sparkles className="w-5 h-5" />
-                        Trợ lý Điều phối AI (Gemini)
+                        Gợi ý Lọc Tuyến Tối Ưu
                     </SheetTitle>
                     <SheetDescription className="text-indigo-100">
-                        Phân tích vượn trên {suggestions.length} chuyến vận tải hiện có.
+                        Phân tích dựa trên dữ liệu vận tải hiện có.
                     </SheetDescription>
                 </SheetHeader>
 
@@ -78,7 +78,7 @@ export const AISuggestionDrawer = ({ open, onOpenChange, suggestions, isLoading,
                                                 {s.type === 'consolidation' ? 'Gom Chuyến' : 'Kịch Bản Chiều Về'}
                                             </span>
                                         </div>
-                                        <Badge className="bg-indigo-100 text-indigo-700">Độ tin cậy: {s.confidence}%</Badge>
+                                        <Badge className="bg-indigo-100 text-indigo-700">Gợi ý tự động</Badge>
                                     </div>
                                     <div className="p-4 space-y-3">
                                         <h4 className="font-semibold text-slate-800">{s.title}</h4>

@@ -1103,7 +1103,21 @@ export default function TripsRevenue() {
             <PageHeader
                 title="Nhập Liệu Doanh Thu"
                 description="Danh sách chuyến & doanh thu – phục vụ tính lợi nhuận"
-                actions={canCreate ? <QuickTripModal triggerLabel="+ Tạo Chuyến" /> : undefined}
+                actions={
+                    <div className="flex items-center gap-2">
+                        {isFinancialRole && (
+                            <Button
+                                variant="outline"
+                                className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 gap-2 font-semibold shadow-sm animate-pulse-subtle"
+                                onClick={handleAiScan}
+                            >
+                                <Sparkles className="w-4 h-4 text-amber-500" />
+                                Đối soát thông minh
+                            </Button>
+                        )}
+                        {canCreate && <QuickTripModal triggerLabel="+ Tạo Chuyến" />}
+                    </div>
+                }
             />
 
             {/* KPI Summary Bar */}

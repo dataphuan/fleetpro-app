@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { Download, FileText, Link2, Loader2 } from 'lucide-react';
+import { Download, FileText, Loader2 } from 'lucide-react';
 import { endOfMonth, format, parseISO, startOfMonth } from 'date-fns';
 import { vi } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
@@ -271,7 +271,6 @@ export function MonthlyReportExport() {
   const [monthValue, setMonthValue] = useState(format(new Date(), 'yyyy-MM'));
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedPayload, setGeneratedPayload] = useState<MonthlyReportPayload | null>(null);
-  const [shareLink, setShareLink] = useState('');
 
   const buttonLabel = useMemo(() => {
     const [year, month] = monthValue.split('-');
@@ -430,9 +429,7 @@ export function MonthlyReportExport() {
     try {
       await new Promise((resolve) => setTimeout(resolve, 450));
       const payload = buildPayload();
-      const mock = `https://fleetpro.ai/share/${tenantId || 'tenant'}/report-${monthValue.replace('-', '')}`;
       setGeneratedPayload(payload);
-      setShareLink(mock);
       toast({ title: 'Tạo báo cáo thành công', description: `Đã tạo báo cáo tháng ${payload.periodLabel}.` });
     } catch (error) {
       toast({ title: 'Không thể tạo báo cáo', description: String(error), variant: 'destructive' });
@@ -447,15 +444,7 @@ export function MonthlyReportExport() {
     toast({ title: 'Đang tải xuống', description: 'Báo cáo PDF đã được xuất thành công.' });
   };
 
-  const handleCopyLink = async () => {
-    if (!shareLink) return;
-    try {
-      await navigator.clipboard.writeText(shareLink);
-      toast({ title: 'Đã copy link', description: 'Bạn có thể gửi link mock này cho kế toán.' });
-    } catch {
-      toast({ title: 'Không copy được', description: 'Trình duyệt không cho phép clipboard.', variant: 'destructive' });
-    }
-  };
+
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -500,17 +489,13 @@ export function MonthlyReportExport() {
           {generatedPayload && (
             <div className="rounded-lg border p-3 bg-muted/30 space-y-3">
               <div className="text-sm text-muted-foreground">
-                Báo cáo {generatedPayload.periodLabel} đã sẵn sàng. Chọn thao tác bên dưới:
+                Báo cáo {generatedPayload.periodLabel} đã sẵn sàng.
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                <Button onClick={handleDownload}>
-                  <Download className="h-4 w-4 mr-2" /> ⬇️ Tải xuống
-                </Button>
-                <Button variant="outline" onClick={handleCopyLink}>
-                  <Link2 className="h-4 w-4 mr-2" /> 🔗 Copy link
+              <div className="flex justify-center mt-2">
+                <Button onClick={handleDownload} className="w-full">
+                  <Download className="h-4 w-4 mr-2" /> Tải xuống PDF
                 </Button>
               </div>
-              <div className="text-xs text-muted-foreground break-all">{shareLink}</div>
             </div>
           )}
         </div>

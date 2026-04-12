@@ -39,9 +39,10 @@ service cloud.firestore {
 
     function isDemoTenant() {
       // Robust check for demo tenant: either via user doc or if the user is a known demo email
-      return (userDocExists() && userDoc().data.tenant_id == 'demo-tenant-tnc-001') || 
+      return (userDocExists() && (userDoc().data.tenant_id == 'demo-tenant-tnc-001' || userDoc().data.tenant_id == 'internal-tenant-1')) || 
              (request.auth.token.email.matches('.*@demo\\.tnc\\.io\\.vn') || 
-              request.auth.token.email.matches('.*@fleetpro\\.vn'));
+              request.auth.token.email.matches('.*@fleetpro\\.vn') ||
+              request.auth.token.email.matches('.*demo@tnc\\.io\\.vn'));
     }
 
     // Unified check for demo mode reading
@@ -103,7 +104,8 @@ service cloud.firestore {
         (userDocExists() && userDoc().data.tenant_id == tid) ||
         (request.auth.token.tenant_id == tid)
       );
-      allow create, update, delete: if false; // Server-side only
+      allow update: if isAuthed() && canAccessTenantData() && tid == tenantId() && isTenantAdmin();
+      allow create, delete: if false; // Server-side only
     }
 
     // Trips: SECURITY HARDENING — Server-side Writes Only + Driver Isolation

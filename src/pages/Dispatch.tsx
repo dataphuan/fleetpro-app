@@ -133,32 +133,29 @@ export default function Dispatch() {
   
   const handleAiOptimize = () => {
     setIsAiThinking(true);
-    setAiDrawerOpen(true);
     setAiSuggestions([]);
 
     toast({
-        title: "Gemini AI đang phân tích kho hàng...",
-        description: "Đang tính toán ma trận đường đi ngắn nhất (VRP). Vui lòng đợi...",
+        title: "Hệ thống đang quét kho hàng...",
+        description: "Phân tích khả năng ghép tải trọng và chiều về...",
     });
 
-    // Simulate real AI processing delay
-    setTimeout(() => {
-        setIsAiThinking(false);
-        const suggestions = generateRealAiSuggestions(trips || []);
-        setAiSuggestions(suggestions);
-        
-        if (suggestions.length > 0) {
-            toast({
-                title: "Tối ưu hóa thành công!",
-                description: `Tìm thấy ${suggestions.length} cơ hội giảm tỷ lệ chạy rỗng.`,
-            });
-        } else {
-             toast({
-                title: "Không tìm thấy kịch bản tối ưu",
-                description: "Dữ liệu hiện tại đã được sắp xếp khá tốt.",
-            });
-        }
-    }, 2500);
+    const suggestions = generateRealAiSuggestions(trips || []);
+    setAiSuggestions(suggestions);
+    setIsAiThinking(false);
+    setAiDrawerOpen(true);
+    
+    if (suggestions.length > 0) {
+        toast({
+            title: "Trích xuất thành công!",
+            description: `Tìm thấy ${suggestions.length} cơ hội ghép chuyến.`,
+        });
+    } else {
+         toast({
+            title: "Tối ưu",
+            description: "Dữ liệu hiện tại đã được sắp xếp tốt, không có chuyến trùng lặp.",
+        });
+    }
   };
 
   // Logic for AI Logistics Optimization (Phase 2)
@@ -389,7 +386,7 @@ export default function Dispatch() {
                 disabled={isAiThinking}
             >
                 {isAiThinking ? <Bot className="w-4 h-4 mr-2 animate-bounce" /> : <Sparkles className="w-4 h-4 mr-2 text-indigo-500" />}
-                {isAiThinking ? "AI Đang Tính..." : "AI Tối Ưu Tuyến"}
+                {isAiThinking ? "Đang Tính..." : "Lọc Tuyến Tối Ưu"}
             </Button>
             <QuickTripModal triggerLabel="Tạo chuyến mới" />
           </div>

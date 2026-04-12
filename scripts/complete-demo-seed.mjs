@@ -122,7 +122,8 @@ async function completeDemoSeed(email, password, tenantId) {
 
     // STEP 3: Create company settings
     console.log('STEP 3️⃣  Creating Company Settings...');
-    await db.collection('tenants').doc(tenantId).collection('companySettings').doc('main').set({
+    const settingsId = `settings_${tenantId}`;
+    await db.collection('companySettings').doc(settingsId).set({
       id: 'main',
       name: 'TNC Vận Tải Logistics',
       tax_code: '0103892945',
@@ -132,6 +133,7 @@ async function completeDemoSeed(email, password, tenantId) {
       address: '123 Nguyễn Huệ, Q1, HCM',
       currency: 'VND',
       timezone: 'Asia/Ho_Chi_Minh',
+      tenant_id: tenantId,
       created_at: new Date().toISOString(),
     }, { merge: true });
     console.log(`   ✅ Company settings created`);
@@ -161,7 +163,8 @@ async function completeDemoSeed(email, password, tenantId) {
         created_at: new Date().toISOString(),
       };
       
-      await db.collection('tenants').doc(tenantId).collection('vehicles').doc(vehicleDoc.id).set(vehicleDoc);
+      const docId = `${tenantId}_vehicles_${vehicleDoc.id}`;
+      await db.collection('vehicles').doc(docId).set(vehicleDoc);
       vehicleData.push(vehicleDoc);
       totalRecords++;
 
@@ -192,7 +195,8 @@ async function completeDemoSeed(email, password, tenantId) {
         created_at: new Date().toISOString(),
       };
       
-      await db.collection('tenants').doc(tenantId).collection('drivers').doc(driverDoc.id).set(driverDoc);
+      const docId = `${tenantId}_drivers_${driverDoc.id}`;
+      await db.collection('drivers').doc(docId).set(driverDoc);
       driverData.push(driverDoc);
       totalRecords++;
 
@@ -225,7 +229,8 @@ async function completeDemoSeed(email, password, tenantId) {
         created_at: new Date().toISOString(),
       };
       
-      await db.collection('tenants').doc(tenantId).collection('customers').doc(customerDoc.id).set(customerDoc);
+      const docId = `${tenantId}_customers_${customerDoc.id}`;
+      await db.collection('customers').doc(docId).set(customerDoc);
       totalRecords++;
     }
     console.log(`   ✅ Created 10 customers`);
@@ -257,7 +262,8 @@ async function completeDemoSeed(email, password, tenantId) {
         created_at: new Date().toISOString(),
       };
       
-      await db.collection('tenants').doc(tenantId).collection('routes').doc(routeDoc.id).set(routeDoc);
+      const docId = `${tenantId}_routes_${routeDoc.id}`;
+      await db.collection('routes').doc(docId).set(routeDoc);
       totalRecords++;
     }
     console.log(`   ✅ Created 15 routes`);
@@ -304,14 +310,15 @@ async function completeDemoSeed(email, password, tenantId) {
         created_at: new Date().toISOString(),
       };
       
-      await db.collection('tenants').doc(tenantId).collection('trips').doc(tripDoc.id).set(tripDoc);
+      const docId = `${tenantId}_trips_${tripDoc.id}`;
+      await db.collection('trips').doc(docId).set(tripDoc);
       totalRecords++;
       tripCount++;
 
       // Auto-create expenses for completed trips
       if (i <= 25) {
         // Fuel expense
-        await db.collection('tenants').doc(tenantId).collection('expenses').add({
+        await db.collection('expenses').add({
           trip_id: tripDoc.id,
           vehicle_id: vehicle.id,
           category: 'fuel',
@@ -326,7 +333,7 @@ async function completeDemoSeed(email, password, tenantId) {
 
         // Toll expense
         if (tollCost > 0) {
-          await db.collection('tenants').doc(tenantId).collection('expenses').add({
+          await db.collection('expenses').add({
             trip_id: tripDoc.id,
             category: 'toll',
             amount: tollCost,
@@ -340,7 +347,7 @@ async function completeDemoSeed(email, password, tenantId) {
         }
 
         // Labor expense
-        await db.collection('tenants').doc(tenantId).collection('expenses').add({
+        await db.collection('expenses').add({
           trip_id: tripDoc.id,
           driver_id: driver.id,
           category: 'labor',
@@ -369,7 +376,7 @@ async function completeDemoSeed(email, password, tenantId) {
     ];
     
     for (const cat of categories) {
-      await db.collection('tenants').doc(tenantId).collection('expenseCategories').add({
+      await db.collection('expenseCategories').add({
         name: cat.name,
         code: cat.code,
         description: cat.description,
@@ -390,7 +397,7 @@ async function completeDemoSeed(email, password, tenantId) {
       const start = new Date(year, (month + 12) % 12, 1);
       const end = new Date(year, (month + 12) % 12 + 1, 0);
       
-      await db.collection('tenants').doc(tenantId).collection('accountingPeriods').add({
+      await db.collection('accountingPeriods').add({
         period_name: `Tháng ${(start.getMonth() + 1)} / ${year}`,
         start_date: start.toISOString().split('T')[0],
         end_date: end.toISOString().split('T')[0],

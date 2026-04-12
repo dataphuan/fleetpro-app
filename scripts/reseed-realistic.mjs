@@ -14,7 +14,7 @@ if (admin.apps.length === 0) {
 }
 
 const db = admin.firestore();
-const tenantId = 'internal-tenant-1';
+const tenantId = process.argv[2] || 'internal-tenant-1';
 const nowIso = new Date().toISOString();
 
 async function reseed() {
@@ -59,36 +59,61 @@ async function reseed() {
     // 4. Normalization Engine (Mirroring App Logic)
     const normalized = {};
     const routeById = new Map(rawCollections.routes.map(r => [r.id, r]));
+    const driverById = new Map(rawCollections.drivers.map(d => [d.id, d]));
+    const customerById = new Map(rawCollections.customers.map(c => [c.id, c]));
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const nowIsoFull = new Date().toISOString();
 
     // Normalize Trips & calculate revenue organically
-    normalized.trips = rawCollections.trips.map(trip => {
+    normalized.trips = rawCollections.trips.map((trip, idx) => {
         const route = routeById.get(trip.route_id);
+        const driver = driverById.get(trip.driver_id);
         const freight_revenue = Number(trip.cargo_weight_tons || 0) * Number(route?.base_price || 0);
         const total_revenue = freight_revenue + Number(trip.additional_charges || 0);
         
-        return {
+        const out = {
             ...trip,
             vehicle_id: resolve('vehicles', trip.vehicle_id),
             driver_id: resolve('drivers', trip.driver_id),
             customer_id: resolve('customers', trip.customer_id),
             route_id: resolve('routes', trip.route_id),
+            // HIGH-FIDELITY AUDIT: Denormalize names for Dashboard UI
+            driver_name: driver?.full_name || 'Tài xế Demo',
+            route_name: route?.route_name || 'Tuyến Demo',
             freight_revenue,
             total_revenue,
             gross_revenue: total_revenue,
-            total_expenses: 0, // Will be aggregated below
+            total_expenses: 0,
             gross_profit: 0
         };
+
+        // Shift at least 10 trips to TODAY for Live Dashboard WOW
+        if (idx < 10) {
+            out.departure_date = todayIso;
+            out.actual_departure_time = nowIsoFull;
+            out.status = 'in_progress';
+        }
+
+        return out;
     });
 
     // Normalize Expenses
-    normalized.expenses = rawCollections.expenses.map(exp => {
-        return {
+    normalized.expenses = rawCollections.expenses.map((exp, idx) => {
+        const out = {
             ...exp,
             trip_id: resolve('trips', exp.trip_id),
             vehicle_id: resolve('vehicles', exp.vehicle_id),
             driver_id: resolve('drivers', exp.driver_id),
             category_id: resolve('expenseCategories', exp.category_id),
         };
+
+        // Shift expenses linked to the Today's trips or some random ones
+        if (idx < 25) {
+            out.expense_date = todayIso;
+            out.created_at = nowIsoFull;
+        }
+
+        return out;
     });
 
     // Aggregate Trip financial layers
@@ -124,13 +149,25 @@ async function reseed() {
     });
 
     // Prepare other collections
-    const collectionsToPush = ['vehicles', 'customers', 'routes', 'expenseCategories', 'maintenance', 'accountingPeriods', 'inventory', 'tires', 'partners', 'companySettings'];
+    const collectionsToPush = ['vehicles', 'customers', 'routes', 'expenseCategories', 'maintenance', 'accountingPeriods', 'inventory', 'tires', 'partners', 'companySettings', 'transportOrders'];
     collectionsToPush.forEach(coll => {
+        if (!rawCollections[coll]) return; // safe guard
         normalized[coll] = rawCollections[coll].map(row => {
             const out = { ...row };
             // Fix specific known relation fields
             if (out.item_id) out.item_id = resolve('inventory', out.item_id);
             if (out.current_vehicle_id) out.current_vehicle_id = resolve('vehicles', out.current_vehicle_id);
+            if (out.customer_id) {
+                out.customer_id = resolve('customers', out.customer_id);
+                // Denormalize customer_name
+                const c = customerById.get(row.customer_id);
+                if (c) out.customer_name = c.name;
+            }
+            if (out.route_id) {
+                out.route_id = resolve('routes', out.route_id);
+                const r = routeById.get(row.route_id);
+                if (r) out.route_name = r.route_name;
+            }
             return out;
         });
     });

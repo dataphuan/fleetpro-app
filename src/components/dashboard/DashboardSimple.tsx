@@ -93,31 +93,31 @@ export function DashboardSimple() {
                   <div className="flex-1">
                     <div className="mb-2 flex items-center gap-2">
                       <MapPin className="h-5 w-5 text-primary" />
-                      <span className="text-sm font-bold text-primary">{recentTrips[0]?.route_code || 'NH-QN'}</span>
+                      <span className="text-sm font-bold text-primary">{recentTrips[0]?.route_code || 'Đang cập nhật'}</span>
                     </div>
                     <p className="text-xl font-bold text-foreground">
-                      {recentTrips[0]?.origin || 'Ninh Hòa'} → {recentTrips[0]?.destination || 'Quy Nhơn'}
+                      {recentTrips[0]?.origin || 'Bãi đi'} → {recentTrips[0]?.destination || 'Điểm đến'}
                     </p>
-                    <p className="text-sm text-muted-foreground">{(recentTrips[0]?.distance_km || 220)} km</p>
+                    <p className="text-sm text-muted-foreground">{recentTrips[0]?.actual_distance_km || recentTrips[0]?.distance_km || 0} km</p>
                   </div>
-                  <span className="text-3xl font-bold text-primary">{recentTrips[0]?.distance_km || 220}km</span>
+                  <span className="text-3xl font-bold text-primary">{recentTrips[0]?.actual_distance_km || recentTrips[0]?.distance_km || 0}km</span>
                 </div>
 
                 {/* Customer */}
                 <div className="border-t border-border pt-3">
                   <p className="text-xs font-medium uppercase text-muted-foreground">Khách Hàng</p>
-                  <p className="font-semibold text-foreground">{recentTrips[0]?.customer_name || 'Công ty CP XD Nha Trang'}</p>
+                  <p className="font-semibold text-foreground">{recentTrips[0]?.customer_name || 'Đang cập nhật'}</p>
                 </div>
 
                 {/* Time */}
                 <div className="flex items-center gap-4">
                   <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">Giờ xuất: 08:00</span>
+                    <span className="text-sm text-muted-foreground">Giờ xuất: {recentTrips[0]?.actual_departure_time ? format(new Date(recentTrips[0].actual_departure_time), 'HH:mm') : 'Chưa xuất'}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <Clock className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">Dự tính: {recentTrips[0]?.estimated_duration_hours || 4.5}h</span>
+                    <span className="text-sm text-muted-foreground">Thời gian: {recentTrips[0]?.estimated_duration_hours || 0}h</span>
                   </div>
                 </div>
 
@@ -142,13 +142,13 @@ export function DashboardSimple() {
 
       {/* TÀI XẾ GẦN ĐÓ */}
       <div>
-        <h2 className="mb-4 text-lg font-semibold text-foreground">Tài Xế Gần Đó</h2>
+        <h2 className="mb-4 text-lg font-semibold text-foreground">Tài Xế Cùng Chuyến</h2>
         <div className="flex flex-wrap gap-2">
-          {recentTrips && recentTrips.slice(0, 2).map((driver, idx) => (
+          {recentTrips && recentTrips.slice(0, 3).map((trip, idx) => (
             <Button key={idx} variant="outline" className="gap-2">
               <Users className="h-4 w-4" />
-              <span>{driver?.driver_name || `Tài Xế ${idx + 1}`}</span>
-              <span className="text-xs text-muted-foreground">({(Math.random() * 30).toFixed(0)}km)</span>
+              <span>{trip?.driver_name || `Tài Xế ${idx + 1}`}</span>
+              <span className="text-xs text-muted-foreground">({trip?.route_name || 'Đang chạy'})</span>
             </Button>
           ))}
         </div>

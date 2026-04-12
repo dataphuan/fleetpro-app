@@ -582,26 +582,9 @@ export function DispatchTripDrawer({
                                                 <Input type="number" className="pl-9 font-medium text-right" {...field} />
                                             </div>
                                         </FormControl>
-                                        <div className="text-xs text-muted-foreground text-right border-b border-dashed pb-2">
+                                        <div className="text-xs text-muted-foreground text-right">
                                             {formatCurrency(Number(field.value))}
                                         </div>
-                                        <Button
-                                            type="button"
-                                            variant="secondary"
-                                            className="h-7 text-xs w-full bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200"
-                                            onClick={() => {
-                                                toast({ title: "Đang truy xuất API Trạm BOT...", description: "Hệ thống đang đối soát dữ liệu ePass/VETC" });
-                                                setTimeout(() => {
-                                                    form.setValue("additional_charges", 245000); // Mock data for VETC API
-                                                    toast({ 
-                                                        title: "Đối soát VETC thành công", 
-                                                        description: "Đã cấn trừ tự động qua trạm Cao Tốc: 245,000 VND"
-                                                    });
-                                                }, 1500);
-                                            }}
-                                        >
-                                            <MapPin className="w-3 h-3 mr-1" /> Chốt phí VETC/ePass
-                                        </Button>
                                         <FormMessage />
                                     </FormItem>
                                 )}

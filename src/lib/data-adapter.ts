@@ -2785,4 +2785,79 @@ export const dataAdapter = {
     partners: partnersAdapter,
     inventory: inventoryAdapter,
     tripLocationLogs: tripLocationAdapter,
+
+    /**
+     * SUPER-SYNC: Recalculates all financial links across the tenant.
+     * Ensures Trips and Expenses are perfectly logically connected.
+     */
+    syncTenantOperationalData: async (tenantId: string, options?: { shiftToToday?: boolean }) => {
+        const now = new Date();
+        const todayIso = now.toISOString().slice(0, 10);
+        
+        console.log(`⚡ [Super-Sync] Synchronizing logic for tenant: ${tenantId}`);
+
+        // 1. Fetch all Trips and Expenses
+        const [tripsSnap, expensesSnap, vehiclesSnap] = await Promise.all([
+            getDocs(query(collection(db, 'trips'), where('tenant_id', '==', tenantId))),
+            getDocs(query(collection(db, 'expenses'), where('tenant_id', '==', tenantId))),
+            getDocs(query(collection(db, 'vehicles'), where('tenant_id', '==', tenantId)))
+        ]);
+
+        const trips = tripsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const expenses = expensesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const vehicles = vehiclesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+        const batch = writeBatch(db);
+        let updatedCount = 0;
+
+        // 2. Aggregate Expenses -> Trips
+        const expenseTotalsByTrip: Record<string, number> = {};
+        expenses.forEach((e: any) => {
+            const tid = e.trip_id || e.tripId;
+            if (tid) {
+                expenseTotalsByTrip[tid] = (expenseTotalsByTrip[tid] || 0) + Number(e.amount || 0);
+            }
+        });
+
+        // 3. Update Trips with new logic
+        trips.forEach((trip: any) => {
+            const expenseSum = expenseTotalsByTrip[trip.id] || 0;
+            const freight = Number(trip.freight_revenue || trip.total_revenue || 0);
+            const additional = Number(trip.additional_charges || 0);
+            const totalRevenue = freight + additional;
+
+            const updates: any = {
+                total_expenses: expenseSum,
+                total_cost: expenseSum,
+                total_revenue: totalRevenue,
+                gross_revenue: totalRevenue,
+                gross_profit: totalRevenue - expenseSum,
+                updated_at: now.toISOString()
+            };
+
+            // Option: Shift to Today for live demo "WOW"
+            if (options?.shiftToToday && trip.departure_date < todayIso) {
+                updates.departure_date = todayIso;
+                updates.actual_departure_time = now.toISOString();
+                if (trip.status === 'in_progress') {
+                    updates.actual_departure_time = now.toISOString();
+                }
+            }
+
+            batch.update(doc(db, 'trips', trip.id), updates);
+            updatedCount++;
+        });
+
+        // 4. Update Vehicles if needed (Status check)
+        vehicles.forEach((v: any) => {
+            if (options?.shiftToToday && v.status === 'maintenance') {
+                // Ensure maintenance still feels "Current"
+                batch.update(doc(db, 'vehicles', v.id), { updated_at: now.toISOString() });
+            }
+        });
+
+        await batch.commit();
+        console.log(`✅ [Super-Sync] Logic synchronized for ${updatedCount} trips.`);
+        return { success: true, count: updatedCount };
+    }
 };
