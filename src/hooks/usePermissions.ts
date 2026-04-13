@@ -91,7 +91,23 @@ const defaultPermissions: Permissions = {
 };
 
 export function usePermissions(tabName?: TabName): Permissions {
-    const { role } = useAuth();
+    const { role, tenantId } = useAuth();
+
+    // MASTER BYPASS: Phú An and Internal Demo tenants always have FULL power for "WOA" experience
+    const isMasterTenant = tenantId === 'internal-tenant-1' || 
+                           tenantId === 'internal-tenant-phuan' || 
+                           tenantId?.includes('phuan');
+
+    if (isMasterTenant) {
+        return {
+            canView: true,
+            canCreate: true,
+            canEdit: true,
+            canDelete: true,
+            canLock: true,
+            canExport: true,
+        };
+    }
 
     const rolePerms = permissionMatrix[role];
     if (!rolePerms) return defaultPermissions;

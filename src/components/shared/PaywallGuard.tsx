@@ -42,7 +42,11 @@ export const PaywallGuard: React.FC<{ children: React.ReactNode }> = ({ children
     
     // TRICK/MẸO: Hard-coded bypass for Phụ An and Enterprise to ensure zero blocking
     const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
-    const isPhuan = settings?.tenant_id?.toLowerCase().includes('phuan') || 
+    const isMasterDemoId = settings?.tenant_id === 'internal-tenant-1' || 
+                           settings?.tenant_id === 'internal-tenant-phuan' ||
+                           (settings?.tenant_id || '').includes('phuan');
+
+    const isPhuan = isMasterDemoId ||
                     settings?.company_name?.toLowerCase().includes('phú an') || 
                     settings?.company_name?.toLowerCase().includes('phu an') || 
                     hostname.includes('phuan');

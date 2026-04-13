@@ -213,7 +213,15 @@ const checkQuotas = async (tenantId: string, collectionName: string) => {
     // Nâng cấp tài khoản demo và tài khoản Phú An mặc định full quyền trải nghiệm gói không giới hạn
     const companyName = companySettings?.company_name?.toLowerCase() || '';
     const lowTenantId = tenantId.toLowerCase();
-    if (lowTenantId.includes('demo') || lowTenantId.includes('phuan') || companyName.includes('demo') || companyName.includes('tnc') || companyName.includes('phú an')) {
+    const isMasterDemo = lowTenantId === 'internal-tenant-1' || 
+                         lowTenantId === 'internal-tenant-phuan' || 
+                         lowTenantId.includes('phuan') || 
+                         lowTenantId.includes('demo') ||
+                         companyName.includes('demo') || 
+                         companyName.includes('tnc') || 
+                         companyName.includes('phú an');
+
+    if (isMasterDemo) {
         plan = 'enterprise';
     }
 
