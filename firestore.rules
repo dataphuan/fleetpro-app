@@ -111,7 +111,7 @@ service cloud.firestore {
     // ID Counters: Decentralized sequential ID generation
     match /counters/{counterId} {
       allow read, write: if isAuthed() && (
-        (userDocExists() && counterId.toLower().startsWith(userDoc().data.tenant_id.toLower())) ||
+        (userDocExists() && counterId.lower().matches('^' + userDoc().data.tenant_id.lower() + '.*')) ||
         isDemoTenant()
       );
     }
@@ -136,7 +136,7 @@ service cloud.firestore {
         userRole() != 'driver' || isDemoTenant() || driverId == request.auth.uid
       );
       allow create, update: if canAccessTenantData() && (
-        (collection in ['drivers'] && (userRole() == 'dispatcher' || userRole() == 'manager' || userRole() == 'admin'))
+        (userRole() == 'dispatcher' || userRole() == 'manager' || userRole() == 'admin')
       );
       allow delete: if canAccessTenantData() && sameTenantOnReadUpdateDelete() && isTenantAdmin();
     }
