@@ -6,7 +6,7 @@ import { useDrivers } from "@/hooks/useDrivers";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Navigation, CheckCircle2, Package, Play, Camera, Loader2, LocateFixed, Wifi, WifiOff, PhoneCall, CheckSquare, FileText, Plus, FlagOff, Sparkles } from "lucide-react";
+import { MapPin, Navigation, CheckCircle2, Package, Play, Camera, Loader2, LocateFixed, Wifi, WifiOff, PhoneCall, CheckSquare, FileText, Plus, FlagOff, Sparkles, Bell, MessageCircle, Truck, Target } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Label } from "@/components/ui/label";
@@ -1239,213 +1239,191 @@ export default function DriverDashboard() {
 
         // Removed local DraftRequestForm definition from here
 
+        const isPhoneVerified = !!(linkedDriver?.phone || linkedDriver?.driver_phone);
+        const isNotiEnabled = typeof Notification !== 'undefined' && Notification.permission === 'granted';
+        const profileScore = [isTelegramConnected, isPhoneVerified, isNotiEnabled].filter(Boolean).length;
+        const totalProfileSteps = 3;
+        const isProfileComplete = profileScore === totalProfileSteps;
+
         return (
-            <div className="p-4 space-y-3 pb-36">
-                {/* STATUS BAR: Driver Name + Vehicle + Availability Toggle */}
-                <Card className="border-slate-200 bg-gradient-to-r from-slate-50 to-blue-50/50">
-                    <CardContent className="pt-3 pb-3">
-                        <div className="flex items-center justify-between">
+            <div className="p-4 space-y-4 pb-36">
+                {/* GLASSMORPHISM STATUS BAR */}
+                <Card className="border-0 bg-white/60 backdrop-blur-xl shadow-sm rounded-[24px] overflow-hidden">
+                    <CardContent className="p-4 bg-gradient-to-br from-white/90 to-blue-50/50 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-full shadow-sm bg-blue-100 flex items-center justify-center border border-white">
+                                <span className="font-bold text-blue-700 text-lg">{linkedDriver?.full_name?.charAt(0) || user?.email?.charAt(0) || 'T'}</span>
+                            </div>
                             <div>
-                                <p className="text-sm font-bold text-slate-800">
+                                <p className="text-base font-bold text-slate-800 tracking-tight leading-tight">
                                     {linkedDriver?.full_name || user?.email || 'Tài xế'}
                                 </p>
-                                <p className="text-xs text-slate-500">
-                                    {assignedVehicle ? `🚛 ${assignedVehicle.license_plate} (${assignedVehicle.vehicle_type || 'N/A'})` : 'Chưa gán xe cố định'}
-                                </p>
+                                <div className="flex items-center gap-1.5 mt-0.5">
+                                    <div className={`w-2 h-2 rounded-full ${availabilityStatus === 'available' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-400'}`}></div>
+                                    <p className="text-xs text-slate-500 font-medium line-clamp-1 max-w-[120px]">
+                                        {assignedVehicle ? `${assignedVehicle.license_plate} (${assignedVehicle.vehicle_type || 'N/A'})` : 'Chưa gán xe'}
+                                    </p>
+                                </div>
                             </div>
-                            <Button
-                                size="sm"
-                                variant={availabilityStatus === 'available' ? 'default' : 'outline'}
-                                className={`min-h-[40px] px-4 text-xs font-semibold ${availabilityStatus === 'available' ? 'bg-emerald-600 hover:bg-emerald-700' : 'text-slate-600'}`}
-                                onClick={handleToggleAvailability}
-                                disabled={isTogglingAvailability}
-                            >
-                                {isTogglingAvailability ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
-                                {availabilityStatus === 'available' ? '🟢 Sẵn sàng' : '⚫ Đang nghỉ'}
-                            </Button>
                         </div>
+                        <label className="relative inline-flex items-center cursor-pointer">
+                            <input 
+                                type="checkbox" 
+                                className="sr-only peer" 
+                                checked={availabilityStatus === 'available'}
+                                disabled={isTogglingAvailability}
+                                onChange={handleToggleAvailability}
+                            />
+                            <div className="w-14 h-8 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-7 after:w-7 after:transition-all peer-checked:bg-emerald-500 shadow-inner"></div>
+                        </label>
                     </CardContent>
                 </Card>
 
-                {/* Pool vehicles available */}
-                {poolVehicles.length > 0 && availabilityStatus === 'available' && (
-                    <Card className="border-purple-200 bg-purple-50/70">
+                {/* THIẾU XE CỐ ĐỊNH - ĐẨY LÊN CTA CHÍNH */}
+                {!linkedDriver?.assigned_vehicle_id && (
+                    <div className="px-1 mt-2 mb-2">
+                        <Button 
+                            className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 h-14 rounded-2xl shadow-xl shadow-blue-600/30 text-white text-base font-bold transition-transform active:scale-[0.98] border border-blue-400/50"
+                            onClick={() => setIsAssignVehicleModalOpen(true)}
+                        >
+                            🚀 NHẬN XE ĐỂ BẮT ĐẦU
+                        </Button>
+                    </div>
+                )}
+
+                {/* NẾU CÓ XE POOL & ĐANG SẴN SÀNG */}
+                {poolVehicles.length > 0 && availabilityStatus === 'available' && !linkedDriver?.assigned_vehicle_id && (
+                    <Card className="border border-purple-100 bg-purple-50/50 rounded-[20px] shadow-sm">
                         <CardContent className="pt-3 pb-3">
-                            <p className="text-xs font-semibold text-purple-800 mb-1">🚛 Xe pool đang trống ({poolVehicles.length} xe)</p>
+                            <p className="text-xs font-semibold text-purple-800 mb-2">🚛 Xe Pool đang trống ({poolVehicles.length})</p>
                             <div className="flex flex-wrap gap-2">
                                 {poolVehicles.slice(0, 4).map((v: any) => (
-                                    <Badge key={v.id} variant="outline" className="bg-white text-xs">
-                                        {v.license_plate} — {v.vehicle_type || 'N/A'}
+                                    <Badge key={v.id} variant="outline" className="bg-white text-xs border-purple-200 text-purple-700">
+                                        {v.license_plate}
                                     </Badge>
                                 ))}
                             </div>
-                            <p className="text-[11px] text-purple-700 mt-1">Liên hệ điều phối để nhận chuyến với xe pool.</p>
                         </CardContent>
                     </Card>
                 )}
 
-                {/* Quick Action Grid - Visible Even in Empty State for WOW Factor */}
-                <div className="mb-6 border-b pb-4">
-                    <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2 px-1">Menu Thao Tác</h4>
-                    <div className="grid grid-cols-4 gap-2">
-                        <Link to="/driver/menu" className="flex flex-col items-center justify-center min-h-[64px] py-2 w-full bg-blue-50 border border-blue-100/50 rounded-xl text-blue-700 shadow-sm active:scale-95 transition-transform">
-                            <CheckSquare className="w-5 h-5 mb-1" />
-                            <span className="text-[10px] font-bold">Nhận Xe</span>
-                        </Link>
-                        <Link to="/driver/menu" className="flex flex-col items-center justify-center min-h-[64px] py-2 w-full bg-blue-50 border border-blue-100/50 rounded-xl text-blue-700 shadow-sm active:scale-95 transition-transform">
-                            <MapPin className="w-5 h-5 mb-1" />
-                            <span className="text-[10px] font-bold">Check-in</span>
-                        </Link>
-                        <Link to="/driver/menu" className="flex flex-col items-center justify-center min-h-[64px] py-2 w-full bg-blue-50 border border-blue-100/50 rounded-xl text-blue-700 shadow-sm active:scale-95 transition-transform">
-                            <FileText className="w-5 h-5 mb-1" />
-                            <span className="text-[10px] font-bold">Giấy Tờ</span>
-                        </Link>
-                        <Link to="/driver/menu" className="flex flex-col items-center justify-center min-h-[64px] py-2 w-full border rounded-xl shadow-sm text-slate-500 active:scale-95 transition-transform cursor-not-allowed opacity-70">
-                            <FlagOff className="w-5 h-5 mb-1" />
-                            <span className="text-[10px] font-bold">Kết Thúc</span>
-                        </Link>
-                    </div>
-                </div>
-
-                <div className="flex flex-col items-center justify-center text-center pt-2">
-                    <div className="bg-slate-200 p-3 rounded-full mb-3">
-                        <Package className="w-8 h-8 text-slate-400" />
-                    </div>
-                    <h2 className="text-lg font-bold text-slate-700">Chưa có chuyến làm việc</h2>
-                    <p className="text-sm text-slate-500 mt-1">Hoàn thành Bước 0 (Nhận Xe) và các bước tiếp theo để bắt đầu.</p>
-                </div>
-
-                {/* BƯỚC 0: Nhận Xe Điều Hành */}
-                <Card className={`border ${linkedDriver?.assigned_vehicle_id ? 'border-emerald-200 bg-emerald-50/70' : 'border-blue-200 bg-blue-50/70'}`}>
-                    <CardHeader className="pb-1 pt-3">
-                        <CardTitle className="text-sm font-semibold">
-                            {linkedDriver?.assigned_vehicle_id ? '✅' : '0️⃣'} BƯỚC 0: Nhận Xe Điều Hành
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2 pb-3">
-                        {linkedDriver?.assigned_vehicle_id ? (
-                            <div className="flex items-center gap-2 text-xs text-emerald-800">
-                                <Truck className="w-4 h-4" />
-                                <span>Đã nhận xe: <strong>{vehicles.find((v: any) => v.id === linkedDriver.assigned_vehicle_id)?.license_plate || 'Đang xác nhận...'}</strong></span>
+                {/* ANIMATION RADAR / EMPTY STATE HERO */}
+                <div className="flex flex-col items-center justify-center text-center py-6 relative">
+                    {availabilityStatus === 'available' ? (
+                        <>
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                <div className="w-48 h-48 rounded-full border-2 border-emerald-500/20 animate-ping" style={{ animationDuration: '3s' }}></div>
+                                <div className="absolute w-32 h-32 rounded-full border-2 border-emerald-500/20 animate-ping" style={{ animationDuration: '3s', animationDelay: '1s' }}></div>
                             </div>
-                        ) : (
-                            <>
-                                <p className="text-xs text-blue-800">Bạn chưa được giao xe cố định. Vui lòng nhận một xe trống từ Pool hoặc liên hệ Quản lý.</p>
-                                <Button 
-                                    className="w-full bg-blue-600 hover:bg-blue-700 h-10 shadow-md"
-                                    onClick={() => setIsAssignVehicleModalOpen(true)}
-                                >
-                                    🚚 Nhận Xe & Bắt Đầu
-                                </Button>
-                            </>
-                        )}
-                    </CardContent>
-                </Card>
+                            <div className="bg-gradient-to-br from-emerald-100 to-emerald-200 p-5 rounded-[24px] mb-4 shadow-lg shadow-emerald-200/50 relative z-10 border-4 border-white">
+                                <LocateFixed className="w-10 h-10 text-emerald-600 animate-pulse" />
+                            </div>
+                            <h2 className="text-[22px] font-extrabold text-slate-800 tracking-tight">Đang tìm chuyến...</h2>
+                            <p className="text-sm text-slate-500 mt-2 max-w-[240px] leading-relaxed">Giữ ứng dụng mở để không bỏ lỡ thông báo lệnh điều xe mới.</p>
+                        </>
+                    ) : (
+                        <>
+                           <div className="bg-slate-100 p-5 rounded-[24px] mb-4 shadow-inner relative z-10 border-2 border-white">
+                                <Package className="w-10 h-10 text-slate-400" />
+                            </div>
+                            <h2 className="text-[22px] font-extrabold text-slate-800 tracking-tight">Đang nghỉ ngơi</h2>
+                            <p className="text-sm text-slate-500 mt-2 max-w-[240px] leading-relaxed">Bạn đang ngoại tuyến. Bật "Sẵn Sàng" phía trên để đi làm trở lại.</p>
+                        </>
+                    )}
+                </div>
 
-                {/* BƯỚC 1: Kết nối Telegram */}
-                <Card className={`border ${isTelegramConnected ? 'border-emerald-200 bg-emerald-50/70' : 'border-amber-200 bg-amber-50/70'}`}>
-                    <CardHeader className="pb-1 pt-3">
-                        <CardTitle className="text-sm font-semibold">
-                            {isTelegramConnected ? '✅' : '1️⃣'} BƯỚC 1: Kết nối Telegram
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2 pb-3">
-                        {isTelegramConnected ? (
-                            <p className="text-xs text-emerald-800">Đã kết nối Telegram. Chat ID: <code className="text-[10px] bg-emerald-100 px-1 rounded">{driverTelegramChatId}</code></p>
-                        ) : (
-                            <>
-                                <p className="text-xs text-amber-800">Mở Telegram, tìm bot <strong>@{telegramBotName}</strong> và gửi <code className="bg-amber-100 px-1 rounded">/start</code></p>
-                                <a
-                                    href={telegramBotLink}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className="inline-flex items-center justify-center gap-2 rounded-md bg-blue-600 px-4 h-10 min-h-[40px] text-sm font-semibold text-white hover:bg-blue-700 transition"
-                                >
-                                    📲 Mở Telegram Bot
-                                </a>
-                            </>
-                        )}
-                    </CardContent>
-                </Card>
-
-                {/* BƯỚC 2: Xác minh tài khoản */}
-                <Card className={`border ${linkedDriver?.phone || linkedDriver?.driver_phone ? 'border-emerald-200 bg-emerald-50/70' : 'border-slate-200 bg-slate-50'}`}>
-                    <CardHeader className="pb-1 pt-3">
-                        <CardTitle className="text-sm font-semibold">
-                            {linkedDriver?.phone || linkedDriver?.driver_phone ? '✅' : '2️⃣'} BƯỚC 2: Xác minh số điện thoại
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="pb-3">
-                        <p className="text-xs text-slate-700">
-                            {linkedDriver?.phone || linkedDriver?.driver_phone
-                                ? `Số điện thoại: ${linkedDriver.phone || linkedDriver.driver_phone}`
-                                : 'Liên hệ quản lý để cập nhật SĐT vào hồ sơ tài xế.'}
-                        </p>
-                    </CardContent>
-                </Card>
-
-                {/* BƯỚC 3: Bật thông báo */}
-                <Card className="border-slate-200 bg-slate-50">
-                    <CardHeader className="pb-1 pt-3">
-                        <CardTitle className="text-sm font-semibold">3️⃣ BƯỚC 3: Bật thông báo đẩy</CardTitle>
-                    </CardHeader>
-                    <CardContent className="pb-3">
-                        <p className="text-xs text-slate-700">Cho phép thông báo trình duyệt để nhận cảnh báo chuyến mới ngay lập tức.</p>
-                        {typeof Notification !== 'undefined' && Notification.permission === 'granted' ? (
-                            <p className="text-xs text-emerald-700 mt-1">✅ Đã bật thông báo.</p>
-                        ) : (
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                className="mt-2 text-xs"
-                                onClick={() => {
-                                    if (typeof Notification !== 'undefined') {
-                                        Notification.requestPermission().then((perm) => {
-                                            toast({
-                                                title: perm === 'granted' ? 'Đã bật thông báo' : 'Thông báo bị từ chối',
-                                                description: perm === 'granted' ? 'Bạn sẽ nhận thông báo chuyến mới.' : 'Vui lòng bật lại trong cài đặt trình duyệt.',
-                                                variant: perm === 'granted' ? 'default' : 'destructive',
-                                            });
-                                        });
-                                    }
-                                }}
-                            >
-                                🔔 Bật thông báo
-                            </Button>
-                        )}
-                    </CardContent>
-                </Card>
-
-                {/* BƯỚC 4: Tự Tạo Lệnh Nháp */}
-                <Card className="border-blue-200 bg-blue-50/70 overflow-hidden relative">
-                    <div className="absolute top-0 right-0 p-2 opacity-10">
-                        <Sparkles className="w-12 h-12 text-blue-900" />
+                {/* NATIVE iOS STYLE QUICK ACTIONS GRID */}
+                <div className="bg-white rounded-[24px] p-4 shadow-sm border border-slate-100">
+                    <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-4 px-1">CÔNG CỤ NHANH</h4>
+                    <div className="grid grid-cols-4 gap-3">
+                        <Link to="/driver/menu" className="flex flex-col items-center justify-center gap-2">
+                            <div className="w-[52px] h-[52px] bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 border border-blue-100 shadow-sm active:scale-95 transition-transform"><CheckSquare className="w-6 h-6" /></div>
+                            <span className="text-[10px] font-bold text-slate-600">Lệnh Xong</span>
+                        </Link>
+                        <Link to="/driver/menu" className="flex flex-col items-center justify-center gap-2">
+                            <div className="w-[52px] h-[52px] bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 border border-indigo-100 shadow-sm active:scale-95 transition-transform"><FileText className="w-6 h-6" /></div>
+                            <span className="text-[10px] font-bold text-slate-600">Giấy Tờ</span>
+                        </Link>
+                        <a href="tel:0989890022" className="flex flex-col items-center justify-center gap-2">
+                            <div className="w-[52px] h-[52px] bg-rose-50 rounded-2xl flex items-center justify-center text-rose-600 border border-rose-100 shadow-sm active:scale-95 transition-transform"><PhoneCall className="w-6 h-6" /></div>
+                            <span className="text-[10px] font-bold text-slate-600">Trợ Giúp</span>
+                        </a>
+                        <div 
+                            className="flex flex-col items-center justify-center gap-2 cursor-pointer"
+                            onClick={() => {
+                                if (!linkedDriver?.assigned_vehicle_id) {
+                                    toast({ title: "Chưa nhận xe", description: "Vui lòng 'NHẬN XE ĐỂ BẮT ĐẦU' trước.", variant: "destructive" });
+                                    setIsAssignVehicleModalOpen(true);
+                                    return;
+                                }
+                                setIsQuickTripModalOpen(true);
+                            }}
+                        >
+                            <div className="w-[52px] h-[52px] bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600 border border-emerald-100 shadow-sm active:scale-95 transition-transform"><Plus className="w-6 h-6" /></div>
+                            <span className="text-[10px] font-bold text-slate-600">Tạo Lệnh</span>
+                        </div>
                     </div>
-                    <CardHeader className="pb-1 pt-3">
-                        <CardTitle className="text-sm font-semibold text-blue-900">4️⃣ BƯỚC 4: Tự Tạo Lệnh Nháp</CardTitle>
-                    </CardHeader>
-                    <CardContent className="pb-4">
-                        <p className="text-xs text-blue-800 mb-3">Chưa có lệnh điều xe từ Quản lý? Bạn có thể tự điền lệnh nháp để Quản lý duyệt nhanh hơn.</p>
-                        
-                        <Button 
-                            className="w-full bg-blue-600 hover:bg-blue-700 h-10 shadow-md"
-                                onClick={() => {
-                                    if (!linkedDriver?.assigned_vehicle_id) {
-                                        toast({
-                                            title: "Chưa nhận xe",
-                                            description: "Vui lòng hoàn thành 'BƯỚC 0: Nhận Xe' trước khi tạo lệnh.",
-                                            variant: "destructive"
-                                        });
-                                        setIsAssignVehicleModalOpen(true);
-                                        return;
-                                    }
-                                    setIsQuickTripModalOpen(true);
-                                }}
-                            >
-                                <Plus className="w-4 h-4 mr-2" /> Tạo Lệnh Điểu Xe Nháp
-                            </Button>
+                </div>
+
+                {/* COMPACT PROFILE READINESS CARD */}
+                {!isProfileComplete && (
+                    <Card className="border border-amber-100 shadow-sm rounded-[24px] overflow-hidden bg-white">
+                        <CardHeader className="pb-3 pt-4 bg-amber-50/50 border-b border-amber-50">
+                            <div className="flex items-center justify-between">
+                                <CardTitle className="text-sm font-bold text-slate-800">Hoàn thiện hồ sơ</CardTitle>
+                                <Badge variant="secondary" className="bg-amber-100 text-amber-800 hover:bg-amber-100 border-0 pointer-events-none text-[10px] uppercase font-bold tracking-widest">
+                                    {profileScore}/{totalProfileSteps} BƯỚC
+                                </Badge>
+                            </div>
+                            <div className="w-full bg-amber-100/50 h-1.5 rounded-full mt-3 overflow-hidden">
+                                <div className="h-full bg-amber-500 transition-all duration-500 ease-in-out" style={{ width: `${(profileScore/totalProfileSteps)*100}%`}}></div>
+                            </div>
+                        </CardHeader>
+
+                        <CardContent className="p-0 divide-y divide-slate-50">
+                            {!isTelegramConnected && (
+                                <div className="p-4 flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center shrink-0">
+                                        <MessageCircle className="w-4 h-4 text-blue-600" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-bold text-slate-700">Tin nhắn Zalo/Tele</p>
+                                        <p className="text-xs text-slate-500 mt-0.5">Nhận cuốc siêu tốc</p>
+                                    </div>
+                                    <a href={telegramBotLink} target="_blank" rel="noreferrer" className="text-xs font-bold text-blue-600 px-4 py-2 bg-blue-50 rounded-full hover:bg-blue-100 transition-colors">Kết nối</a>
+                                </div>
+                            )}
+
+                            {!isPhoneVerified && (
+                                <div className="p-4 flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                                        <PhoneCall className="w-4 h-4 text-slate-600" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-bold text-slate-700">SĐT Tài xế</p>
+                                        <p className="text-xs text-slate-500 mt-0.5">Định danh liên lạc</p>
+                                    </div>
+                                    <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-1 rounded-full uppercase">BÁO QUẢN LÝ</span>
+                                </div>
+                            )}
+
+                            {!isNotiEnabled && (
+                                <div className="p-4 flex items-center gap-3">
+                                    <div className="w-8 h-8 rounded-full bg-rose-100 flex items-center justify-center shrink-0">
+                                        <Bell className="w-4 h-4 text-rose-600" />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-bold text-slate-700">Thông báo đẩy</p>
+                                        <p className="text-xs text-slate-500 mt-0.5">Không lỡ lệnh điều phối</p>
+                                    </div>
+                                    <Button variant="ghost" size="sm" className="text-xs font-bold text-rose-600 px-4 py-2 bg-rose-50 rounded-full hover:bg-rose-100 transition-colors h-auto" onClick={() => {
+                                        if (typeof Notification !== 'undefined') Notification.requestPermission()
+                                    }}>Bật ngay</Button>
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
+                )}
 
                     <a
                         href="tel:0989890022"
