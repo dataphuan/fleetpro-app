@@ -1412,6 +1412,29 @@ export default function DriverDashboard() {
                     <PhoneCall className="w-4 h-4" />
                     Hotline Điều phối: 0989.890.022
                 </a>
+
+                {isDriverRole && (
+                    <Button 
+                        id="driver-fab-create-trip"
+                        className="fixed bottom-24 right-4 z-40 w-14 h-14 rounded-full shadow-2xl bg-blue-600 hover:bg-blue-700 p-0 flex items-center justify-center transition-transform active:scale-95 border-2 border-white"
+                        onClick={() => setIsQuickTripModalOpen(true)}
+                    >
+                        <Plus className="w-8 h-8 text-white" />
+                    </Button>
+                )}
+
+                <DriverQuickTripModal
+                    isOpen={isQuickTripModalOpen}
+                    onClose={() => setIsQuickTripModalOpen(false)}
+                    driverId={linkedDriver?.id || user?.id || ''}
+                    driverName={linkedDriver?.full_name || user?.email || ''}
+                    tenantId={tenantId}
+                    availableVehicles={vehicles.filter((v: any) => v.status === 'active' && (v.assignment_type === 'pool' || v.id === linkedDriver?.assigned_vehicle_id || v.assigned_driver_id === linkedDriver?.id))}
+                    assignedVehicleId={linkedDriver?.assigned_vehicle_id}
+                    onSuccess={() => {
+                        queryClient.invalidateQueries({ queryKey: ['trips'] });
+                    }}
+                />
             </div>
         );
     }

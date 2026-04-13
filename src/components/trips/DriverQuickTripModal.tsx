@@ -96,7 +96,7 @@ export function DriverQuickTripModal({
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
             <DialogContent className="sm:max-w-[425px] rounded-2xl">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2 text-xl text-blue-900">
+                    <DialogTitle className="flex items-center gap-2 text-xl text-blue-900" id="quick-trip-title">
                         <Plus className="w-5 h-5" /> Tạo Lệnh Điểu Xe Nháp
                     </DialogTitle>
                     <DialogDescription className="text-xs">
