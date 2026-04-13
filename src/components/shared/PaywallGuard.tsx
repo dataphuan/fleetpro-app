@@ -37,12 +37,22 @@ export const PaywallGuard: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const planName = (sub.plan || 'trial').toLowerCase();
-    const maxVehicles = quotaLimits[planName] || quotaLimits['professional'] || 100;
+    let maxVehicles = quotaLimits[planName] || quotaLimits['professional'] || 100;
     const currentVehicles = activeVehicles.length;
     
     // TRICK/MẸO: Hard-coded bypass for Phụ An and Enterprise to ensure zero blocking
-    const isPhuan = settings?.tenant_id?.toLowerCase().includes('phuan') || settings?.company_name?.toLowerCase().includes('phú an');
+    const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+    const isPhuan = settings?.tenant_id?.toLowerCase().includes('phuan') || 
+                    settings?.company_name?.toLowerCase().includes('phú an') || 
+                    settings?.company_name?.toLowerCase().includes('phu an') || 
+                    hostname.includes('phuan');
+                    
     const isHighTier = planName.includes('enterprise') || planName.includes('business');
+    
+    // Safety fallback: if it's high tier or Phuan, force maxVehicles to Infinity to prevent display bugs
+    if (isHighTier || isPhuan) {
+        maxVehicles = Infinity;
+    }
     
     const isQuotaExceeded = !isPhuan && !isHighTier && planName !== 'trial' && currentVehicles > maxVehicles;
 
