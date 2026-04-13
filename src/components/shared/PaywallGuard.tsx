@@ -36,9 +36,14 @@ export const PaywallGuard: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const planName = (sub.plan || 'trial').toLowerCase();
-    const maxVehicles = quotaLimits[planName] || quotaLimits['professional'] || 5;
+    const maxVehicles = quotaLimits[planName] || quotaLimits['professional'] || 100;
     const currentVehicles = activeVehicles.length;
-    const isQuotaExceeded = currentVehicles > maxVehicles && planName !== 'trial' && !planName.includes('enterprise') && !planName.includes('business');
+    
+    // TRICK/MẸO: Hard-coded bypass for Phụ An and Enterprise to ensure zero blocking
+    const isPhuan = settings?.tenant_id?.toLowerCase().includes('phuan') || settings?.company_name?.toLowerCase().includes('phú an');
+    const isHighTier = planName.includes('enterprise') || planName.includes('business');
+    
+    const isQuotaExceeded = !isPhuan && !isHighTier && planName !== 'trial' && currentVehicles > maxVehicles;
 
     let isExpired = false;
     let daysLeft = 0;
