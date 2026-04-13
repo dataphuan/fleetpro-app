@@ -141,6 +141,7 @@ service cloud.firestore {
       allow delete: if canAccessTenantData() && sameTenantOnReadUpdateDelete() && isTenantAdmin();
     }
 
+    match /{collection}/{id} {
       // Role-based Access for other collections
       function canWriteMasterData() {
         return userRole() in ['admin', 'manager', 'dispatcher', 'accountant'];
