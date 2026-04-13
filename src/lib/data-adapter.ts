@@ -4,7 +4,7 @@
  */
 
 import { app, db, auth, firebaseConfig, functions } from './firebase';
-import { collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, addDoc, writeBatch } from 'firebase/firestore';
+import { collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, addDoc, writeBatch, getCountFromServer } from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { initializeApp, deleteApp } from 'firebase/app';
@@ -219,7 +219,7 @@ const checkQuotas = async (tenantId: string, collectionName: string) => {
 
     const limits = PLAN_LIMITS[plan] || PLAN_LIMITS.trial;
 
-    // 2. Map collection to quota key
+    // Map collection to quota key
     const quotaMap: Record<string, string> = {
         vehicles: 'vehicles',
         drivers: 'drivers',
@@ -228,10 +228,18 @@ const checkQuotas = async (tenantId: string, collectionName: string) => {
 
     const quotaKey = quotaMap[collectionName];
     if (!quotaKey) return; // No quota for this collection
+    if (limits[quotaKey] === Infinity) return; // Enterprise — skip count entirely
 
-    // 3. Count existing items (for this month if it's trips)
-    const adapter = createFirestoreAdapter(collectionName);
-    const count = await adapter.count();
+    // --- P2 FIX: Use getCountFromServer aggregation instead of full collection read ---
+    // Before: adapter.count() fetched ALL documents just to count them (expensive)
+    // After: single server-side aggregation, 1 read unit regardless of collection size
+    const countQuery = query(
+        collection(db, collectionName),
+        where('tenant_id', '==', tenantId)
+    );
+    const snapshot = await getCountFromServer(countQuery);
+    const count = snapshot.data().count;
+    // ---------------------------------------------------------------------------------
 
     if (count >= limits[quotaKey]) {
         throw new Error(`QUOTA_EXCEEDED: Gói [${plan.toUpperCase()}] đã đạt giới hạn ${limits[quotaKey]} ${quotaKey}. Vui lòng nâng cấp để tiếp tục.`);

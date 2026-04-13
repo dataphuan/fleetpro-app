@@ -6,9 +6,9 @@ import { useDrivers } from "@/hooks/useDrivers";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Navigation, AlertTriangle, CheckCircle2, Package, Play, Camera, Loader2, LocateFixed, Wifi, WifiOff, PhoneCall, CheckSquare, FileText, FlagOff, Sparkles, Plus, AlertCircle } from "lucide-react";
+import { MapPin, Navigation, CheckCircle2, Package, Play, Camera, Loader2, LocateFixed, Wifi, WifiOff, PhoneCall, CheckSquare, FileText, Plus } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { storage } from "@/lib/firebase";
@@ -127,7 +127,7 @@ export default function DriverDashboard() {
         };
     }, []);
 
-    const buildReleaseSafeCreatePayload = (feature: string, payload: Record<string, any>) => {
+    const buildReleaseSafeCreatePayload = useCallback((feature: string, payload: Record<string, any>) => {
         if (!tenantId) {
             throw new Error('Không tìm thấy công ty hiện tại. Vui lòng đăng nhập lại.');
         }
@@ -146,7 +146,7 @@ export default function DriverDashboard() {
             created_at: nowIso,
             source: `driver-overview:${feature}`,
         };
-    };
+    }, [tenantId, user?.id]);
 
     const linkedDriver = useMemo(() => {
         const byIdentity = (drivers || []).find((d: any) =>
@@ -333,7 +333,8 @@ export default function DriverDashboard() {
         return map;
     }, [vehicles]);
 
-    const maybeCreateGpsAlert = async (trip: any, flags: string[], riskScore: number) => {
+    // --- P0 FIX: useCallback to prevent stale closures in tracking useEffect ---
+    const maybeCreateGpsAlert = useCallback(async (trip: any, flags: string[], riskScore: number) => {
         const severe = flags.includes('gps_jump') || flags.includes('speed_anomaly');
         if (!severe) return;
 
@@ -358,9 +359,9 @@ export default function DriverDashboard() {
             },
         });
         await alertsAdapter.create(alertPayload);
-    };
+    }, [user?.email, buildReleaseSafeCreatePayload]);
 
-    const persistTripLocation = async (trip: any, eventType: 'check_in' | 'track_point' | 'check_out', point: DriverGeoPoint) => {
+    const persistTripLocation = useCallback(async (trip: any, eventType: 'check_in' | 'track_point' | 'check_out', point: DriverGeoPoint) => {
         if (!user?.id) return;
 
         const previous = lastPointByTripRef.current[trip.id] || null;
@@ -408,7 +409,7 @@ export default function DriverDashboard() {
 
         lastPointByTripRef.current[trip.id] = point;
         await maybeCreateGpsAlert(trip, integrity.flags, integrity.riskScore);
-    };
+    }, [user?.id, user?.email, vehicleById, toast, maybeCreateGpsAlert, buildReleaseSafeCreatePayload]);
 
     useEffect(() => {
         if (!trackingTrip || !user?.id) {
@@ -495,7 +496,7 @@ export default function DriverDashboard() {
             watchIdRef.current = null;
             setIsTrackingActive(false);
         };
-    }, [trackingTrip, user?.id, preTripTrackingTripId]);
+    }, [trackingTrip, user?.id, preTripTrackingTripId, persistTripLocation]);
 
     const handleInputChange = (tripId: string, field: 'odo' | 'receiptUrl' | 'isUploading' | 'uploadState' | 'uploadError', value: any) => {
         setTripInputs(prev => ({
@@ -1197,6 +1198,25 @@ export default function DriverDashboard() {
         }
     };
 
+    // --- P1 FIX: Shared availability toggle — no longer duplicated across empty/active states ---
+    const handleToggleAvailability = useCallback(async () => {
+        if (!linkedDriver?.id) return;
+        setIsTogglingAvailability(true);
+        const newStatus = availabilityStatus === 'available' ? 'off_duty' : 'available';
+        try {
+            await driverAdapter.update(linkedDriver.id, { availability_status: newStatus });
+            setAvailabilityStatus(newStatus);
+            toast({
+                title: newStatus === 'available' ? 'Đã bật sẵn sàng nhận việc' : 'Đã chuyển sang nghỉ',
+                description: newStatus === 'available' ? 'Bạn sẽ nhận thông báo chuyến mới.' : 'Hệ thống sẽ không gán chuyến cho bạn.',
+            });
+        } catch {
+            toast({ title: 'Lỗi', description: 'Không thể cập nhật trạng thái.', variant: 'destructive' });
+        } finally {
+            setIsTogglingAvailability(false);
+        }
+    }, [linkedDriver?.id, availabilityStatus, toast]);
+
     if (isLoading) {
         return <div className="p-4 text-center mt-10">Đang tải dữ liệu chuyến đi...</div>;
     }
@@ -1206,24 +1226,6 @@ export default function DriverDashboard() {
         const telegramBotLink = `https://t.me/${telegramBotName}`;
         const driverTelegramChatId = linkedDriver?.telegram_chat_id || linkedDriver?.telegramChatId || '';
         const isTelegramConnected = !!driverTelegramChatId;
-
-        const handleToggleAvailability = async () => {
-            if (!linkedDriver?.id) return;
-            setIsTogglingAvailability(true);
-            const newStatus = availabilityStatus === 'available' ? 'off_duty' : 'available';
-            try {
-                await driverAdapter.update(linkedDriver.id, { availability_status: newStatus });
-                setAvailabilityStatus(newStatus);
-                toast({
-                    title: newStatus === 'available' ? 'Đã bật sẵn sàng nhận việc' : 'Đã chuyển sang nghỉ',
-                    description: newStatus === 'available' ? 'Bạn sẽ nhận thông báo chuyến mới.' : 'Hệ thống sẽ không gán chuyến cho bạn.',
-                });
-            } catch {
-                toast({ title: 'Lỗi', description: 'Không thể cập nhật trạng thái.', variant: 'destructive' });
-            } finally {
-                setIsTogglingAvailability(false);
-            }
-        };
 
         // Find assigned vehicle
         const assignedVehicle = vehicles.find((v: any) =>
@@ -1486,41 +1488,25 @@ export default function DriverDashboard() {
                         }}
                     />
 
-                <DriverQuickTripModal
-                    isOpen={isQuickTripModalOpen}
-                    onClose={() => setIsQuickTripModalOpen(false)}
-                    driverId={linkedDriver?.id || user?.id || ''}
-                    driverName={linkedDriver?.full_name || user?.email || ''}
-                    tenantId={tenantId}
-                    availableVehicles={vehicles.filter((v: any) => v.status === 'active' && (v.assignment_type === 'pool' || !v.assigned_driver_id || v.id === linkedDriver?.assigned_vehicle_id || v.assigned_driver_id === linkedDriver?.id || (linkedDriver?.driver_code && v.assigned_driver_id === linkedDriver.driver_code)))}
-                    assignedVehicleId={linkedDriver?.assigned_vehicle_id}
-                    onSuccess={() => {
-                        queryClient.invalidateQueries({ queryKey: ['trips'] });
-                        queryClient.invalidateQueries({ queryKey: ['drivers'] });
-                        queryClient.invalidateQueries({ queryKey: ['vehicles'] });
-                    }}
-                />
-            </div>
+                    <DriverQuickTripModal
+                        isOpen={isQuickTripModalOpen}
+                        onClose={() => setIsQuickTripModalOpen(false)}
+                        driverId={linkedDriver?.id || user?.id || ''}
+                        driverName={linkedDriver?.full_name || user?.email || ''}
+                        tenantId={tenantId}
+                        availableVehicles={vehicles.filter((v: any) => v.status === 'active' && (v.assignment_type === 'pool' || !v.assigned_driver_id || v.id === linkedDriver?.assigned_vehicle_id || v.assigned_driver_id === linkedDriver?.id || (linkedDriver?.driver_code && v.assigned_driver_id === linkedDriver.driver_code)))}
+                        assignedVehicleId={linkedDriver?.assigned_vehicle_id}
+                        onSuccess={() => {
+                            queryClient.invalidateQueries({ queryKey: ['trips'] });
+                            queryClient.invalidateQueries({ queryKey: ['drivers'] });
+                            queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+                        }}
+                    />
+                </div>
         );
     }
 
-    // -- Active Trips View -- 
-    const handleToggleAvailabilityActive = async () => {
-        if (!linkedDriver?.id) return;
-        setIsTogglingAvailability(true);
-        const newStatus = availabilityStatus === 'available' ? 'off_duty' : 'available';
-        try {
-            await driverAdapter.update(linkedDriver.id, { availability_status: newStatus });
-            setAvailabilityStatus(newStatus);
-            toast({
-                title: newStatus === 'available' ? 'Đã bật sẵn sàng nhận việc' : 'Đã chuyển sang nghỉ',
-            });
-        } catch {
-            toast({ title: 'Lỗi', description: 'Không thể cập nhật trạng thái.', variant: 'destructive' });
-        } finally {
-            setIsTogglingAvailability(false);
-        }
-    };
+    // -- Active Trips View --
 
     const assignedVehicleActive = vehicles.find((v: any) =>
         v.id === linkedDriver?.assigned_vehicle_id || v.assigned_driver_id === linkedDriver?.id
@@ -1546,7 +1532,7 @@ export default function DriverDashboard() {
                             size="sm"
                             variant={availabilityStatus === 'available' ? 'default' : 'outline'}
                             className={`text-xs h-8 ${availabilityStatus === 'available' ? 'bg-emerald-600 hover:bg-emerald-700' : 'text-slate-600'}`}
-                            onClick={handleToggleAvailabilityActive}
+                            onClick={handleToggleAvailability}
                             disabled={isTogglingAvailability}
                         >
                             {isTogglingAvailability ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}

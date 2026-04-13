@@ -12,20 +12,21 @@ import { OnboardingFlow } from "@/components/onboarding/OnboardingFlow";
 import { useOnboarding } from "@/hooks/useOnboarding";
 import { useAuth } from "@/contexts/AuthContext";
 import { QuickTripModal } from "@/components/trips/QuickTripModal";
+import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { dataAdapter } from "@/lib/data-adapter";
 import { RefreshCw, Zap } from "lucide-react";
-import { useState } from "react";
+
 
 export default function Dashboard() {
   const now = new Date();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") || "overview";
   const { toast } = useToast();
-  const [isSyncing, setIsSyncing] = useState(false);
-  const { user, userId, role, tenantId, refreshAuth } = useAuth();
+
+  const { user, userId, role, tenantId } = useAuth();
   const isDemoMode = Boolean(tenantId && tenantId.startsWith('internal-tenant-'));
   const { showOnboarding, markCompleted } = useOnboarding({ 
     tenantId: tenantId || 'default',
@@ -66,7 +67,7 @@ export default function Dashboard() {
         </Card>
       )}
 
-      {isPaidPlan && isDemoMode && (
+      {isPaidPlan && isDemoMode && role === 'admin' && (
          <div className="bg-blue-50 border-l-4 border-blue-400 p-3 mb-4 rounded shadow-sm flex items-center justify-between">
            <div className="flex items-center gap-2 text-blue-800 text-sm">
              <Zap className="w-4 h-4 fill-blue-400" />

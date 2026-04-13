@@ -112,9 +112,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                         company_name: `${emailParts[0]}'s Company`,
                         email: firebaseUser.email,
                         subscription: { 
-                            plan: 'business', 
+                            plan: 'trial', 
                             status: 'active',
-                            trial_ends_at: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() // 1 year Business trial
+                            trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString() // 14-day trial
                         },
                         created_at: new Date().toISOString(),
                         updated_at: new Date().toISOString(),

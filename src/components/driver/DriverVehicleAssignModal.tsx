@@ -90,7 +90,7 @@ export function DriverVehicleAssignModal({
                                 </option>
                             ))}
                         </select>
-                        {poolVehicles.length === 0 && (
+                        {poolVehicles.length === 0 ? (
                             <p className="text-xs text-red-600 mt-1 italic">
                                 Hiện không có xe nào trống. Vui lòng liên hệ Quản lý để được giao xe.
                             </p>
