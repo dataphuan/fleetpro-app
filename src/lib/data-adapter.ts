@@ -1017,6 +1017,59 @@ const tripFirestoreAdapter = {
         const [enriched] = await enrichTripsWithRelations([row]);
         return enriched || null;
     },
+    // DEEP AUDIT FIX: Inherit route costs on creation
+    create: async (data: any) => {
+        const tenantId = getTenantId();
+        const baseAdapter = createFirestoreAdapter('trips') as any;
+        
+        // 1. Create the base trip
+        const trip = await baseAdapter.create(data);
+        const tripId = trip.id;
+
+        // 2. If trip has route, auto-generate DRAFT expenses for real-time reporting
+        if (data.route_id) {
+            try {
+                const routeSnap = await getDoc(doc(db, 'routes', data.route_id));
+                if (routeSnap.exists()) {
+                    const route = routeSnap.data();
+                    const now = new Date();
+                    const dateStr = now.toISOString().slice(0, 10);
+                    
+                    const standards = [
+                        { cat: 'Dầu hỏa/Nhiên liệu', amt: data.estimated_fuel ?? route.fuel_cost_standard, desc: 'Dinh muc Dau theo tuyen' },
+                        { cat: 'Cầu đường', amt: data.estimated_toll ?? (route.toll_cost || route.toll_cost_standard), desc: 'Dinh muc Cau duong theo tuyen' },
+                        { cat: 'Phí bồi dưỡng/Ăn uống', amt: data.estimated_allowance ?? route.driver_allowance_standard, desc: 'Dinh muc Boi duong theo tuyen' },
+                    ];
+
+                    for (const std of standards) {
+                        if (std.amt && std.amt > 0) {
+                            await (createFirestoreAdapter('expenses') as any).create({
+                                tenant_id: tenantId,
+                                amount: std.amt,
+                                category: std.cat,
+                                trip_id: tripId,
+                                vehicle_id: data.vehicle_id || null,
+                                driver_id: data.driver_id || null,
+                                expense_date: dateStr,
+                                description: `${std.desc} - ${data.trip_code || ''}`,
+                                status: 'draft', // Draft until driver/accountant updates
+                                payment_method: 'CASH',
+                                is_reconciled: false,
+                                is_deleted: 0,
+                                created_at: now.toISOString(),
+                                updated_at: now.toISOString()
+                            });
+                        }
+                    }
+                    // Initial calculation of profit with draft expenses
+                    await recalculateTripExpenses(tripId, tenantId);
+                }
+            } catch (err) {
+                console.error("Error creating draft expenses from route standards:", err);
+            }
+        }
+        return trip;
+    },
     // QA AUDIT FIX 1.4: All status changes must go through state machine validation
     confirm: async (id: string) => {
         enforceMutationThrottle('trips', 'confirm', id);
@@ -1040,6 +1093,33 @@ const tripFirestoreAdapter = {
         await updateDoc(tripRef, { status: 'dispatched', dispatched_at: new Date().toISOString(), updated_at: new Date().toISOString() });
         return true;
     },
+    // PIPELINE FIX: Formalize Truck Pickup
+    pickup: async (id: string, startOdo: number) => {
+        enforceMutationThrottle('trips', 'pickup', id, { startOdo });
+        const tripRef = doc(db, 'trips', id);
+        const tripSnap = await getDoc(tripRef);
+        if (!tripSnap.exists() || tripSnap.data()?.tenant_id !== getTenantId()) {
+            throw new Error('Unauthorized: Trip does not belong to this tenant.');
+        }
+        
+        const data = tripSnap.data();
+        const batch = writeBatch(db);
+        
+        // Record ODO and prepare for start
+        batch.update(tripRef, {
+            start_odometer: startOdo,
+            pickup_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        });
+
+        // Occupy vehicle immediately upon pickup
+        if (data.vehicle_id) {
+            batch.update(doc(db, 'vehicles', data.vehicle_id), { status: 'on_trip' });
+        }
+        
+        await batch.commit();
+        return true;
+    },
     // QA AUDIT FIX 2.4: Validate tenant + state machine before start
     start: async (id: string, time: string) => {
         enforceMutationThrottle('trips', 'start', id, { time });
@@ -1048,7 +1128,14 @@ const tripFirestoreAdapter = {
         if (!tripSnap.exists() || tripSnap.data()?.tenant_id !== getTenantId()) {
             throw new Error('Unauthorized: Trip does not belong to this tenant.');
         }
-        checkStatusTransition(tripSnap.data().status, 'in_progress');
+        
+        const data = tripSnap.data();
+        // QA AUDIT: Ensure ODO was captured during pickup before starting
+        if (!data.start_odometer) {
+            throw new Error("Quy trình bắt buộc: Bạn phải xác nhận Nhận Xe và chốt chỉ số ODO trước khi Bắt đầu chạy.");
+        }
+
+        checkStatusTransition(data.status, 'in_progress');
         const batch = writeBatch(db);
         
         batch.update(tripRef, {
@@ -1279,14 +1366,26 @@ const tripLocationFirestoreAdapter = {
 // Helper function to recalculate trip expenses
 const recalculateTripExpenses = async (tripId: string, tenantId: string) => {
     if (!tripId) return;
-    const q = query(collection(db, 'expenses'), where("tenant_id", "==", tenantId), where("trip_id", "==", tripId), where("status", "==", "confirmed"));
+    const q = query(
+        collection(db, 'expenses'), 
+        where("tenant_id", "==", tenantId), 
+        where("trip_id", "==", tripId),
+        where("is_deleted", "==", 0)
+    );
     const snapshot = await getDocs(q);
     let totalExpenses = 0;
     snapshot.forEach(doc => {
-        totalExpenses += (doc.data().amount || 0);
+        const data = doc.data();
+        // Include both confirmed (actual) and draft (estimated) for real-time dashboard impact
+        if (data.status === 'confirmed' || data.status === 'draft' || data.status === 'pending') {
+            totalExpenses += (data.amount || 0);
+        }
     });
     // Write the aggregated sum back to the trip
-    await updateDoc(doc(db, 'trips', tripId), { total_expenses: totalExpenses });
+    await updateDoc(doc(db, 'trips', tripId), { 
+        total_expenses: totalExpenses,
+        updated_at: new Date().toISOString()
+    });
 };
 
 // Specialized adapter for Expenses to handle Trip recalculations

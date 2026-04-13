@@ -1,7 +1,7 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
-import { useTrips, useUpdateTrip } from "@/hooks/useTrips";
+import { useTrips, useUpdateTrip, usePickupTrip } from "@/hooks/useTrips";
 import { useDrivers } from "@/hooks/useDrivers";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -111,6 +111,10 @@ export default function DriverDashboard() {
     // --- MODALS ---
     const [isQuickTripModalOpen, setIsQuickTripModalOpen] = useState(false);
     const [isAssignVehicleModalOpen, setIsAssignVehicleModalOpen] = useState(false);
+    const [pickupDialogOpen, setPickupDialogOpen] = useState(false);
+    const [activeTripForPickup, setActiveTripForPickup] = useState<any>(null);
+    const [pickupOdo, setPickupOdo] = useState<string>('');
+    const { mutateAsync: pickupTripMutation } = usePickupTrip();
 
     // (Removed old DraftRequestForm)
 
@@ -1022,12 +1026,6 @@ export default function DriverDashboard() {
     };
 
     const handleAcceptTrip = async (trip: any) => {
-        if (!isDriverRole) {
-            toast({ title: 'Không có quyền', description: 'Chỉ tài xế mới được nhận chuyến.', variant: 'destructive' });
-            return;
-        }
-
-        if (!isOnline) {
             toast({ title: 'Mất kết nối mạng', description: 'Vui lòng bật mạng trước khi nhận chuyến.', variant: 'destructive' });
             return;
         }
@@ -1995,26 +1993,43 @@ export default function DriverDashboard() {
                                 </Button>
                             </div>
                         ) : (
-                            trip.status === 'dispatched' && !trip.accepted_at && !trip.accepted_by ? (
-                                <Button
-                                    className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-xl font-extrabold py-7 shadow-lg shadow-orange-200 animate-pulse-slow"
-                                    onClick={() => handleAcceptTrip(trip)}
-                                    disabled={isUpdating}
-                                >
-                                    <CheckCircle2 className="w-6 h-6 mr-3" /> NHẬN CHUYẾN
-                                </Button>
+                            trip.status === 'dispatched' ? (
+                                !trip.accepted_at ? (
+                                    <Button
+                                        className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-xl font-extrabold py-7 shadow-lg shadow-orange-200 animate-pulse-slow"
+                                        onClick={() => handleAcceptTrip(trip)}
+                                        disabled={isUpdating}
+                                    >
+                                        <CheckCircle2 className="w-6 h-6 mr-3" /> NHẬN CHUYẾN
+                                    </Button>
+                                ) : !trip.start_odometer ? (
+                                    <Button
+                                        className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-xl font-extrabold py-7 shadow-lg shadow-blue-200 flex flex-col items-center justify-center h-auto"
+                                        onClick={() => handleOpenPickup(trip)}
+                                        disabled={isUpdating}
+                                    >
+                                        <div className="flex items-center">
+                                            <Truck className="w-6 h-6 mr-3" /> NHẬN XE & CHỐT ODO
+                                        </div>
+                                        <span className="text-[10px] opacity-80 font-normal uppercase mt-1">Bước bắt buộc trước khi chạy</span>
+                                    </Button>
+                                ) : (
+                                    <Button 
+                                        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-xl font-extrabold py-7 shadow-lg shadow-blue-200" 
+                                        onClick={() => handleStartTrip(trip)}
+                                        disabled={isUpdating || isCheckingInTripId === trip.id || !infoConfirmedByTrip[trip.id] || !isPrecheckComplete(trip.id)}
+                                    >
+                                        {isCheckingInTripId === trip.id ? (
+                                            <><Loader2 className="w-6 h-6 mr-3 animate-spin" /> ĐANG CHECK-IN GPS...</>
+                                        ) : (
+                                            <><Play className="w-6 h-6 mr-3" /> BẮT ĐẦU CHẠY</>
+                                        )}
+                                    </Button>
+                                )
                             ) : (
-                                <Button 
-                                    className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-xl font-extrabold py-7 shadow-lg shadow-blue-200" 
-                                    onClick={() => handleStartTrip(trip)}
-                                    disabled={isUpdating || isCheckingInTripId === trip.id || !infoConfirmed || !isPrecheckComplete(trip.id)}
-                                >
-                                    {isCheckingInTripId === trip.id ? (
-                                        <><Loader2 className="w-6 h-6 mr-3 animate-spin" /> ĐANG CHECK-IN GPS...</>
-                                    ) : (
-                                        <><Play className="w-6 h-6 mr-3" /> BẮT ĐẦU CHẠY</>
-                                    )}
-                                </Button>
+                                <div className="w-full p-4 border border-dashed rounded-lg text-center text-slate-400 text-sm">
+                                    Chờ Điều phối phát lệnh...
+                                </div>
                             )
                         )}
                     </CardFooter>
@@ -2063,27 +2078,37 @@ export default function DriverDashboard() {
                             Chốt chuyến nhanh ({primaryTripForAction.trip_code})
                         </Button>
                     ) : (
-                        primaryTripForAction.status === 'dispatched' && !primaryTripForAction.accepted_at && !primaryTripForAction.accepted_by ? (
-                            <Button
-                                className="h-12 w-full bg-amber-500 text-base font-bold hover:bg-amber-600"
-                                disabled={isUpdating || !isOnline}
-                                onClick={() => handleAcceptTrip(primaryTripForAction)}
-                            >
-                                <CheckCircle2 className="mr-2 h-5 w-5" /> Nhận chuyến nhanh ({primaryTripForAction.trip_code})
-                            </Button>
-                        ) : (
-                            <Button
-                                className="h-12 w-full bg-blue-600 text-base font-bold hover:bg-blue-700"
-                                disabled={isUpdating || !isOnline || isCheckingInTripId === primaryTripForAction.id || !infoConfirmedByTrip[primaryTripForAction.id] || !isPrecheckComplete(primaryTripForAction.id)}
-                                onClick={() => handleStartTrip(primaryTripForAction)}
-                            >
-                                {isCheckingInTripId === primaryTripForAction.id ? (
-                                    <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Đang check-in...</>
-                                ) : (
-                                    <><Play className="mr-2 h-5 w-5" /> Bắt đầu chuyến nhanh ({primaryTripForAction.trip_code})</>
-                                )}
-                            </Button>
-                        )
+                        primaryTripForAction.status === 'dispatched' ? (
+                            !primaryTripForAction.accepted_at ? (
+                                <Button
+                                    className="h-12 w-full bg-amber-500 text-base font-bold hover:bg-amber-600"
+                                    disabled={isUpdating || !isOnline}
+                                    onClick={() => handleAcceptTrip(primaryTripForAction)}
+                                >
+                                    <CheckCircle2 className="mr-2 h-5 w-5" /> Nhận chuyến nhanh ({primaryTripForAction.trip_code})
+                                </Button>
+                            ) : !primaryTripForAction.start_odometer ? (
+                                <Button
+                                    className="h-12 w-full bg-blue-500 text-base font-bold hover:bg-blue-600"
+                                    disabled={isUpdating || !isOnline}
+                                    onClick={() => handleOpenPickup(primaryTripForAction)}
+                                >
+                                    <Truck className="mr-2 h-5 w-5" /> Thực hiện Nhận xe ODO
+                                </Button>
+                            ) : (
+                                <Button
+                                    className="h-12 w-full bg-blue-600 text-base font-bold hover:bg-blue-700"
+                                    disabled={isUpdating || !isOnline || isCheckingInTripId === primaryTripForAction.id || !infoConfirmedByTrip[primaryTripForAction.id] || !isPrecheckComplete(primaryTripForAction.id)}
+                                    onClick={() => handleStartTrip(primaryTripForAction)}
+                                >
+                                    {isCheckingInTripId === primaryTripForAction.id ? (
+                                        <><Loader2 className="mr-2 h-5 w-5 animate-spin" /> Đang check-in...</>
+                                    ) : (
+                                        <><Play className="mr-2 h-5 w-5" /> Bắt đầu chuyến nhanh ({primaryTripForAction.trip_code})</>
+                                    )}
+                                </Button>
+                            )
+                        ) : null
                     )}
                 </div>
             )}
@@ -2109,6 +2134,58 @@ export default function DriverDashboard() {
                     queryClient.invalidateQueries({ queryKey: ['trips'] });
                 }}
             />
+
+            {/* PIPELINE FIX: Pickup Modal */}
+            <Dialog open={pickupDialogOpen} onOpenChange={setPickupDialogOpen}>
+                <DialogContent className="max-w-[95%] sm:max-w-md bg-white p-0 overflow-hidden">
+                    <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 text-white">
+                        <DialogTitle className="text-xl font-bold flex items-center gap-2">
+                            <Truck className="w-6 h-6" />
+                            Xác nhận Nhận Xe
+                        </DialogTitle>
+                        <DialogDescription className="text-blue-100 mt-1">
+                            Vui lòng kiểm tra và chốt chỉ số Odometer của xe <strong>{vehicles.find(v => v.id === activeTripForPickup?.vehicle_id)?.license_plate}</strong>
+                        </DialogDescription>
+                    </div>
+                    
+                    <div className="p-6 space-y-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="pickup-odo" className="text-sm font-semibold text-slate-700">Chỉ số Odometer hiện tại (Km)*</Label>
+                            <Input 
+                                id="pickup-odo"
+                                type="number" 
+                                placeholder="Nhập số Km hiện trên đồng hồ..." 
+                                className="h-12 text-lg font-bold"
+                                value={pickupOdo}
+                                onChange={(e) => setPickupOdo(e.target.value)}
+                            />
+                            <p className="text-[10px] text-slate-500 italic">
+                                * Lưu ý: Số Odometer này sẽ là căn cứ tính tiêu hao nhiên liệu cho chuyến CD{activeTripForPickup?.trip_code}.
+                            </p>
+                        </div>
+
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex gap-3">
+                            <CheckSquare className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+                            <div className="text-xs text-amber-800">
+                                <strong>Kiểm tra nhanh:</strong> Đảm bảo lốp, đèn và các giấy tờ xe đã đầy đủ trước khi nhận bàn giao từ bãi.
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3 pt-2">
+                            <Button variant="outline" className="flex-1 h-12" onClick={() => setPickupDialogOpen(false)}>
+                                Đóng
+                            </Button>
+                            <Button 
+                                className="flex-[2] h-12 bg-blue-600 hover:bg-blue-700 font-bold"
+                                onClick={handleConfirmPickup}
+                                disabled={isUpdating || !pickupOdo}
+                            >
+                                {isUpdating ? <Loader2 className="w-5 h-5 animate-spin" /> : "XÁC NHẬN NHẬN XE"}
+                            </Button>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

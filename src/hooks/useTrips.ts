@@ -221,6 +221,35 @@ export const useStartTrip = () => {
 };
 
 /**
+ * Hook to confirm vehicle pickup (Pipeline Fix)
+ */
+export const usePickupTrip = () => {
+    const queryClient = useQueryClient();
+    const { toast } = useToast();
+
+    return useMutation({
+        mutationFn: async ({ id, startOdo }: { id: string; startOdo: number }) => {
+            return await (tripAdapter as any).pickup(id, startOdo);
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['trips'] });
+            queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+            toast({
+                title: 'Nhận xe thành công',
+                description: 'Đã ghi nhận chỉ số ODO và bàn giao xe cho tài xế.',
+            });
+        },
+        onError: (error: Error) => {
+            toast({
+                title: 'Lỗi khi nhận xe',
+                description: error.message,
+                variant: 'destructive',
+            });
+        },
+    });
+};
+
+/**
  * Hook to complete a trip
  */
 export const useCompleteTrip = () => {

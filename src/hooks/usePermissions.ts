@@ -94,9 +94,11 @@ export function usePermissions(tabName?: TabName): Permissions {
     const { role, tenantId } = useAuth();
 
     // MASTER BYPASS: Phú An and Internal Demo tenants always have FULL power for "WOA" experience
+    const userEmail = useAuth().user?.email || '';
     const isMasterTenant = tenantId === 'internal-tenant-1' || 
                            tenantId === 'internal-tenant-phuan' || 
-                           tenantId?.includes('phuan');
+                           tenantId?.includes('phuan') ||
+                           userEmail.endsWith('@phuancr.com');
 
     if (isMasterTenant) {
         return {

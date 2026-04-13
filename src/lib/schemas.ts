@@ -3,7 +3,7 @@ import { z } from 'zod';
 // ID formats
 export const vehicleIdSchema = z.string().regex(/^XE\d{4}$/, { message: 'Mã xe phải bắt đầu bằng XE và 4 số (VD: XE0001)' });
 export const driverIdSchema = z.string().regex(/^TX\d{4}$/, { message: 'Mã tài xế phải đúng chuẩn TX kèm 4 số (VD: TX0001)' });
-export const tripIdSchema = z.string().regex(/^CD\d{4}$/, { message: 'Mã chuyến đi phải bắt đầu bằng CD và 4 số (VD: CD0001)' });
+export const tripIdSchema = z.string().regex(/^(CD\d{4}|LĐX-[\w-]+)$/, { message: 'Mã chuyến đi không đúng định dạng (VD: CD0001 hoặc LĐX-xxx)' });
 export const routeIdSchema = z.string().regex(/^TD\d{4}$/, { message: 'Mã tuyến đường phải bắt đầu bằng TD và 4 số (VD: TD0001)' });
 export const customerIdSchema = z.string().regex(/^KH\d{4}$/, { message: 'Mã khách hàng phải bắt đầu bằng KH và 4 số (VD: KH0001)' });
 export const orderIdSchema = z.string().regex(/^DH\d{4}$/, { message: 'Mã đơn hàng phải bắt đầu bằng DH và 4 số (VD: DH0001)' });
@@ -75,7 +75,7 @@ export const TripSchema = z.object({
 .refine(data => {
   const idValue = data.id || data['Mã chuyến'] || data.trip_code;
   if (idValue && typeof idValue === 'string') {
-    return /^CD\d{4}$/.test(idValue);
+    return /^(CD\d{4}|LĐX-[\w-]+)$/.test(idValue);
   }
   return true;
 }, { message: 'Mã chuyến đi không hợp lệ (Bắt buộc CD + 4 số, VD: CD0001)', path: ['id'] })

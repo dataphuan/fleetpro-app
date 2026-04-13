@@ -188,6 +188,10 @@ const tripSchema = z.object({
     driver_advance: z.coerce.number().min(0, "Tạm ứng >= 0").optional().default(0),
     actual_revenue: z.coerce.number().min(0, "Thực thu >= 0").optional().nullable(),
     adjustment_notes: z.string().optional().nullable(),
+    // Deep Audit Fix: Captured Estimated Costs from Route
+    estimated_fuel: z.coerce.number().min(0).optional().default(0),
+    estimated_toll: z.coerce.number().min(0).optional().default(0),
+    estimated_allowance: z.coerce.number().min(0).optional().default(0),
 }).refine(data => !data.end_odometer || !data.start_odometer || data.end_odometer >= data.start_odometer, {
    message: "Số Km kết thúc phải >= Số Km bắt đầu",
    path: ["end_odometer"]
@@ -312,6 +316,9 @@ export default function TripsRevenue() {
             driver_advance: 0,
             actual_revenue: null,
             adjustment_notes: "",
+            estimated_fuel: 0,
+            estimated_toll: 0,
+            estimated_allowance: 0,
         },
     });
 
@@ -335,6 +342,12 @@ export default function TripsRevenue() {
                 if (currentDistance === 0 || currentDistance === null) {
                     form.setValue('actual_distance_km', selectedRoute.distance_km);
                 }
+            }
+            // DEEP AUDIT: Auto-fill estimated costs from route standards
+            if (selectedRoute) {
+                form.setValue('estimated_fuel', selectedRoute.fuel_cost_standard || 0);
+                form.setValue('estimated_toll', selectedRoute.toll_cost || selectedRoute.toll_cost_standard || 0);
+                form.setValue('estimated_allowance', selectedRoute.driver_allowance_standard || 0);
             }
         }
     }, [selectedRouteId, cargoWeight, routes, form]);
@@ -671,6 +684,10 @@ export default function TripsRevenue() {
             actual_departure_time: data.actual_departure_time || null,
             actual_arrival_time: data.actual_arrival_time || null,
             planned_arrival_date: data.planned_arrival_date || null,
+            // DEEP AUDIT: Pass manual cost overrides to backend
+            estimated_fuel: data.estimated_fuel || 0,
+            estimated_toll: data.estimated_toll || 0,
+            estimated_allowance: data.estimated_allowance || 0,
         };
 
         try {
