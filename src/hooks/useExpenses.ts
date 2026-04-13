@@ -16,6 +16,9 @@ export const useExpenses = () => {
         queryFn: async () => {
             return await expenseAdapter.list();
         },
+        // PIPELINE FIX P5: Near real-time sync for accountant review
+        refetchInterval: 15000,
+        refetchOnWindowFocus: true,
     });
 };
 

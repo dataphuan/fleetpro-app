@@ -7,7 +7,7 @@ import { DashboardTripsTab } from "./dashboard/trips/DashboardTripsTab";
 import { DashboardFleetPerformanceTab } from "./dashboard/fleet/DashboardFleetPerformanceTab";
 import { DashboardAlertsTab } from "./dashboard/alerts/DashboardAlertsTab";
 import { useSearchParams } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { OnboardingFlow } from "@/components/onboarding/OnboardingFlow";
 import { useOnboarding } from "@/hooks/useOnboarding";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,7 +17,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { dataAdapter } from "@/lib/data-adapter";
-import { RefreshCw, Zap } from "lucide-react";
+import { RefreshCw, Zap, AlertTriangle } from "lucide-react";
+import { useExpenses } from "@/hooks/useExpenses";
+import { Link } from "react-router-dom";
 
 
 export default function Dashboard() {
@@ -45,6 +47,14 @@ export default function Dashboard() {
   const currentPlan = companySettings?.subscription?.plan || 'trial';
   const isPaidPlan = currentPlan === 'business' || currentPlan === 'professional';
 
+  // PIPELINE FIX P6: Pending expense notification for accountant/admin
+  const { data: allExpenses } = useExpenses();
+  const isFinancialRole = role === 'accountant' || role === 'admin' || role === 'manager';
+  const pendingExpenseCount = useMemo(() => {
+    if (!allExpenses || !isFinancialRole) return 0;
+    return allExpenses.filter((e: any) => e.status === 'draft' && !e.is_deleted).length;
+  }, [allExpenses, isFinancialRole]);
+
   return (
     <div className="space-y-6 animate-fade-in p-2">
       {showOnboarding && !isPaidPlan && (
@@ -58,6 +68,26 @@ export default function Dashboard() {
         description={`Tổng quan vận tải - Tháng ${now.getMonth() + 1}/${now.getFullYear()}`}
         actions={<QuickTripModal triggerLabel="+ Tạo Chuyến" />}
       />
+
+      {/* PIPELINE FIX P6: Pending expense alert for accountant */}
+      {isFinancialRole && pendingExpenseCount > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center justify-between animate-fade-in">
+          <div className="flex items-center gap-3">
+            <div className="bg-amber-100 rounded-full p-2">
+              <AlertTriangle className="w-5 h-5 text-amber-600" />
+            </div>
+            <div>
+              <p className="font-semibold text-amber-900 text-sm">Có {pendingExpenseCount} phiếu chi đang chờ duyệt</p>
+              <p className="text-xs text-amber-700">Tài xế đã gửi chứng từ. Vui lòng xác nhận hoặc từ chối.</p>
+            </div>
+          </div>
+          <Link to="/expenses">
+            <Button size="sm" variant="outline" className="border-amber-300 text-amber-800 hover:bg-amber-100 font-semibold">
+              Duyệt ngay →
+            </Button>
+          </Link>
+        </div>
+      )}
 
       {isDemoMode && !isPaidPlan && (
         <Card className="border-amber-200 bg-amber-50/30 shadow-sm overflow-hidden mb-4">

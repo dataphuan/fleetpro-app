@@ -23,6 +23,7 @@ import { getBestCurrentPosition, geolocationErrorToMessage, startLocationWatch, 
 import { alertsAdapter, driverAdapter, expenseAdapter, transportOrderAdapter, tripAdapter, tripLocationAdapter } from "@/lib/data-adapter";
 import { evaluateLocationIntegrity, getIntegrityProfileByVehicleType } from "@/lib/location-integrity";
 import { useVehicles } from "@/hooks/useVehicles";
+import { useRoutes } from "@/hooks/useRoutes";
 import { normalizeUserRole } from "@/lib/rbac";
 import { sendOpsEventNotification } from "@/lib/driver-notifications";
 
@@ -64,6 +65,7 @@ export default function DriverDashboard() {
     const { data: trips = [], isLoading } = useTrips();
     const { data: drivers = [] } = useDrivers();
     const { data: vehicles = [] } = useVehicles();
+    const { data: routes = [] } = useRoutes();
     const { mutateAsync: updateTrip } = useUpdateTrip();
     const { toast } = useToast();
     const normalizedRole = normalizeUserRole(role);
@@ -1477,6 +1479,7 @@ export default function DriverDashboard() {
                         tenantId={tenantId}
                         availableVehicles={vehicles.filter((v: any) => v.status === 'active' && (v.assignment_type === 'pool' || !v.assigned_driver_id || v.id === linkedDriver?.assigned_vehicle_id || v.assigned_driver_id === linkedDriver?.id || (linkedDriver?.driver_code && v.assigned_driver_id === linkedDriver.driver_code)))}
                         assignedVehicleId={linkedDriver?.assigned_vehicle_id}
+                        routes={routes}
                         onSuccess={() => {
                             queryClient.invalidateQueries({ queryKey: ['trips'] });
                             queryClient.invalidateQueries({ queryKey: ['drivers'] });
@@ -1873,6 +1876,23 @@ export default function DriverDashboard() {
                                 <div className="border-t border-slate-100 pt-3">
                                     <Label className="text-[11px] font-semibold text-slate-700">CHỨNG TỪ CHI PHÍ (GỬI KẾ TOÁN)</Label>
                                     <div className="mt-2 grid grid-cols-1 gap-2">
+                                        {/* PIPELINE FIX P3: Category dropdown */}
+                                        <select
+                                            className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                            value={expenseInputs[trip.id]?.category_id || ''}
+                                            onChange={(e) => handleExpenseInputChange(trip.id, 'category_id', e.target.value)}
+                                        >
+                                            <option value="">-- Chọn loại chi phí --</option>
+                                            <option value="fuel">⛽ Nhiên liệu</option>
+                                            <option value="toll">🛣️ Cầu đường</option>
+                                            <option value="allowance">🍚 Bồi dưỡng/Ăn uống</option>
+                                            <option value="support">🤝 Hỗ trợ</option>
+                                            <option value="police">🚔 Công an/Hải quan</option>
+                                            <option value="tire">🔧 Bơm vá lốp</option>
+                                            <option value="maintenance">🛠️ Bảo dưỡng/Sửa chữa</option>
+                                            <option value="labor">👷 Bốc xếp/Nhân công</option>
+                                            <option value="other">📋 Phí khác</option>
+                                        </select>
                                         <Input
                                             type="number"
                                             className="bg-white"
@@ -1882,7 +1902,7 @@ export default function DriverDashboard() {
                                         />
                                         <Input
                                             className="bg-white"
-                                            placeholder="Ghi chú (vd: phí bốc xếp, cầu đường)"
+                                            placeholder="Ghi chú (vd: phí bốc xếp Cảng Cái Mép)"
                                             value={expenseInputs[trip.id]?.note || ''}
                                             onChange={(e) => handleExpenseInputChange(trip.id, 'note', e.target.value)}
                                         />
@@ -2135,6 +2155,7 @@ export default function DriverDashboard() {
                 tenantId={tenantId}
                 availableVehicles={vehicles.filter((v: any) => v.status === 'active' && (v.assignment_type === 'pool' || v.id === linkedDriver?.assigned_vehicle_id || v.assigned_driver_id === linkedDriver?.id))}
                 assignedVehicleId={linkedDriver?.assigned_vehicle_id}
+                routes={routes}
                 onSuccess={() => {
                     queryClient.invalidateQueries({ queryKey: ['trips'] });
                 }}

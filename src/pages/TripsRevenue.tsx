@@ -62,6 +62,7 @@ import {
     TrendingUp,
     Truck,
     Users,
+    User,
     Calendar,
     Filter,
     X,
@@ -72,7 +73,8 @@ import {
     AlertTriangle,
     Sparkles,
     Eye,
-    ScanText
+    ScanText,
+    MapPin
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useClosedPeriods, isDateInClosedPeriod } from "@/hooks/useAccountingPeriods";
@@ -884,8 +886,18 @@ export default function TripsRevenue() {
         {
             key: 'trip_code',
             header: 'Mã chuyến',
-            width: '120px',
-            render: (value) => <span className="font-mono font-medium text-primary">{value as string}</span>,
+            width: '150px',
+            render: (value, row) => (
+                <div className="flex flex-col gap-0.5">
+                    <span className="font-mono font-medium text-primary">{value as string}</span>
+                    {/* PIPELINE FIX P2: Source badge */}
+                    {(row as any).source === 'driver-self-draft' && (
+                        <span className="inline-flex items-center text-[9px] font-bold text-amber-700 bg-amber-50 border border-amber-200 rounded px-1 py-0.5 w-fit">
+                            🚚 TX nháp
+                        </span>
+                    )}
+                </div>
+            ),
         },
         {
             key: 'departure_date',
@@ -1346,7 +1358,117 @@ export default function TripsRevenue() {
                 </div>
             )}
 
-            {/* Data Table */}
+            {/* PIPELINE FIX P4: Mobile Card View */}
+            <div className="block md:hidden space-y-3">
+                {filteredTrips.length === 0 ? (
+                    <div className="text-center py-12 text-muted-foreground">
+                        <Package className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                        <p className="font-medium">Chưa có chuyến nào</p>
+                    </div>
+                ) : (
+                    filteredTrips.slice(0, 50).map((trip) => {
+                        const statusOpt = STATUS_OPTIONS.find(s => s.value === trip.status);
+                        const revenue = trip.total_revenue || trip.freight_revenue || 0;
+                        const isDriverDraft = (trip as any).source === 'driver-self-draft';
+                        return (
+                            <div 
+                                key={trip.id} 
+                                className={`bg-white rounded-xl border shadow-sm p-4 space-y-3 active:scale-[0.99] transition-transform cursor-pointer ${
+                                    isDriverDraft ? 'border-l-4 border-l-amber-400' : ''
+                                }`}
+                                onClick={() => handleRowClick(trip)}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <span className="font-mono font-bold text-primary text-sm">{trip.trip_code}</span>
+                                        {isDriverDraft && (
+                                            <Badge variant="outline" className="text-[9px] bg-amber-50 text-amber-700 border-amber-200 h-5">
+                                                🚚 TX nháp
+                                            </Badge>
+                                        )}
+                                    </div>
+                                    <Badge variant="outline" className={`${statusOpt?.color || ''} text-[10px] font-medium`}>
+                                        {statusOpt?.label || trip.status}
+                                    </Badge>
+                                </div>
+                                <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                                    <div className="flex items-center gap-1">
+                                        <Truck className="w-3 h-3" />
+                                        <span className="font-mono">{trip.vehicle?.license_plate || '-'}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <User className="w-3 h-3" />
+                                        <span>{trip.driver?.full_name || '-'}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <MapPin className="w-3 h-3" />
+                                        <span className="truncate">{(trip as any).route?.route_name || trip.route_name || '-'}</span>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                        <Calendar className="w-3 h-3" />
+                                        <span>{formatDate(trip.departure_date)}</span>
+                                    </div>
+                                </div>
+                                {revenue > 0 && (
+                                    <div className="flex items-center justify-between pt-2 border-t border-dashed">
+                                        <span className="text-xs text-muted-foreground">Doanh thu</span>
+                                        <span className="font-bold text-green-600 text-sm">{formatCurrency(revenue)}</span>
+                                    </div>
+                                )}
+                                {/* Quick actions for manager */}
+                                {trip.status === 'draft' && canCreate && (
+                                    <div className="flex gap-2 pt-2 border-t">
+                                        <Button 
+                                            size="sm" 
+                                            className="flex-1 h-9 bg-blue-600 hover:bg-blue-700 text-xs font-semibold"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                updateMutation.mutateAsync({ id: trip.id, updates: { status: 'confirmed' } }).then(() => {
+                                                    toast({ title: 'Đã xác nhận', description: `${trip.trip_code} đã được duyệt.` });
+                                                    queryClient.invalidateQueries({ queryKey: ['trips'] });
+                                                });
+                                            }}
+                                        >
+                                            ✅ Duyệt
+                                        </Button>
+                                        <Button 
+                                            size="sm" 
+                                            variant="outline"
+                                            className="flex-1 h-9 text-xs border-red-200 text-red-600 hover:bg-red-50"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                handleDeleteClick(e, trip);
+                                            }}
+                                        >
+                                            Hủy
+                                        </Button>
+                                    </div>
+                                )}
+                                {trip.status === 'confirmed' && canCreate && (
+                                    <div className="pt-2 border-t">
+                                        <Button 
+                                            size="sm" 
+                                            className="w-full h-9 bg-purple-600 hover:bg-purple-700 text-xs font-semibold"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                updateMutation.mutateAsync({ id: trip.id, updates: { status: 'dispatched' } }).then(() => {
+                                                    toast({ title: 'Đã điều xe', description: `${trip.trip_code} đã được điều xe.` });
+                                                    queryClient.invalidateQueries({ queryKey: ['trips'] });
+                                                });
+                                            }}
+                                        >
+                                            🚚 Điều xe ngay
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+                        );
+                    })
+                )}
+            </div>
+
+            {/* Desktop Data Table */}
+            <div className="hidden md:block">
             <DataTable
                 data={filteredTrips}
                 columns={columns.filter(c => visibleColumns.includes(String(c.key)))}
@@ -1365,6 +1487,7 @@ export default function TripsRevenue() {
                 onSelectionChange={setSelectedRowIds}
                 onDeleteSelected={canDelete ? handleBulkDelete : undefined}
             />
+            </div>
 
             {/* Bulk Delete Dialog */}
             <BulkDeleteDialog

@@ -51,6 +51,9 @@ export const useTrips = () => {
             
             return allTrips;
         },
+        // PIPELINE FIX P5: Near real-time sync between driver/manager/accountant
+        refetchInterval: 10000,
+        refetchOnWindowFocus: true,
     });
 };
 
