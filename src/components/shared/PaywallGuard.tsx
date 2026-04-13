@@ -8,6 +8,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 
 export const PaywallGuard: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    console.log("[FleetPro-Audit] PaywallGuard v1.2-bypass-active");
     const { data: settings, isLoading } = useCompanySettings();
     const { data: vehicles = [] } = useVehicles();
     const { role } = useAuth();
