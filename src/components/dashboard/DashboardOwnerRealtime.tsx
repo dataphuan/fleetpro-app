@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { useVehicles } from '@/hooks/useVehicles';
 import { useTrips } from '@/hooks/useTrips';
 import { useExpenses } from '@/hooks/useExpenses';
+import { useDrivers } from '@/hooks/useDrivers';
 import { useAlertsSummary } from '@/hooks/useAlerts';
 import { AlertTriangle, Circle, Truck, Wallet, Sparkles, TrendingUp, Info } from 'lucide-react';
 
@@ -64,6 +65,9 @@ export function DashboardOwnerRealtime() {
   const { data: expenses = [], refetch: refetchExpenses } = useExpenses();
   const { data: alertsSummary, refetch: refetchAlerts } = useAlertsSummary();
   const [lastUpdatedAt, setLastUpdatedAt] = useState(new Date());
+
+  // Also fetch drivers to map names correctly for vehicles that are ready
+  const { data: drivers = [] } = useDrivers();
 
   useEffect(() => {
     const timer = setInterval(async () => {
@@ -284,7 +288,7 @@ export function DashboardOwnerRealtime() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-1 text-xs">
-                    <p className="truncate">Tài xế: {trip?.driver_name || 'Chưa phân công'}</p>
+                    <p className="truncate">Tài xế: {trip?.driver_name || (vehicle.assigned_driver_id ? drivers.find((d: any) => d.id === vehicle.assigned_driver_id)?.full_name : null) || 'Chưa phân công'}</p>
                     <p className="truncate">Tuyến: {trip?.route_name || trip?.destination || '—'}</p>
                     <p>BH còn: {Number.isFinite(insurance) ? `${insurance} ngày` : '—'} | ĐK còn: {Number.isFinite(inspection) ? `${inspection} ngày` : '—'}</p>
                     <p>Chi phí hôm nay: {(expenseTodayByVehicle.get(vehicle.id) || 0).toLocaleString('vi-VN')}đ</p>

@@ -17,7 +17,9 @@ export const amountSchema = z.number().min(0, { message: 'Số tiền/Chi phí p
 export const VehicleSchema = z.object({
   id: vehicleIdSchema.optional(),
   'Mã xe': vehicleIdSchema.optional(),
-  payload_capacity: z.number().min(0).optional(),
+  vehicle_type: z.string().min(1, { message: 'Bắt buộc nhập loại xe' }),
+  license_plate: z.string().min(1, { message: 'Bắt buộc nhập biển số' }),
+  payload_capacity: z.number().min(0, { message: 'Tải trọng phải >= 0' }).optional(),
   insurance_expiry: z.string().optional().nullable(),
   registration_expiry: z.string().optional().nullable(),
 }).passthrough().refine(data => {
@@ -32,6 +34,8 @@ export const DriverSchema = z.object({
   id: driverIdSchema.optional(),
   'Mã tài xế': driverIdSchema.optional(),
   driver_code: driverIdSchema.optional(),
+  full_name: z.string().min(1, { message: 'Bắt buộc nhập họ tên' }),
+  phone: z.string().min(8, { message: 'Bắt buộc nhập số điện thoại hợp lệ' }),
   license_expiry: z.string().optional().nullable(),
   health_check_expiry: z.string().optional().nullable(),
 }).passthrough().refine(data => {

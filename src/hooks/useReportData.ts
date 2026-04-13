@@ -114,6 +114,7 @@ export const useVehicleReport = (filters: ReportFilters) => {
                 const totalExp = tripExps.reduce((sum: number, e: any) => sum + (e.amount || 0), 0);
 
                 v.trip_count++;
+                v.total_distance_km += (t.actual_distance_km || 0);
                 v.total_revenue += rev;
                 v.total_expense += totalExp;
                 v.profit = v.total_revenue - v.total_expense;
@@ -195,6 +196,7 @@ export const useDriverReport = (filters: ReportFilters) => {
                 if (!d) return;
 
                 d.trip_count++;
+                d.total_distance_km += (t.actual_distance_km || 0);
                 d.total_revenue += (t.total_revenue || 0);
             });
 
