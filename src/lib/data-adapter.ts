@@ -1144,7 +1144,6 @@ const tripFirestoreAdapter = {
             updated_at: new Date().toISOString()
         });
         
-        const data = tripSnap.data();
         if (data.vehicle_id) {
             const vSnap = await getDoc(doc(db, 'vehicles', data.vehicle_id));
             if (!vSnap.exists()) {

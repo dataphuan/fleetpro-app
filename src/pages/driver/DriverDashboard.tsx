@@ -1026,6 +1026,11 @@ export default function DriverDashboard() {
     };
 
     const handleAcceptTrip = async (trip: any) => {
+        if (!isDriverRole) {
+            toast({ title: 'Không có quyền', description: 'Chỉ tài xế mới được nhận chuyến.', variant: 'destructive' });
+            return;
+        }
+        if (!isOnline) {
             toast({ title: 'Mất kết nối mạng', description: 'Vui lòng bật mạng trước khi nhận chuyến.', variant: 'destructive' });
             return;
         }
@@ -1039,7 +1044,7 @@ export default function DriverDashboard() {
                     accepted_by: user?.id || user?.email || 'driver',
                 },
             });
-            toast({ title: 'Đã nhận chuyến', description: `Bạn đã nhận chuyến ${trip.trip_code}.` });
+            toast({ title: 'Đã nhận chuyến', description: 'Vui lòng thực hiện bước NHẬN XE để chốt ODO trước khi bắt đầu.' });
         } catch (error) {
             toast({ title: 'Nhận chuyến thất bại', description: 'Vui lòng thử lại.', variant: 'destructive' });
         } finally {
