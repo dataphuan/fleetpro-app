@@ -22,7 +22,7 @@ export const onRequestPost = async (context: any) => {
     const requestId = Date.now().toString();
     const orderId = `FLEETPRO_${tenantId}_${requestId}`;
     const orderInfo = `Thanh toán gói ${plan.toUpperCase()} cho FleetPro`;
-    const amount = plan === 'basic' ? "499000" : "999000"; // Sample pricing
+    const amount = plan === 'professional' ? "567000" : "567000"; // Fixed Standard PRO pricing
     const requestType = "captureWallet";
     const extraData = ""; // Can pass tenantId here if needed
 

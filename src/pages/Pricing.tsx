@@ -7,7 +7,7 @@ import { getCalApi } from "@calcom/embed-react";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 import { useToast } from "@/hooks/use-toast";
 import { companySettingsAdapter } from "@/lib/data-adapter";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams, useNavigate } from "react-router-dom";
 
 export default function Pricing() {
     const { tenantId } = useAuth();
@@ -15,7 +15,28 @@ export default function Pricing() {
     const [isProcessing, setIsProcessing] = useState(false);
     const [isMomoLoading, setIsMomoLoading] = useState(false);
 
-    const handleDemoUpgrade = async (plan: 'basic' | 'pro') => {
+    const [searchParams, setSearchParams] = useSearchParams();
+    const navigate = useNavigate();
+
+    // MoMo Frontend Webhook Interceptor
+    useEffect(() => {
+        const resultCode = searchParams.get("resultCode");
+        const orderId = searchParams.get("orderId");
+        if (resultCode === "0" && orderId) {
+            // Clean the URL immediately to prevent duplicate triggers on reload
+            searchParams.delete("resultCode");
+            searchParams.delete("orderId");
+            setSearchParams(searchParams, { replace: true });
+
+            // Simulate successful upgrade payload
+            handleUpgradeSuccess({
+                payer: { name: { given_name: "Khách hàng MoMo" } },
+                source: "momo"
+            });
+        }
+    }, [searchParams, setSearchParams]);
+
+    const handleDemoUpgrade = async (plan: string) => {
         setIsProcessing(true);
         try {
             const next30Days = new Date();
@@ -62,7 +83,7 @@ export default function Pricing() {
             await companySettingsAdapter.upsert({
                 id: tenantId || 'default',
                 subscription: {
-                    plan: 'basic',
+                    plan: 'professional',
                     status: 'active',
                     trial_ends_at: new Date().toISOString(),
                     next_billing_date: next30Days.toISOString()
@@ -71,7 +92,7 @@ export default function Pricing() {
 
             toast({
                 title: "Thanh toán thành công!",
-                description: `Cảm ơn bạn ${details.payer.name.given_name}. Lịch sử thanh toán đã lưu. Hệ thống đã mở khóa gói Basic. Vui lòng tải lại trang.`,
+                description: `Cảm ơn bạn ${details.payer?.name?.given_name || 'đã thanh toán'}. Lịch sử thanh toán đã lưu. Hệ thống đã mở khóa gói Chuyên Nghiệp. Vui lòng đợi trong giây lát...`,
             });
 
             // Reload after 3 seconds to clear the PaywallGuard overlay
@@ -257,7 +278,7 @@ export default function Pricing() {
                             variant="outline" 
                             className="w-full border-pink-500 text-pink-600 hover:bg-pink-50" 
                             disabled={isMomoLoading}
-                            onClick={() => handleMomoClick('basic')}
+                            onClick={() => handleMomoClick('professional')}
                         >
                             {isMomoLoading ? "Đang tạo mã QR..." : "Thanh toán bằng ví MoMo"}
                         </Button>
@@ -265,10 +286,10 @@ export default function Pricing() {
                         <Button 
                             variant="ghost" 
                             className="w-full text-[10px] text-slate-400 hover:text-primary"
-                            onClick={() => handleDemoUpgrade('basic')}
+                            onClick={() => handleDemoUpgrade('professional')}
                             disabled={isProcessing}
                         >
-                            [ DEV ONLY: Kích hoạt gói Basic ngay ]
+                            [ DEV ONLY: Kích hoạt gói PRO ngay ]
                         </Button>
                     </CardFooter>
                 </Card>
