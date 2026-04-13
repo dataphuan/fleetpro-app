@@ -308,7 +308,8 @@ export default function Settings() {
                       email: user?.email || '',
                       full_name: user?.full_name || '',
                       uid: userId || '',
-                      company_name: companyForm.company_name || 'FleetPro Demo'
+                      company_name: companyForm.company_name || 'FleetPro Demo',
+                      force: true
                     });
                     setDemoActionLoading(false);
                     if (res?.success) toast({ title: '✅ Thành công', description: 'Hệ thống đã sẵn sàng.' });

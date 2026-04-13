@@ -1755,13 +1755,6 @@ const seedNewTenantDemoData = async (options: TenantSeedOptions) => {
     const nowIso = new Date().toISOString();
 
     try {
-        // BUG #2 FIX: Use same insufficiency check as ensureTenantDemoReadiness
-        const alreadySufficient = !(await isTenantDemoDataInsufficient(tenantId));
-        if (alreadySufficient) {
-            console.log(`✅ [seedNewTenantDemoData] Demo data already sufficient for tenant: ${tenantId}`);
-            return;
-        }
-        
         console.log(`🔄 [seedNewTenantDemoData] Starting demo data seed for tenant: ${tenantId}, company: ${companyName}`);
 
     const toDocId = (collectionName: string, sourceId: string) => {

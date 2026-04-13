@@ -39,7 +39,11 @@ service cloud.firestore {
 
     function isDemoTenant() {
       // Robust check for demo tenant: either via user doc or if the user is a known demo email
-      return (userDocExists() && (userDoc().data.tenant_id == 'demo-tenant-tnc-001' || userDoc().data.tenant_id == 'internal-tenant-1')) || 
+      return (userDocExists() && (
+               userDoc().data.tenant_id == 'demo-tenant-tnc-001' || 
+               userDoc().data.tenant_id == 'internal-tenant-1' || 
+               userDoc().data.tenant_id == 'internal-tenant-phuan'
+             )) || 
              (request.auth.token.email.matches('.*@demo\\.tnc\\.io\\.vn') || 
               request.auth.token.email.matches('.*@fleetpro\\.vn') ||
               request.auth.token.email.matches('.*demo@tnc\\.io\\.vn'));
@@ -79,11 +83,12 @@ service cloud.firestore {
       allow create: if isAuthed() && (
         // Normal admin create
         (canAccessTenantData() && tid == tenantId() && isTenantAdmin()) ||
-        // Self-provisioning during registration: user just created their user doc
-        // and is now creating their company_settings with matching admin_id
-        (request.resource.data.admin_id == request.auth.uid)
+        // Self-provisioning during registration
+        (request.resource.data.admin_id == request.auth.uid) ||
+        // Demo tenant seed bypass
+        isDemoTenant()
       );
-      allow update: if canAccessTenantData() && tid == tenantId() && isTenantAdmin();
+      allow update: if canAccessTenantData() && tid == tenantId() && (isTenantAdmin() || isDemoTenant());
       allow delete: if false; // SaaS: Cannot delete your own tenant record from UI
     }
 
@@ -104,8 +109,9 @@ service cloud.firestore {
         (userDocExists() && userDoc().data.tenant_id == tid) ||
         (request.auth.token.tenant_id == tid)
       );
-      allow update: if isAuthed() && canAccessTenantData() && tid == tenantId() && isTenantAdmin();
-      allow create, delete: if false; // Server-side only
+      allow create: if isAuthed() && canAccessTenantData() && tid == tenantId() && (isTenantAdmin() || isDemoTenant());
+      allow update: if isAuthed() && canAccessTenantData() && tid == tenantId() && (isTenantAdmin() || isDemoTenant());
+      allow delete: if false;
     }
 
     // ID Counters: Decentralized sequential ID generation
@@ -159,9 +165,11 @@ service cloud.firestore {
       // QA AUDIT FIX: Expanded permissions for Accountant (Master Data write)
       allow create, update: if !(collection in ['users', 'company_settings', 'system_logs', 'tenants', 'trips', 'drivers'])
                     && canAccessTenantData() && (
+                      // Demo tenants get full write access for seeding
+                      isDemoTenant() ||
                       (collection in ['vehicles', 'drivers', 'routes', 'customers'] && sameTenantOnCreate() && canWriteMasterData()) ||
                       (collection == 'expenses' && canWriteFinancialData()) ||
-                      (collection in ['maintenance', 'tires', 'inventory', 'inventoryTransactions', 'purchaseOrders', 'alerts', 'partners', 'transportOrders', 'expenseCategories', 'trip_location_logs'] && (canWriteOperationalData() || canWriteFinancialData()))
+                      (collection in ['maintenance', 'tires', 'inventory', 'inventoryTransactions', 'purchaseOrders', 'alerts', 'partners', 'transportOrders', 'expenseCategories', 'trip_location_logs', 'accountingPeriods', 'costs'] && (canWriteOperationalData() || canWriteFinancialData()))
                     );
 
       allow delete: if (collection in ['vehicles', 'drivers', 'expenses', 'routes', 'customers'])
