@@ -1889,19 +1889,24 @@ const seedNewTenantDemoData = async (options: TenantSeedOptions) => {
                 payload.company_name = companyName;
                 payload.email = adminEmail;
                 payload.subscription = {
-                    plan: 'trial',
+                    plan: 'enterprise',
                     status: 'active',
                     trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString(),
                 };
             }
 
+            // QA AUDIT FIX: companySettings needs special handling for Collection Name and Doc ID
+            const targetCollection = collectionName === 'companySettings' ? 'company_settings' : collectionName;
+            const targetDocId = collectionName === 'companySettings' ? tenantId : toDocId(collectionName, sourceId);
+
             return {
-                docId: toDocId(collectionName, sourceId),
+                docId: targetDocId,
                 data: withAudit(payload),
+                targetCollection,
             };
         });
 
-        return { collectionName, rows: mappedRows };
+        return { collectionName: mappedRows[0]?.targetCollection || collectionName, rows: mappedRows };
     });
 
     // QA AUDIT FIX: Atomic User Creation

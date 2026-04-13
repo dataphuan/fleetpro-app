@@ -199,6 +199,47 @@ export const createTenantDemoAccounts = callableRegion.https.onCall(async (data:
     { role: 'driver', localPart: 'demo.driver', fullName: 'Demo Driver' },
   ];
 
+  const permissionsByRole: Record<string, any> = {
+      manager: {
+          vehicles: ['view', 'create', 'edit', 'delete', 'export'],
+          drivers: ['view', 'create', 'edit', 'delete', 'export'],
+          routes: ['view', 'create', 'edit', 'delete', 'export'],
+          customers: ['view', 'create', 'edit', 'delete', 'export'],
+          trips: ['view', 'create', 'edit', 'delete', 'export'],
+          finances: ['view', 'export'],
+          reports: ['view', 'export'],
+      },
+      dispatcher: {
+          vehicles: ['view'],
+          drivers: ['view'],
+          routes: ['view'],
+          customers: ['view'],
+          trips: ['view', 'create', 'edit'],
+          reports: ['view'],
+      },
+      accountant: {
+          vehicles: ['view'],
+          drivers: ['view'],
+          routes: ['view'],
+          customers: ['view'],
+          trips: ['view'],
+          finances: ['view', 'create', 'edit', 'delete', 'export'],
+          reports: ['view', 'export'],
+      },
+      driver: {
+          vehicles: ['view'],
+          trips: ['view'],
+      },
+      viewer: {
+          vehicles: ['view', 'export'],
+          drivers: ['view', 'export'],
+          routes: ['view', 'export'],
+          customers: ['view', 'export'],
+          trips: ['view', 'export'],
+          reports: ['view', 'export'],
+      },
+  };
+
   const results: Array<{ role: string; email: string; uid: string }> = [];
   for (const item of roles) {
     const email = `${item.localPart}+${tenantId}@fleetpro.vn`;
@@ -217,6 +258,8 @@ export const createTenantDemoAccounts = callableRegion.https.onCall(async (data:
       });
     }
 
+    const permissionObj = permissionsByRole[item.role] || permissionsByRole['viewer'];
+
     await db.collection('users').doc(userRecord.uid).set({
       email,
       full_name: item.fullName,
@@ -224,6 +267,8 @@ export const createTenantDemoAccounts = callableRegion.https.onCall(async (data:
       role: item.role,
       tenant_id: tenantId,
       status: 'active',
+      permissions: permissionObj,
+      permissions_synced_at: new Date().toISOString(),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }, { merge: true });

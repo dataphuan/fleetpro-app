@@ -235,13 +235,14 @@ export default function Vehicles() {
   const handleAdd = async () => {
     // ---- QUOTA GUARD CHECK ----
     if (companySettings?.subscription) {
-      const plan = companySettings.subscription.plan || 'trial';
+      const plan = (companySettings.subscription.plan || 'trial').toLowerCase();
       const currentCount = vehicles?.length || 0;
       
       let limit = 0;
       if (plan === 'trial') limit = 2;
       else if (plan === 'basic') limit = 20;
-      else if (plan === 'pro') limit = 999999;
+      else if (plan === 'pro' || plan === 'professional') limit = 100;
+      else if (plan === 'business' || plan === 'enterprise') limit = 999999;
       
       if (currentCount >= limit) {
         toast({
