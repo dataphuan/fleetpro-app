@@ -108,6 +108,14 @@ service cloud.firestore {
       allow create, delete: if false; // Server-side only
     }
 
+    // ID Counters: Decentralized sequential ID generation
+    match /counters/{counterId} {
+      allow read, write: if isAuthed() && (
+        (userDocExists() && counterId.toLower().startsWith(userDoc().data.tenant_id.toLower())) ||
+        isDemoTenant()
+      );
+    }
+
     // Trips: SECURITY HARDENING — Server-side Writes Only + Driver Isolation
     match /trips/{tripId} {
       // DATA ISOLATION: Drivers can only read their own trips, EXCEPT in Demo mode

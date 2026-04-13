@@ -50,6 +50,7 @@ export const getNextSequentialId = async (tenantId: string, collectionName: stri
       const nextVal = currentVal + 1;
       
       transaction.set(counterRef, {
+        tenant_id: tenantId,
         last_value: nextVal,
         updated_at: new Date().toISOString()
       }, { merge: true });
