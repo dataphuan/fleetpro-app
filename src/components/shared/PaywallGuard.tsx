@@ -32,6 +32,7 @@ export const PaywallGuard: React.FC<{ children: React.ReactNode }> = ({ children
         pro: 100,             // Pro Plan (Legacy Pro mapping)
         professional: 100,    // Standard Pro Plan
         business: Infinity,   // Business Plan (Enterprise)
+        enterprise: Infinity, // Standard Enterprise
     };
 
     const planName = sub.plan || 'trial';
