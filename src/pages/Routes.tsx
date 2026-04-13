@@ -100,9 +100,19 @@ const routeSchema = z.object({
   toll_cost: z.coerce.number().min(0),
   default_extra_fee: z.coerce.number().min(0),
   total_cost_standard: z.coerce.number().min(0),
-  profit_standard: z.coerce.number().min(0),
+  profit_standard: z.coerce.number(),
   notes: z.string().optional(),
   status: z.string().optional(),
+}).refine(data => {
+  // AUDIT FIX A1: At least one cost field must be > 0
+  const hasCosts = (data.fuel_cost_standard || 0) > 0 
+    || (data.toll_cost || 0) > 0 
+    || (data.driver_allowance_standard || 0) > 0
+    || (data.support_fee_standard || 0) > 0;
+  return hasCosts;
+}, { 
+  message: "Tuyến đường phải có ít nhất 1 mục chi phí định mức > 0 (Tiền dầu, Cầu đường, hoặc Bồi dưỡng)", 
+  path: ["fuel_cost_standard"] 
 });
 
 type RouteFormValues = z.infer<typeof routeSchema>;

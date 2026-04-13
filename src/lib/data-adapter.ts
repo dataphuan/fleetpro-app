@@ -1017,10 +1017,37 @@ const tripFirestoreAdapter = {
         const [enriched] = await enrichTripsWithRelations([row]);
         return enriched || null;
     },
-    // DEEP AUDIT FIX: Inherit route costs on creation
+    // DEEP AUDIT FIX: Inherit route costs on creation + Backend Guards
     create: async (data: any) => {
         const tenantId = getTenantId();
         const baseAdapter = createFirestoreAdapter('trips') as any;
+        
+        // ===== BACKEND GUARDS (B1-B3) =====
+        // Guard B1: Vehicle must be active
+        if (data.vehicle_id) {
+            const vSnap = await getDoc(doc(db, 'vehicles', data.vehicle_id));
+            if (vSnap.exists() && vSnap.data()?.status !== 'active') {
+                throw new Error(`Xe ${vSnap.data()?.license_plate || data.vehicle_id} đang ở trạng thái "${vSnap.data()?.status}". Chỉ xe Active mới được điều.`);
+            }
+        }
+        // Guard B3: Driver must be active
+        if (data.driver_id) {
+            const dSnap = await getDoc(doc(db, 'drivers', data.driver_id));
+            if (dSnap.exists() && dSnap.data()?.status !== 'active') {
+                throw new Error(`Tài xế ${dSnap.data()?.full_name || data.driver_id} đang ở trạng thái "${dSnap.data()?.status}". Chỉ TX Active mới được nhận lệnh.`);
+            }
+        }
+        // Guard B2: Route must be active and have costs
+        if (data.route_id) {
+            const rSnap = await getDoc(doc(db, 'routes', data.route_id));
+            if (rSnap.exists()) {
+                const routeData = rSnap.data();
+                if (routeData.status === 'inactive') {
+                    throw new Error(`Tuyến đường ${routeData.route_name} đã ngừng hoạt động. Không thể tạo lệnh.`);
+                }
+            }
+        }
+        // ===== END GUARDS =====
         
         // 1. Create the base trip
         const trip = await baseAdapter.create(data);
@@ -1036,9 +1063,13 @@ const tripFirestoreAdapter = {
                     const dateStr = now.toISOString().slice(0, 10);
                     
                     const standards = [
-                        { cat: 'Dầu hỏa/Nhiên liệu', amt: data.estimated_fuel ?? route.fuel_cost_standard, desc: 'Dinh muc Dau theo tuyen' },
-                        { cat: 'Cầu đường', amt: data.estimated_toll ?? (route.toll_cost || route.toll_cost_standard), desc: 'Dinh muc Cau duong theo tuyen' },
-                        { cat: 'Phí bồi dưỡng/Ăn uống', amt: data.estimated_allowance ?? route.driver_allowance_standard, desc: 'Dinh muc Boi duong theo tuyen' },
+                        { cat: 'fuel', catName: 'Nhiên liệu', amt: data.estimated_fuel ?? route.fuel_cost_standard, desc: 'Định mức Dầu theo tuyến' },
+                        { cat: 'toll', catName: 'Cầu đường', amt: data.estimated_toll ?? (route.toll_cost || route.toll_cost_standard), desc: 'Định mức Cầu đường theo tuyến' },
+                        { cat: 'allowance', catName: 'Bồi dưỡng/Ăn uống', amt: data.estimated_allowance ?? route.driver_allowance_standard, desc: 'Định mức Bồi dưỡng theo tuyến' },
+                        { cat: 'support', catName: 'Hỗ trợ', amt: route.support_fee_standard, desc: 'Phí hỗ trợ theo tuyến' },
+                        { cat: 'police', catName: 'Công an', amt: route.police_fee_standard, desc: 'Phí công an theo tuyến' },
+                        { cat: 'tire', catName: 'Bơm vá lốp', amt: route.tire_service_fee_standard, desc: 'Bơm vá theo tuyến' },
+                        { cat: 'other', catName: 'Phí khác', amt: route.default_extra_fee, desc: 'Phí phát sinh theo tuyến' },
                     ];
 
                     for (const std of standards) {
@@ -1046,13 +1077,14 @@ const tripFirestoreAdapter = {
                             await (createFirestoreAdapter('expenses') as any).create({
                                 tenant_id: tenantId,
                                 amount: std.amt,
-                                category: std.cat,
+                                category_id: std.cat,
+                                category: std.catName,
                                 trip_id: tripId,
                                 vehicle_id: data.vehicle_id || null,
                                 driver_id: data.driver_id || null,
                                 expense_date: dateStr,
                                 description: `${std.desc} - ${data.trip_code || ''}`,
-                                status: 'draft', // Draft until driver/accountant updates
+                                status: 'draft',
                                 payment_method: 'CASH',
                                 is_reconciled: false,
                                 is_deleted: 0,
@@ -1061,10 +1093,13 @@ const tripFirestoreAdapter = {
                             });
                         }
                     }
-                    // Initial calculation of profit with draft expenses
                     await recalculateTripExpenses(tripId, tenantId);
                 }
-            } catch (err) {
+            } catch (err: any) {
+                // Don't fail trip creation if expense generation fails
+                if (err?.message?.includes('đang ở trạng thái') || err?.message?.includes('ngừng hoạt động')) {
+                    throw err; // Re-throw guard errors
+                }
                 console.error("Error creating draft expenses from route standards:", err);
             }
         }
@@ -1248,16 +1283,25 @@ const tripFirestoreAdapter = {
             if (tripData.pod_status !== 'RECEIVED') {
                 throw new Error('Quy trình bắt buộc: POD (Biên bản giao nhận) chưa được xác nhận trước khi đóng chuyến.');
             }
-            // Check all linked expenses are reconciled
+            // AUDIT FIX C2: Check ALL linked expenses
             const tenantId = getTenantId();
             const expQ = query(collection(db, 'expenses'), where('tenant_id', '==', tenantId), where('trip_id', '==', id));
             const expSnap = await getDocs(expQ);
+            // Block close if ANY draft expenses haven't been reviewed by accountant
+            const draftCount = expSnap.docs.filter(d => {
+                const e = d.data();
+                return (e.status === 'draft' || e.status === 'pending') && !e.is_deleted;
+            }).length;
+            if (draftCount > 0) {
+                throw new Error(`Còn ${draftCount} chi phí CHƯA ĐƯỢC KẾ TOÁN DUYỆT (draft). Kế toán phải xác nhận hoặc từ chối trước khi đóng sổ.`);
+            }
+            // Check reconciliation for confirmed expenses
             const unreconciledCount = expSnap.docs.filter(d => {
                 const e = d.data();
                 return e.status === 'confirmed' && !e.is_reconciled;
             }).length;
             if (unreconciledCount > 0) {
-                throw new Error(`Còn ${unreconciledCount} chi phí chưa quyết toán. Vui lòng đối soát trước khi đóng chuyến.`);
+                throw new Error(`Còn ${unreconciledCount} chi phí đã duyệt nhưng chưa quyết toán. Vui lòng đối soát trước khi đóng chuyến.`);
             }
         }
 
@@ -1362,7 +1406,7 @@ const tripLocationFirestoreAdapter = {
     },
 };
 
-// Helper function to recalculate trip expenses
+// AUDIT FIX C1: Separate confirmed vs estimated expenses for accurate profit
 const recalculateTripExpenses = async (tripId: string, tenantId: string) => {
     if (!tripId) return;
     const q = query(
@@ -1372,17 +1416,20 @@ const recalculateTripExpenses = async (tripId: string, tenantId: string) => {
         where("is_deleted", "==", 0)
     );
     const snapshot = await getDocs(q);
-    let totalExpenses = 0;
-    snapshot.forEach(doc => {
-        const data = doc.data();
-        // Include both confirmed (actual) and draft (estimated) for real-time dashboard impact
-        if (data.status === 'confirmed' || data.status === 'draft' || data.status === 'pending') {
-            totalExpenses += (data.amount || 0);
+    let confirmedExpenses = 0;  // Only accountant-approved → affects REAL profit
+    let estimatedExpenses = 0;  // Draft/pending → for forecasting only
+    snapshot.forEach(d => {
+        const data = d.data();
+        if (data.status === 'confirmed') {
+            confirmedExpenses += (data.amount || 0);
+        } else if (data.status === 'draft' || data.status === 'pending') {
+            estimatedExpenses += (data.amount || 0);
         }
     });
-    // Write the aggregated sum back to the trip
     await updateDoc(doc(db, 'trips', tripId), { 
-        total_expenses: totalExpenses,
+        total_expenses: confirmedExpenses,           // REAL profit calculation
+        estimated_expenses: estimatedExpenses,        // For forecasting dashboard
+        total_all_expenses: confirmedExpenses + estimatedExpenses, // Grand total
         updated_at: new Date().toISOString()
     });
 };

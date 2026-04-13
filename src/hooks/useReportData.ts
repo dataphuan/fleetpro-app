@@ -504,9 +504,9 @@ export const useProfitReport = (filters: ReportFilters) => {
             const fromDate = filters.dateRange?.from;
             const toDate = filters.dateRange?.to;
 
-            // Include all active expenses (confirmed + draft/pending) for real-time demo impact
+            // AUDIT FIX D1: Only CONFIRMED expenses affect real profit
             const activeExpenses = allExpenses.filter((e: any) => {
-                if (e.status === 'cancelled' || e.is_deleted === 1) return false;
+                if (e.status !== 'confirmed' || e.is_deleted === 1) return false;
                 if (!e.expense_date) return false;
                 const d = new Date(e.expense_date);
                 if (fromDate && d < fromDate) return false;

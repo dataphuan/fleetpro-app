@@ -1622,10 +1622,10 @@ export default function TripsRevenue() {
                                                             </SelectTrigger>
                                                         </FormControl>
                                                         <SelectContent>
-                                                            <SelectItem value="none">-- Không chọn --</SelectItem>
-                                                            {routes?.map(r => (
+                                                            <SelectItem value="none">-- Không chọn (⚠️ thiếu định mức) --</SelectItem>
+                                                            {routes?.filter((r: any) => r.status !== 'inactive').map(r => (
                                                                 <SelectItem key={r.id} value={r.id}>
-                                                                    {r.route_name} ({r.distance_km} km)
+                                                                    {r.route_name} ({r.distance_km} km) {(r.total_cost_standard || 0) === 0 ? '⚠️' : ''}
                                                                 </SelectItem>
                                                             ))}
                                                         </SelectContent>

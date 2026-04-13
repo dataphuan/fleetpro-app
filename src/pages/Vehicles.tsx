@@ -113,6 +113,8 @@ const vehicleSchema = z.object({
   registration_expiry_date: z.string().min(1, "Hạn đăng kiểm là bắt buộc"),
   registration_cost: z.coerce.number().optional(),
   current_location: z.string().optional(),
+  // AUDIT FIX A2: ODO mandatory for fuel tracking
+  current_odometer: z.coerce.number().min(0, "Số Km hiện tại phải >= 0").optional(),
   notes: z.string().optional(),
   status: z.enum(['active', 'maintenance', 'inactive', 'on_trip'] as const),
 });

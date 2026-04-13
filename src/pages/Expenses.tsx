@@ -122,11 +122,15 @@ const categoryIcons: Record<string, typeof Fuel> = {
 };
 
 const onlineExpenseCategories = [
-  { id: 'fuel', category_name: 'Nhiên liệu', category_type: 'variable' },
-  { id: 'toll', category_name: 'Cầu đường', category_type: 'variable' },
-  { id: 'labor', category_name: 'Nhân công', category_type: 'fixed' },
-  { id: 'maintenance', category_name: 'Bảo dưỡng', category_type: 'variable' },
-  { id: 'other', category_name: 'Khác', category_type: 'variable' },
+  { id: 'fuel', category_name: 'Nhiên liệu', category_type: 'fuel' },
+  { id: 'toll', category_name: 'Cầu đường', category_type: 'toll' },
+  { id: 'allowance', category_name: 'Bồi dưỡng/Ăn uống', category_type: 'labor' },
+  { id: 'support', category_name: 'Hỗ trợ tài xế', category_type: 'labor' },
+  { id: 'police', category_name: 'Công an/Hải quan', category_type: 'other' },
+  { id: 'tire', category_name: 'Bơm vá lốp', category_type: 'maintenance' },
+  { id: 'maintenance', category_name: 'Bảo dưỡng/Sửa chữa', category_type: 'maintenance' },
+  { id: 'labor', category_name: 'Bốc xếp/Nhân công', category_type: 'labor' },
+  { id: 'other', category_name: 'Phí phát sinh khác', category_type: 'other' },
 ];
 
 export default function Expenses() {
