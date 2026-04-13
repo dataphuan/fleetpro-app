@@ -18,6 +18,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger, SheetDescri
 import { SignaturePad } from "@/components/shared/SignaturePad";
 import { DriverLiveMap } from "@/components/driver/DriverLiveMap";
 import { DriverQuickTripModal } from "@/components/trips/DriverQuickTripModal";
+import { DriverVehicleAssignModal } from "@/components/driver/DriverVehicleAssignModal";
 import { getBestCurrentPosition, geolocationErrorToMessage, startLocationWatch, stopLocationWatch, type DriverGeoPoint } from "@/lib/driver-location";
 import { alertsAdapter, driverAdapter, expenseAdapter, transportOrderAdapter, tripAdapter, tripLocationAdapter } from "@/lib/data-adapter";
 import { evaluateLocationIntegrity, getIntegrityProfileByVehicleType } from "@/lib/location-integrity";
@@ -107,8 +108,9 @@ export default function DriverDashboard() {
     const lastFraudToastRef = useRef<number>(0);
     const lastAlertByTripRef = useRef<Record<string, number>>({});
 
-    // --- QUICK TRIP MODAL ---
+    // --- MODALS ---
     const [isQuickTripModalOpen, setIsQuickTripModalOpen] = useState(false);
+    const [isAssignVehicleModalOpen, setIsAssignVehicleModalOpen] = useState(false);
 
     // (Removed old DraftRequestForm)
 
@@ -1308,8 +1310,35 @@ export default function DriverDashboard() {
                         <Package className="w-8 h-8 text-slate-400" />
                     </div>
                     <h2 className="text-lg font-bold text-slate-700">Chưa có chuyến làm việc</h2>
-                    <p className="text-sm text-slate-500 mt-1">Sẵn sàng và hoàn thành các bước bên dưới để nhận việc.</p>
+                    <p className="text-sm text-slate-500 mt-1">Hoàn thành Bước 0 (Nhận Xe) và các bước tiếp theo để bắt đầu.</p>
                 </div>
+
+                {/* BƯỚC 0: Nhận Xe Điều Hành */}
+                <Card className={`border ${linkedDriver?.assigned_vehicle_id ? 'border-emerald-200 bg-emerald-50/70' : 'border-blue-200 bg-blue-50/70'}`}>
+                    <CardHeader className="pb-1 pt-3">
+                        <CardTitle className="text-sm font-semibold">
+                            {linkedDriver?.assigned_vehicle_id ? '✅' : '0️⃣'} BƯỚC 0: Nhận Xe Điều Hành
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2 pb-3">
+                        {linkedDriver?.assigned_vehicle_id ? (
+                            <div className="flex items-center gap-2 text-xs text-emerald-800">
+                                <Truck className="w-4 h-4" />
+                                <span>Đã nhận xe: <strong>{vehicles.find((v: any) => v.id === linkedDriver.assigned_vehicle_id)?.license_plate || 'Đang xác nhận...'}</strong></span>
+                            </div>
+                        ) : (
+                            <>
+                                <p className="text-xs text-blue-800">Bạn chưa được giao xe cố định. Vui lòng nhận một xe trống từ Pool hoặc liên hệ Quản lý.</p>
+                                <Button 
+                                    className="w-full bg-blue-600 hover:bg-blue-700 h-10 shadow-md"
+                                    onClick={() => setIsAssignVehicleModalOpen(true)}
+                                >
+                                    🚚 Nhận Xe & Bắt Đầu
+                                </Button>
+                            </>
+                        )}
+                    </CardContent>
+                </Card>
 
                 {/* BƯỚC 1: Kết nối Telegram */}
                 <Card className={`border ${isTelegramConnected ? 'border-emerald-200 bg-emerald-50/70' : 'border-amber-200 bg-amber-50/70'}`}>
@@ -1398,30 +1427,64 @@ export default function DriverDashboard() {
                         
                         <Button 
                             className="w-full bg-blue-600 hover:bg-blue-700 h-10 shadow-md"
-                            onClick={() => setIsQuickTripModalOpen(true)}
-                        >
-                            <Plus className="w-4 h-4 mr-2" /> Tạo Lệnh Điểu Xe Nháp
-                        </Button>
-                    </CardContent>
-                </Card>
+                                onClick={() => {
+                                    if (!linkedDriver?.assigned_vehicle_id) {
+                                        toast({
+                                            title: "Chưa nhận xe",
+                                            description: "Vui lòng hoàn thành 'BƯỚC 0: Nhận Xe' trước khi tạo lệnh.",
+                                            variant: "destructive"
+                                        });
+                                        setIsAssignVehicleModalOpen(true);
+                                        return;
+                                    }
+                                    setIsQuickTripModalOpen(true);
+                                }}
+                            >
+                                <Plus className="w-4 h-4 mr-2" /> Tạo Lệnh Điểu Xe Nháp
+                            </Button>
+                        </CardContent>
+                    </Card>
 
-                <a
-                    href="tel:0989890022"
-                    className="flex items-center justify-center gap-2 rounded-xl border border-blue-300 bg-white px-3 py-3 text-sm font-semibold text-blue-700 w-full shadow-sm"
-                >
-                    <PhoneCall className="w-4 h-4" />
-                    Hotline Điều phối: 0989.890.022
-                </a>
-
-                {isDriverRole && (
-                    <Button 
-                        id="driver-fab-create-trip"
-                        className="fixed bottom-24 right-4 z-40 w-14 h-14 rounded-full shadow-2xl bg-blue-600 hover:bg-blue-700 p-0 flex items-center justify-center transition-transform active:scale-95 border-2 border-white"
-                        onClick={() => setIsQuickTripModalOpen(true)}
+                    <a
+                        href="tel:0989890022"
+                        className="flex items-center justify-center gap-2 rounded-xl border border-blue-300 bg-white px-3 py-3 text-sm font-semibold text-blue-700 w-full shadow-sm"
                     >
-                        <Plus className="w-8 h-8 text-white" />
-                    </Button>
-                )}
+                        <PhoneCall className="w-4 h-4" />
+                        Hotline Điều phối: 0989.890.022
+                    </a>
+
+                    {isDriverRole && (
+                        <Button 
+                            id="driver-fab-create-trip"
+                            className="fixed bottom-24 right-4 z-40 w-14 h-14 rounded-full shadow-2xl bg-blue-600 hover:bg-blue-700 p-0 flex items-center justify-center transition-transform active:scale-95 border-2 border-white"
+                            onClick={() => {
+                                if (!linkedDriver?.assigned_vehicle_id) {
+                                    toast({
+                                        title: "Chưa nhận xe",
+                                        description: "Vui lòng hoàn thành 'BƯỚC 0' để nhận xe điều hành.",
+                                        variant: "destructive"
+                                    });
+                                    setIsAssignVehicleModalOpen(true);
+                                    return;
+                                }
+                                setIsQuickTripModalOpen(true);
+                            }}
+                        >
+                            <Plus className="w-8 h-8 text-white" />
+                        </Button>
+                    )}
+
+                    <DriverVehicleAssignModal
+                        isOpen={isAssignVehicleModalOpen}
+                        onClose={() => setIsAssignVehicleModalOpen(false)}
+                        driverId={linkedDriver?.id || ''}
+                        tenantId={tenantId}
+                        availableVehicles={vehicles}
+                        onSuccess={() => {
+                            queryClient.invalidateQueries({ queryKey: ['drivers'] });
+                            queryClient.invalidateQueries({ queryKey: ['vehicles'] });
+                        }}
+                    />
 
                 <DriverQuickTripModal
                     isOpen={isQuickTripModalOpen}
@@ -1429,10 +1492,12 @@ export default function DriverDashboard() {
                     driverId={linkedDriver?.id || user?.id || ''}
                     driverName={linkedDriver?.full_name || user?.email || ''}
                     tenantId={tenantId}
-                    availableVehicles={vehicles.filter((v: any) => v.status === 'active' && (v.assignment_type === 'pool' || v.id === linkedDriver?.assigned_vehicle_id || v.assigned_driver_id === linkedDriver?.id))}
+                    availableVehicles={vehicles.filter((v: any) => v.status === 'active' && (v.assignment_type === 'pool' || !v.assigned_driver_id || v.id === linkedDriver?.assigned_vehicle_id || v.assigned_driver_id === linkedDriver?.id || (linkedDriver?.driver_code && v.assigned_driver_id === linkedDriver.driver_code)))}
                     assignedVehicleId={linkedDriver?.assigned_vehicle_id}
                     onSuccess={() => {
                         queryClient.invalidateQueries({ queryKey: ['trips'] });
+                        queryClient.invalidateQueries({ queryKey: ['drivers'] });
+                        queryClient.invalidateQueries({ queryKey: ['vehicles'] });
                     }}
                 />
             </div>

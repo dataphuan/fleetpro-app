@@ -35,10 +35,10 @@ export const PaywallGuard: React.FC<{ children: React.ReactNode }> = ({ children
         enterprise: Infinity, // Standard Enterprise
     };
 
-    const planName = sub.plan || 'trial';
-    const maxVehicles = quotaLimits[planName] || 5;
+    const planName = (sub.plan || 'trial').toLowerCase();
+    const maxVehicles = quotaLimits[planName] || quotaLimits['professional'] || 5;
     const currentVehicles = activeVehicles.length;
-    const isQuotaExceeded = currentVehicles > maxVehicles;
+    const isQuotaExceeded = currentVehicles > maxVehicles && planName !== 'trial' && !planName.includes('enterprise') && !planName.includes('business');
 
     let isExpired = false;
     let daysLeft = 0;
