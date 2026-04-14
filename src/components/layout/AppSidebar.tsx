@@ -19,6 +19,7 @@ import {
   UserCircle,
   MapPin,
   ExternalLink,
+  CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -49,6 +50,7 @@ const roleAccessMap: Record<string, UserRole[]> = {
   "/alerts": ["admin", "manager", "dispatcher"],
   "/settings": ["admin"],
   "/members": ["admin"],
+  "/pricing": ["admin"],
   "/logs": ["admin"],
   "/tracking-center": ["admin", "manager", "dispatcher", "accountant", "driver", "viewer"],
   "/coaching": ["admin", "manager"],
@@ -113,6 +115,14 @@ const navSections: NavSection[] = [
     items: [
       { path: "/super-admin", label: "Quản trị Hệ thống", icon: ShieldCheck },
       { path: "/logs", label: "Nhật ký Hệ thống", icon: Lock },
+    ],
+  },
+  {
+    label: "CÔNG TY",
+    items: [
+      { path: "/members", label: "Nhân Sự", icon: Users },
+      { path: "/pricing", label: "Gói Cước & Thanh toán", icon: CreditCard },
+      { path: "/settings", label: "Cấu Hình", icon: Settings },
     ],
   },
 ];
