@@ -15,6 +15,7 @@ import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { Badge } from "@/components/ui/badge";
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
+import { TenantSwitcher } from "./TenantSwitcher";
 
 interface AppHeaderProps {
   onOpenMobileSidebar?: () => void;
@@ -95,6 +96,7 @@ export function AppHeader({ onOpenMobileSidebar, forceShowMenuButton = false }: 
       </div>
 
       <div className="flex items-center gap-1.5 sm:gap-2">
+        <TenantSwitcher />
         <Button variant="ghost" size="icon" className="relative min-h-[40px] min-w-[40px]" asChild>
           <Link to="/?tab=alerts">
             <Bell className="h-5 w-5" />

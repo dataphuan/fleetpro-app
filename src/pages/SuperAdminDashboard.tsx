@@ -6,7 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { companySettingsAdapter } from '@/lib/data-adapter';
-import { ShieldCheck, Search, Zap, ExternalLink, ArrowRight, Save } from 'lucide-react';
+import { useAuth } from '@/contexts/AuthContext';
+import { ShieldCheck, Search, Zap, ExternalLink, ArrowRight, Save, LogIn } from 'lucide-react';
 
 const PLAN_OPTIONS = [
     { value: 'trial', label: 'Dùng thử (Trial)', color: 'bg-slate-100 text-slate-800' },
@@ -21,6 +22,7 @@ export default function SuperAdminDashboard() {
     const [currentSettings, setCurrentSettings] = useState<any>(null);
     const [selectedPlan, setSelectedPlan] = useState<string>('professional');
     const { toast } = useToast();
+    const { switchTenant } = useAuth();
 
     const handleSearch = async () => {
         if (!targetTenantId.trim()) return;
@@ -199,6 +201,14 @@ export default function SuperAdminDashboard() {
                             disabled={isLoading}
                         >
                             <Save className="w-5 h-5" /> Thực hiện Nâng cấp
+                        </Button>
+                        <Button 
+                            variant="outline"
+                            className="h-12 px-8 border-indigo-600 text-indigo-700 hover:bg-indigo-50 shadow-lg gap-2 w-full md:w-auto"
+                            onClick={() => switchTenant(targetTenantId.trim())}
+                            disabled={isLoading || !targetTenantId.trim()}
+                        >
+                            <LogIn className="w-5 h-5" /> Truy cập Workspace
                         </Button>
                     </CardContent>
                 </Card>

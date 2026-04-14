@@ -16,6 +16,7 @@ interface AuthContextType {
     tenantId: string | null;
     signOut: () => Promise<void>;
     refreshAuth: () => Promise<void>;
+    switchTenant: (newTenantId: string) => Promise<void>;
     loading: boolean;
 }
 
@@ -26,6 +27,7 @@ const AuthContext = createContext<AuthContextType>({
     tenantId: null,
     signOut: async () => { },
     refreshAuth: async () => { },
+    switchTenant: async () => { },
     loading: true,
 });
 
@@ -40,9 +42,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         try {
             await firebaseSignOut(auth);
             localStorage.removeItem('_fleetpro_session'); // Clean up old sessions just in case
+            localStorage.removeItem('fleetpro_tenant_id'); // Clear impersonation on logout
         } catch (error) {
             console.error('[Auth] Logout error:', error);
         }
+    }, []);
+
+    const switchTenant = useCallback(async (newTenantId: string) => {
+        setTenantId(newTenantId);
+        setRuntimeTenantId(newTenantId);
+        // Force a page reload to securely wipe any in-memory state/React Query cache
+        window.location.href = '/';
     }, []);
 
     const fetchUserMetadata = useCallback(async (firebaseUser: any) => {
@@ -127,6 +137,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             // SUPER-ADMIN OVERRIDE: If user is Coach.chuyen@gmail.com, force superadmin role
             if (firebaseUser.email?.toLowerCase() === 'coach.chuyen@gmail.com') {
                 currentRole = 'superadmin';
+                const cachedTenant = typeof localStorage !== 'undefined' ? localStorage.getItem('fleetpro_tenant_id') : null;
+                // Inherit cached tenant if impersonating, otherwise default to the isolated system view
+                currentTenantId = cachedTenant || 'system-admin';
             }
 
             setUserId(firebaseUser.uid);
@@ -233,6 +246,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         tenantId,
         signOut,
         refreshAuth,
+        switchTenant,
         loading,
     };
 
