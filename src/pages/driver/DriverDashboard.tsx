@@ -1555,28 +1555,39 @@ export default function DriverDashboard() {
                 </Button>
             </div>
 
-            <Card className="border-sky-200 bg-sky-50/70">
-                <CardContent className="pt-4">
-                    <div className="flex items-start gap-3">
-                        <LocateFixed className="w-5 h-5 mt-0.5 text-sky-700" />
-                        <div className="space-y-1 text-sm">
-                            <p className="font-semibold text-sky-900">Check-in GPS chinh xac va dinh vi mien phi</p>
-                            <p className="text-sky-800">
-                                He thong chi cho phep check-in khi sai so GPS du nho. Sau khi vao chuyen, vi tri se cap nhat tu dong khi app dang mo.
-                            </p>
-                            <p className="text-xs text-sky-700">
-                                Trang thai tracking: {isTrackingActive ? 'Dang hoat dong' : 'Chua bat dau'}
-                            </p>
-                            {!FEATURE_GATES.trackingWrite && (
-                                <p className="text-xs text-amber-700">Ghi nhật ký vị trí đang tạm khóa theo cờ phát hành.</p>
-                            )}
-                            {!isDriverRole && (
-                                <p className="text-xs text-amber-700">Bạn đang ở chế độ xem. Các thao tác dành riêng cho tài xế đã bị ẩn.</p>
-                            )}
+            {isTrackingActive ? (
+                <Card className="border-green-400 bg-green-50 shadow-md animate-in fade-in zoom-in duration-500 overflow-hidden relative">
+                    <div className="absolute -right-4 -top-4 w-24 h-24 bg-green-400 rounded-full opacity-20 animate-ping" />
+                    <CardContent className="pt-4 pb-4">
+                        <div className="flex items-center gap-4">
+                            <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-green-100">
+                                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"></span>
+                                <LocateFixed className="relative z-10 w-6 h-6 text-green-600" />
+                            </div>
+                            <div className="space-y-0.5">
+                                <p className="font-bold text-green-800 text-base">GPS Đang Hoạt Động</p>
+                                <p className="text-xs text-green-700 font-medium">
+                                    Vị trí của bạn đang được kết nối trực tiếp với Bản đồ Điều phối.
+                                </p>
+                            </div>
                         </div>
-                    </div>
-                </CardContent>
-            </Card>
+                    </CardContent>
+                </Card>
+            ) : (
+                <Card className="border-sky-200 bg-sky-50/70">
+                    <CardContent className="pt-4">
+                        <div className="flex items-start gap-3">
+                            <LocateFixed className="w-5 h-5 mt-0.5 text-sky-700" />
+                            <div className="space-y-1 text-sm">
+                                <p className="font-semibold text-sky-900">Hệ Thống Tracking GPS</p>
+                                <p className="text-sky-800 text-xs">
+                                    Hệ thống sẽ tự động bắt đầu dò sóng định vị khi bạn bấm "Bắt Đầu" một chuyến xe.
+                                </p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
 
             {myActiveTrips.map((trip) => {
                 const shareState = shareStateByTrip[trip.id] || 'idle';

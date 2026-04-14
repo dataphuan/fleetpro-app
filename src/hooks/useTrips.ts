@@ -398,5 +398,7 @@ export const useTripsByDateRange = (startDate: string, endDate: string) => {
             return await tripAdapter.listByDateRange(startDate, endDate);
         },
         enabled: !!startDate && !!endDate,
+        refetchInterval: 10000,
+        refetchOnWindowFocus: true,
     });
 };

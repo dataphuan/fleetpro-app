@@ -692,15 +692,24 @@ export default function Dispatch() {
           {viewMode === 'map' && (
             <div className="h-full w-full p-4 bg-slate-100/50">
                <FleetMap 
-                locations={vehicles?.map((v, idx) => ({
-                    id: v.id,
-                    license_plate: v.license_plate,
-                    lat: 10 + (idx * 0.5), // Mock locations for demo
-                    lng: 106 + (idx * 0.2),
-                    status: idx % 3 === 0 ? 'moving' : (idx % 3 === 1 ? 'idle' : 'stopped'),
-                    driver_name: v.default_driver_id || 'Chưa phân công',
-                    trip_code: trips?.find(t => t.vehicle_id === v.id)?.trip_code
-                })) || []} 
+                locations={vehicles?.map((v, idx) => {
+                    const activeTrip = trips?.find(t => t.vehicle_id === v.id && ['dispatched', 'in_progress'].includes(t.status));
+                    const hasLiveGps = activeTrip && activeTrip.last_location_lat && activeTrip.last_location_lng;
+                    
+                    // Kho bãi trung tâm (Đà Nẵng)
+                    const hubLat = 16.0544;
+                    const hubLng = 108.2022;
+
+                    return {
+                        id: v.id,
+                        license_plate: v.license_plate,
+                        lat: hasLiveGps ? activeTrip.last_location_lat : hubLat + (idx * 0.0015), // Offset slightly to reveal stacked pins
+                        lng: hasLiveGps ? activeTrip.last_location_lng : hubLng + (idx * 0.0015),
+                        status: activeTrip?.status === 'in_progress' ? 'moving' : 'idle',
+                        driver_name: activeTrip?.driver?.full_name || v.default_driver_id || 'Chưa phân công',
+                        trip_code: activeTrip?.trip_code || undefined
+                    };
+                }) || []} 
                />
             </div>
           )}
