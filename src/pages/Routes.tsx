@@ -42,6 +42,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Route as RouteIcon, MapPin, Clock, Loader2, Trash2, RefreshCw, Search, Plus, Upload, Download } from "lucide-react";
 import { useRoutes, useCreateRoute, useUpdateRoute, useDeleteRoute } from "@/hooks/useRoutes";
 import { usePermissions } from "@/hooks/usePermissions";
+import { useAuth } from "@/hooks/use-auth";
 // Type definitions
 interface Route {
   id: string;
@@ -89,12 +90,12 @@ const routeSchema = z.object({
   estimated_duration_hours: z.coerce.number().min(0),
   cargo_type: z.string().optional(),
   cargo_weight_standard: z.coerce.number().min(0),
-  base_price: z.coerce.number().min(0),
+  base_price: z.coerce.number().min(1, "Bắt buộc nhập đơn giá"),
   transport_revenue_standard: z.coerce.number().min(0),
-  driver_allowance_standard: z.coerce.number().min(0),
+  driver_allowance_standard: z.coerce.number().min(1, "Bắt buộc nhập tiền tài xế"),
   support_fee_standard: z.coerce.number().min(0),
   police_fee_standard: z.coerce.number().min(0),
-  fuel_liters_standard: z.coerce.number().min(0),
+  fuel_liters_standard: z.coerce.number().min(0.1, "Bắt buộc nhập số lít dầu"),
   fuel_cost_standard: z.coerce.number().min(0),
   tire_service_fee_standard: z.coerce.number().min(0),
   toll_cost: z.coerce.number().min(0),
@@ -119,6 +120,7 @@ type RouteFormValues = z.infer<typeof routeSchema>;
 
 export default function Routes() {
   const { toast } = useToast();
+  const { role } = useAuth();
   const queryClient = useQueryClient();
   const { canCreate, canDelete, canExport } = usePermissions('routes');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -837,7 +839,10 @@ export default function Routes() {
 
       <DataTable
         data={filteredRoutes}
-        columns={columns.filter(c => visibleColumns.includes(String(c.key)))}
+        columns={columns.filter(c => 
+          visibleColumns.includes(String(c.key)) && 
+          (role !== 'manager' || !['base_price', 'transport_revenue_standard', 'total_cost_standard', 'profit_standard'].includes(String(c.key)))
+        )}
         selectable
         onRowClick={handleRowClick}
         pageSize={50}
@@ -966,18 +971,23 @@ export default function Routes() {
                       <FormControl><Input type="number" className="h-8" {...field} /></FormControl>
                     </FormItem>
                   )} />
-                  <FormField control={form.control} name="base_price" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs">Đơn giá (VND/tấn)</FormLabel>
-                      <FormControl><Input type="number" className="h-8" {...field} /></FormControl>
-                    </FormItem>
-                  )} />
-                  <FormField control={form.control} name="transport_revenue_standard" render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-xs font-bold text-blue-600">Doanh thu VC</FormLabel>
-                      <FormControl><Input type="number" className="h-8 font-bold bg-blue-50" readOnly {...field} /></FormControl>
-                    </FormItem>
-                  )} />
+                  {role !== 'manager' && (
+                    <>
+                      <FormField control={form.control} name="base_price" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs">Đơn giá (VND/tấn) *</FormLabel>
+                          <FormControl><Input type="number" className="h-8" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={form.control} name="transport_revenue_standard" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs font-bold text-blue-600">Doanh thu VC</FormLabel>
+                          <FormControl><Input type="number" className="h-8 font-bold bg-blue-50" readOnly {...field} /></FormControl>
+                        </FormItem>
+                      )} />
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -990,8 +1000,9 @@ export default function Routes() {
                 <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                   <FormField control={form.control} name="driver_allowance_standard" render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-xs">Tiền TX</FormLabel>
+                      <FormLabel className="text-xs">Tiền TX *</FormLabel>
                       <FormControl><Input type="number" className="h-8" {...field} /></FormControl>
+                      <FormMessage />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="support_fee_standard" render={({ field }) => (
@@ -1014,8 +1025,9 @@ export default function Routes() {
                   )} />
                   <FormField control={form.control} name="fuel_liters_standard" render={({ field }) => (
                     <FormItem>
-                      <FormLabel className="text-xs">Số lít dầu</FormLabel>
+                      <FormLabel className="text-xs">Số lít dầu *</FormLabel>
                       <FormControl><Input type="number" className="h-8" {...field} /></FormControl>
+                      <FormMessage />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="fuel_cost_standard" render={({ field }) => (
@@ -1036,25 +1048,29 @@ export default function Routes() {
                       <FormControl><Input type="number" className="h-8" {...field} /></FormControl>
                     </FormItem>
                   )} />
-                  <FormField control={form.control} name="total_cost_standard" render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                      <FormLabel className="text-xs font-bold text-amber-600">Tổng Chi Phí</FormLabel>
-                      <FormControl><Input type="number" className="h-8 font-bold bg-amber-50" readOnly {...field} /></FormControl>
-                    </FormItem>
-                  )} />
+                  {role !== 'manager' && (
+                    <FormField control={form.control} name="total_cost_standard" render={({ field }) => (
+                      <FormItem className="md:col-span-2">
+                        <FormLabel className="text-xs font-bold text-amber-600">Tổng Chi Phí</FormLabel>
+                        <FormControl><Input type="number" className="h-8 font-bold bg-amber-50" readOnly {...field} /></FormControl>
+                      </FormItem>
+                    )} />
+                  )}
                 </div>
               </div>
 
               {/* Group 4: Lợi Nhuận & Khác */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField control={form.control} name="profit_standard" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="text-xs font-bold text-green-600">Lợi Nhuận Dự Kiến</FormLabel>
-                    <FormControl><Input type="number" className="h-10 font-bold bg-green-50 text-green-700 text-lg" readOnly {...field} /></FormControl>
-                  </FormItem>
-                )} />
+                {role !== 'manager' && (
+                  <FormField control={form.control} name="profit_standard" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs font-bold text-green-600">Lợi Nhuận Dự Kiến</FormLabel>
+                      <FormControl><Input type="number" className="h-10 font-bold bg-green-50 text-green-700 text-lg" readOnly {...field} /></FormControl>
+                    </FormItem>
+                  )} />
+                )}
                 <FormField control={form.control} name="notes" render={({ field }) => (
-                  <FormItem>
+                  <FormItem className={role === 'manager' ? "col-span-1 md:col-span-2" : ""}>
                     <FormLabel className="text-xs">Ghi chú</FormLabel>
                     <FormControl><Input className="h-10" {...field} /></FormControl>
                   </FormItem>

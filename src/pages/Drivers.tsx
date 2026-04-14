@@ -50,7 +50,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Users, Phone, Loader2, Trash2, RefreshCw, Search, Plus, Upload, Download } from "lucide-react";
+import { Users, Phone, Loader2, Trash2, RefreshCw, Search, Plus, Upload, Download, Truck, MapPin } from "lucide-react";
 import { useDrivers, useCreateDriver, useUpdateDriver, useDeleteDriver } from "@/hooks/useDrivers";
 import { useVehiclesByStatus } from "@/hooks/useVehicles";
 import { useQueryClient } from "@tanstack/react-query";
@@ -97,9 +97,9 @@ const driverSchema = z.object({
   license_expiry: z.string().min(1, "Ngày hết hạn GPLX là bắt buộc"),
   health_check_expiry: z.string().min(1, "Hết hạn khám sức khỏe là bắt buộc"),
   hire_date: z.string().optional().or(z.literal('')),
-  base_salary: z.coerce.number().min(0, "Lương cơ bản phải lớn hơn hoặc bằng 0"),
+  base_salary: z.coerce.number().min(1, "Lương cơ bản là bắt buộc và phải > 0"),
   status: z.enum(['active', 'on_leave', 'inactive', 'on_trip'] as const),
-  assigned_vehicle_id: z.string().optional().nullable(),
+  assigned_vehicle_id: z.string().min(1, "Bắt buộc chọn 1 xe. Hãy thêm Xe để có tuỳ chọn chọn xe."),
   date_of_birth: z.string().min(1, "Ngày sinh là bắt buộc"),
   tax_code: z.string().optional(),
   id_card: z.string().min(1, "Số CCCD là bắt buộc"),
@@ -196,7 +196,7 @@ export default function Drivers() {
       hire_date: "",
       base_salary: 0,
       status: "active",
-      assigned_vehicle_id: null, // "none" or null
+      assigned_vehicle_id: "",
     },
   });
 
@@ -232,7 +232,7 @@ export default function Drivers() {
       hire_date: "",
       base_salary: 0,
       status: "active",
-      assigned_vehicle_id: null,
+      assigned_vehicle_id: "",
       date_of_birth: "",
       tax_code: "",
       id_card: "",
@@ -281,7 +281,7 @@ export default function Drivers() {
       hire_date: driver.hire_date || "",
       base_salary: driver.base_salary || 0,
       status: driver.status || "active",
-      assigned_vehicle_id: driver.assigned_vehicle_id,
+      assigned_vehicle_id: driver.assigned_vehicle_id || "",
       date_of_birth: driver.date_of_birth || "",
       tax_code: driver.tax_code || "",
       id_card: driver.id_card || "",
@@ -340,7 +340,7 @@ export default function Drivers() {
       hire_date: data.hire_date === "" ? null : data.hire_date,
       date_of_birth: data.date_of_birth === "" ? null : data.date_of_birth,
       id_issue_date: data.id_issue_date === "" ? null : data.id_issue_date,
-      assigned_vehicle_id: data.assigned_vehicle_id === "none" ? null : data.assigned_vehicle_id,
+      assigned_vehicle_id: data.assigned_vehicle_id,
       tax_code: data.tax_code || null,
       id_card: data.id_card || null,
       address: data.address || null,
@@ -814,17 +814,99 @@ export default function Drivers() {
         </div>
       </div>
 
-      <DataTable
-        data={filteredDrivers}
-        columns={columns.filter(c => visibleColumns.includes(String(c.key)))}
-        selectable
-        onRowClick={handleRowClick}
-        pageSize={50}
-        selectedRowIds={selectedRowIds}
-        onSelectionChange={setSelectedRowIds}
-        onDeleteSelected={handleBulkDelete}
-        hideToolbar={true}
-      />
+      <div className="hidden md:block">
+        <DataTable
+          data={filteredDrivers}
+          columns={columns.filter(c => visibleColumns.includes(String(c.key)))}
+          selectable
+          onRowClick={handleRowClick}
+          pageSize={50}
+          selectedRowIds={selectedRowIds}
+          onSelectionChange={setSelectedRowIds}
+          onDeleteSelected={handleBulkDelete}
+          hideToolbar={true}
+        />
+      </div>
+
+      {/* Mobile Card View */}
+      <div className="md:hidden grid grid-cols-1 gap-3 pt-2">
+        {filteredDrivers.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground border rounded-lg bg-slate-50">Không tìm thấy tài xế phù hợp</div>
+        ) : (
+          filteredDrivers.map(driver => (
+            <div 
+              key={driver.id} 
+              className="bg-white p-4 rounded-xl border shadow-sm border-slate-200 active:bg-slate-50 transition-colors"
+              onClick={() => handleRowClick(driver)}
+            >
+              <div className="flex justify-between items-start mb-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 overflow-hidden">
+                    {/* Placeholder Avatar */}
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="font-bold text-lg text-slate-800">{driver.full_name}</div>
+                    <div className="text-sm font-medium text-slate-500 flex items-center gap-1">
+                      <Phone className="w-3 h-3" /> {driver.phone || "Chưa có SDT"}
+                    </div>
+                  </div>
+                </div>
+                <div className={`px-2.5 py-1 rounded-full text-xs font-semibold border shrink-0 ${
+                  driver.status === 'active' ? 'bg-green-100 text-green-700 border-green-200' :
+                  driver.status === 'on_trip' ? 'bg-blue-100 text-blue-700 border-blue-200' :
+                  'bg-gray-100 text-gray-700 border-gray-200'
+                }`}>
+                  {driver.status === 'active' ? '● Sẵn sàng' : 
+                   driver.status === 'on_trip' ? '▶ Đang chạy' : '■ Nghỉ'}
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-2 text-sm text-slate-600 mb-3 bg-slate-50 p-2 rounded-lg">
+                <div className="flex flex-col">
+                  <span className="text-xs text-slate-400">Bằng lái</span>
+                  <span className="font-medium text-slate-700">{driver.license_class || "Chưa cấp"}</span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-xs text-slate-400">Xe gán cố định</span>
+                  <span className="font-medium text-blue-600 truncate">{
+                    driver.assigned_vehicle_id 
+                      ? activeVehicles.find(v => v.id === driver.assigned_vehicle_id)?.license_plate || "Có xe"
+                      : "Chưa gán"
+                  }</span>
+                </div>
+              </div>
+              
+              <div className="flex gap-2">
+                <Button 
+                  size="sm" 
+                  className="w-full bg-blue-600 hover:bg-blue-700 shadow-sm" 
+                  onClick={(e) => { 
+                    e.stopPropagation(); 
+                    if (!driver.assigned_vehicle_id) {
+                      toast({ title: 'Không thể giao chuyến', description: 'Tài xế này chưa được gán xe vào bãi!', variant: 'destructive' });
+                      return;
+                    }
+                    toast({ title: 'Điều phối nhanh', description: `Giao chuyến cho tài xế ${driver.full_name}...` });
+                  }}
+                >
+                  <Truck className="w-4 h-4 mr-2" /> Giao chuyến
+                </Button>
+                {canDelete && (
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="px-3 border-red-200 text-red-600 hover:bg-red-50"
+                    onClick={(e) => handleDeleteClick(e, driver)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
 
       <BulkDeleteDialog
         open={bulkDeleteDialogOpen}
@@ -1100,7 +1182,7 @@ export default function Drivers() {
                   name="base_salary"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Lương cơ bản</FormLabel>
+                      <FormLabel>Lương cơ bản *</FormLabel>
                       <FormControl>
                         <Input type="number" {...field} />
                       </FormControl>
@@ -1114,11 +1196,11 @@ export default function Drivers() {
                   name="assigned_vehicle_id"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Xe phân công</FormLabel>
+                      <FormLabel>Xe phân công *</FormLabel>
                       <Select
-                        onValueChange={(val) => field.onChange(val === "none" ? null : val)}
-                        defaultValue={field.value || "none"}
-                        value={field.value || "none"}
+                        onValueChange={field.onChange}
+                        defaultValue={field.value || undefined}
+                        value={field.value || undefined}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -1126,8 +1208,7 @@ export default function Drivers() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="none">-- Không phân công --</SelectItem>
-                          {activeVehicles?.map((vehicle) => (
+                          {activeVehicles?.filter(v => (!v.assigned_driver_id || v.assigned_driver_id === selectedDriver?.id) || v.assignment_type === 'pool').map((vehicle) => (
                             <SelectItem key={vehicle.id} value={vehicle.id}>
                               {vehicle.license_plate} ({vehicle.brand})
                             </SelectItem>

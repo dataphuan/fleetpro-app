@@ -98,7 +98,7 @@ const vehicleSchema = z.object({
   license_plate: z.string().min(1, "Biển số là bắt buộc"),
   vehicle_type: z.string().min(1, "Loại xe là bắt buộc"),
   brand: z.string().min(1, "Nhãn hiệu xe là bắt buộc"),
-  capacity_tons: z.coerce.number().min(0.1, "Tải trọng phải > 0"),
+  capacity_tons: z.coerce.number().min(0.1, "Tải trọng tối thiểu 0.1"),
   fuel_type: z.string().min(1, "Loại nhiên liệu là bắt buộc"),
   usage_limit_years: z.string().optional(),
   engine_number: z.string().min(1, "Số máy là bắt buộc"),
@@ -107,14 +107,17 @@ const vehicleSchema = z.object({
   insurance_expiry_date: z.string().optional(),
   insurance_civil_expiry: z.string().min(1, "Hạn BH Dân sự là bắt buộc"),
   insurance_body_expiry: z.string().min(1, "Hạn BH Thân vỏ là bắt buộc"),
-  insurance_cost: z.coerce.number().optional(),
+  insurance_cost: z.coerce.number().min(1, "Tiền BH bắt buộc > 0"),
   registration_cycle: z.string().optional(),
   registration_date: z.string().optional(),
   registration_expiry_date: z.string().min(1, "Hạn đăng kiểm là bắt buộc"),
-  registration_cost: z.coerce.number().optional(),
+  registration_cost: z.coerce.number().min(1, "Phí ĐK bắt buộc > 0"),
   current_location: z.string().optional(),
   // AUDIT FIX A2: ODO mandatory for fuel tracking
   current_odometer: z.coerce.number().min(0, "Số Km hiện tại phải >= 0").optional(),
+  // New strict fields
+  fuel_consumption_per_100km: z.coerce.number().min(0.1, "Bắt buộc định mức > 0"),
+  purchase_price: z.coerce.number().min(1, "Giá mua xe bắt buộc > 0"),
   notes: z.string().optional(),
   status: z.enum(['active', 'maintenance', 'inactive', 'on_trip'] as const),
 });
@@ -228,6 +231,8 @@ export default function Vehicles() {
       registration_expiry_date: "",
       registration_cost: 0,
       current_location: "",
+      fuel_consumption_per_100km: 0,
+      purchase_price: 0,
       notes: "",
       status: "active",
     },
@@ -295,6 +300,8 @@ export default function Vehicles() {
       registration_expiry_date: "",
       registration_cost: 0,
       current_location: "",
+      fuel_consumption_per_100km: 0,
+      purchase_price: 0,
       notes: "",
       status: "active",
     });
@@ -323,6 +330,8 @@ export default function Vehicles() {
       registration_expiry_date: vehicle.registration_expiry_date || "",
       registration_cost: vehicle.registration_cost || 0,
       current_location: vehicle.current_location || "",
+      fuel_consumption_per_100km: (vehicle as any).fuel_consumption_per_100km || 0,
+      purchase_price: (vehicle as any).purchase_price || 0,
       notes: vehicle.notes || "",
       status: vehicle.status || "active",
     });
@@ -418,6 +427,8 @@ export default function Vehicles() {
       registration_expiry_date: data.registration_expiry_date || null,
       registration_cost: data.registration_cost || null,
       current_location: data.current_location || null,
+      fuel_consumption_per_100km: data.fuel_consumption_per_100km || null,
+      purchase_price: data.purchase_price || null,
       notes: data.notes || null,
     };
 
@@ -881,17 +892,77 @@ export default function Vehicles() {
         </div>
       </div>
 
-      <DataTable
-        data={filteredVehicles}
-        columns={columns.filter(c => visibleColumns.includes(String(c.key)))}
-        selectable
-        onRowClick={handleRowClick}
-        pageSize={50}
-        selectedRowIds={selectedRowIds}
-        onSelectionChange={setSelectedRowIds}
-        onDeleteSelected={handleBulkDelete}
-        hideToolbar={true}
-      />
+      <div className="hidden md:block">
+        <DataTable
+          data={filteredVehicles}
+          columns={columns.filter(c => visibleColumns.includes(String(c.key)))}
+          selectable
+          onRowClick={handleRowClick}
+          pageSize={50}
+          selectedRowIds={selectedRowIds}
+          onSelectionChange={setSelectedRowIds}
+          onDeleteSelected={handleBulkDelete}
+          hideToolbar={true}
+        />
+      </div>
+
+      {/* Mobile Card View (Thay thế cho Table rối rắm) */}
+      <div className="md:hidden grid grid-cols-1 gap-3 pt-2">
+        {filteredVehicles.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground border rounded-lg bg-slate-50">Không tìm thấy xe phù hợp</div>
+        ) : (
+          filteredVehicles.map(vehicle => (
+            <div 
+              key={vehicle.id} 
+              className="bg-white p-4 rounded-xl border shadow-sm border-slate-200 active:bg-slate-50 transition-colors"
+              onClick={() => handleRowClick(vehicle)}
+            >
+              <div className="flex justify-between items-start mb-3">
+                <div>
+                  <div className="font-bold text-lg text-slate-800">{vehicle.license_plate}</div>
+                  <div className="text-sm font-medium text-blue-600">{vehicle.vehicle_type} • {vehicle.capacity_tons} tấn</div>
+                </div>
+                <div className={`px-2.5 py-1 rounded-full text-xs font-semibold border ${
+                  vehicle.status === 'active' ? 'bg-green-100 text-green-700 border-green-200' :
+                  vehicle.status === 'on_trip' ? 'bg-blue-100 text-blue-700 border-blue-200' :
+                  'bg-gray-100 text-gray-700 border-gray-200'
+                }`}>
+                  {vehicle.status === 'active' ? '● Sẵn sàng' : 
+                   vehicle.status === 'on_trip' ? '▶ Đang chạy' : '■ Nằm bãi'}
+                </div>
+              </div>
+              
+              <div className="flex items-center gap-1 text-sm text-slate-500 mb-3">
+                <MapPin className="w-3.5 h-3.5" /> 
+                <span className="truncate">{vehicle.current_location || "Chưa xác định"}</span>
+              </div>
+              
+              <div className="flex gap-2">
+                <Button 
+                  size="sm" 
+                  className="w-full bg-blue-600 hover:bg-blue-700 shadow-sm" 
+                  onClick={(e) => { 
+                    e.stopPropagation(); 
+                    toast({ title: 'Điều phối nhanh', description: `Đang mở giao diện giao chuyến cho xe ${vehicle.license_plate}...` });
+                  }}
+                >
+                  <Truck className="w-4 h-4 mr-2" /> Giao chuyến
+                </Button>
+                {canDelete && (
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="px-3 border-red-200 text-red-600 hover:bg-red-50"
+                    onClick={(e) => handleDeleteClick(e, vehicle)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
 
       {/* Bulk Delete Dialog */}
       <BulkDeleteDialog
@@ -1018,6 +1089,32 @@ export default function Vehicles() {
                       </FormItem>
                     )}
                   />
+                  <FormField
+                    control={form.control}
+                    name="fuel_consumption_per_100km"
+                    render={({ field }) => (
+                      <FormItem>
+                      <FormLabel>Định mức dầu (L/100km) *</FormLabel>
+                      <FormControl>
+                          <Input type="number" step="0.1" placeholder="VD: 15" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="purchase_price"
+                    render={({ field }) => (
+                      <FormItem>
+                      <FormLabel>Giá mua xe *</FormLabel>
+                      <FormControl>
+                          <Input type="number" placeholder="VD: 1500000000" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
               </div>
 
@@ -1124,7 +1221,7 @@ export default function Vehicles() {
                     name="insurance_cost"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Số tiền mua bảo hiểm</FormLabel>
+                        <FormLabel>Số tiền mua BH *</FormLabel>
                         <FormControl>
                           <Input type="number" placeholder="VD: 3580000" {...field} />
                         </FormControl>
@@ -1197,7 +1294,7 @@ export default function Vehicles() {
                     name="registration_cost"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Số tiền đăng kiểm</FormLabel>
+                        <FormLabel>Số tiền đăng kiểm *</FormLabel>
                         <FormControl>
                           <Input type="number" placeholder="VD: 500000" {...field} />
                         </FormControl>

@@ -77,8 +77,8 @@ const customerSchema = z.object({
   ),
   email: z.string().email("Email không hợp lệ").optional().or(z.literal('')),
   contact_person: z.string().optional(),
-  payment_terms: z.coerce.number().min(0, "Kỳ hạn phải >= 0"),
-  credit_limit: z.coerce.number().min(0, "Hạn mức phải >= 0"),
+  payment_terms: z.coerce.number().min(1, "Kỳ hạn phải > 0"),
+  credit_limit: z.coerce.number().min(1, "Hạn mức tín dụng phải > 0"),
   current_debt: z.coerce.number().default(0),
   address: z.string().optional().nullable(),
   status: z.enum(['active', 'inactive'] as const).default('active'),
@@ -867,7 +867,7 @@ export default function Customers() {
                       name="credit_limit"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-xs">Hạn mức tín dụng (VNĐ)</FormLabel>
+                          <FormLabel className="text-xs">Hạn mức tín dụng (VNĐ) *</FormLabel>
                           <FormControl>
                             <Input type="number" {...field} className="h-8 font-medium text-blue-600" />
                           </FormControl>
@@ -880,7 +880,7 @@ export default function Customers() {
                       name="payment_terms"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-xs">Hạn thanh toán (ngày)</FormLabel>
+                          <FormLabel className="text-xs">Hạn thanh toán (ngày) *</FormLabel>
                           <FormControl>
                             <Input type="number" {...field} className="h-8" />
                           </FormControl>

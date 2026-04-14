@@ -43,6 +43,7 @@ import { useUpdateTrip } from "@/hooks/useTrips";
 const weekDays = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
 import { FleetMap } from "@/components/dispatch/FleetMap";
 import { QuickTripModal } from "@/components/trips/QuickTripModal";
+import { DispatchHub } from "@/components/dispatch/DispatchHub";
 
 export default function Dispatch() {
   const { toast } = useToast();
@@ -52,7 +53,7 @@ export default function Dispatch() {
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
 
   // Day View states
-  const [viewMode, setViewMode] = useState<'month' | 'week' | 'day' | 'map'>('week');
+  const [viewMode, setViewMode] = useState<'hub' | 'month' | 'week' | 'day' | 'map'>('hub');
   const [selectedDay, setSelectedDay] = useState<Date>(new Date());
   const [aiDrawerOpen, setAiDrawerOpen] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<AISuggestion[]>([]);
@@ -114,7 +115,7 @@ export default function Dispatch() {
   };
 
   // View Mode Toggle
-  const toggleViewMode = (mode: 'month' | 'week' | 'day' | 'map') => {
+  const toggleViewMode = (mode: 'hub' | 'month' | 'week' | 'day' | 'map') => {
     setViewMode(mode);
     if (mode === 'day') {
       // Sync selectedDay with current context
@@ -459,6 +460,15 @@ export default function Dispatch() {
               {/* Segmented Control */}
               <div className="inline-flex rounded-lg border bg-muted p-1">
                 <button
+                  onClick={() => toggleViewMode('hub')}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${viewMode === 'hub'
+                    ? 'bg-background shadow-sm text-foreground text-amber-600'
+                    : 'text-muted-foreground hover:text-foreground'
+                    }`}
+                >
+                  Trung tâm
+                </button>
+                <button
                   onClick={() => toggleViewMode('month')}
                   className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${viewMode === 'month'
                     ? 'bg-background shadow-sm text-foreground'
@@ -693,6 +703,15 @@ export default function Dispatch() {
                 })) || []} 
                />
             </div>
+          )}
+          
+          {/* Dispatch Hub - Drag & Drop */}
+          {viewMode === 'hub' && (
+             <DispatchHub 
+               trips={trips || []}
+               vehicles={vehicles || []}
+               drivers={drivers || []}
+             />
           )}
         </CardContent>
       </Card>

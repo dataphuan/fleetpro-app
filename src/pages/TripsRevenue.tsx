@@ -331,8 +331,8 @@ export default function TripsRevenue() {
     useEffect(() => {
         if (selectedRouteId && cargoWeight && routes) {
             const selectedRoute = routes.find(r => r.id === selectedRouteId);
-            if (selectedRoute && selectedRoute.standard_freight_rate) {
-                const calculatedRevenue = selectedRoute.standard_freight_rate * cargoWeight;
+            if (selectedRoute && selectedRoute.base_price) {
+                const calculatedRevenue = selectedRoute.base_price * cargoWeight;
                 const currentRevenue = form.getValues('freight_revenue');
                 if (currentRevenue === 0 || currentRevenue === null) {
                     form.setValue('freight_revenue', calculatedRevenue);
