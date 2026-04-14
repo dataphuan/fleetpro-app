@@ -88,15 +88,20 @@ export default function UserProfilePage() {
                     setUploadProgress(null);
                 },
                 async () => {
-                    const downloadURL = await getDownloadURL(fileRef);
-                    await updateDoc(doc(db, "users", userId), {
-                        avatar_url: downloadURL
-                    });
-                    await refreshAuth();
-                    setAvatarUrl(downloadURL);
-                    toast({ title: "Thành công", description: "Ảnh đại diện đã được cập nhật." });
-                    setSavingAvatar(false);
-                    setUploadProgress(null);
+                    try {
+                        const downloadURL = await getDownloadURL(fileRef);
+                        await updateDoc(doc(db, "users", userId), {
+                            avatar_url: downloadURL
+                        });
+                        await refreshAuth();
+                        setAvatarUrl(downloadURL);
+                        toast({ title: "Thành công", description: "Ảnh đại diện đã được cập nhật." });
+                    } catch (err: any) {
+                        toast({ title: "Lỗi cập nhật ảnh", description: err.message, variant: "destructive" });
+                    } finally {
+                        setSavingAvatar(false);
+                        setUploadProgress(null);
+                    }
                 }
             );
         } catch (error: any) {

@@ -69,7 +69,10 @@ service cloud.firestore {
         // Admin inviting members
         (canAccessTenantData() && isTenantAdmin() && request.resource.data.tenant_id == tenantId())
       );
-      allow update: if canAccessTenantData() && sameTenantOnReadUpdateDelete() && isTenantAdmin();
+      allow update: if isAuthed() && (
+        uid == request.auth.uid ||
+        (canAccessTenantData() && sameTenantOnReadUpdateDelete() && isTenantAdmin())
+      );
       allow delete: if canAccessTenantData() && sameTenantOnReadUpdateDelete() && isTenantAdmin();
     }
 
