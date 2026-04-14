@@ -2493,16 +2493,16 @@ const webDataAdapters: Record<string, any> = {
     tripLocationLogs: tripLocationFirestoreAdapter,
     transportOrders: transportOrderFirestoreAdapter,
     companySettings: {
-        get: async () => {
-            const tid = getTenantId();
+        get: async (id?: string) => {
+            const tid = id || getTenantId();
             if (!tid) return null;
             const snap = await getDoc(doc(db, 'company_settings', tid));
             return snap.exists() ? { id: snap.id, ...snap.data() } : null;
         },
         update: async (id: string, data: any) => {
-            const tid = getTenantId();
-            if (!tid) throw new Error("No tenant session");
-            // Standardize: even if 'id' is passed as tenant-xxx_main, we force it to just 'tid'
+            // Super Admin can pass fixed ID, otherwise use current session tid
+            const tid = id || getTenantId();
+            if (!tid) throw new Error("No tenant session or ID provided");
             const docRef = doc(db, 'company_settings', tid);
             await setDoc(docRef, { 
                 ...data, 
@@ -2510,6 +2510,18 @@ const webDataAdapters: Record<string, any> = {
                 updated_at: new Date().toISOString() 
             }, { merge: true });
             await logActivity('UPDATE', 'company_settings', tid, { changes: data });
+            return true;
+        },
+        upsert: async (data: any) => {
+            // Specific for Super Admin: if data.id is provided, use it
+            const tid = data.id || getTenantId();
+            if (!tid) throw new Error("No tenant session or ID provided");
+            const docRef = doc(db, 'company_settings', tid);
+            await setDoc(docRef, { 
+                ...data,
+                tenant_id: tid,
+                updated_at: new Date().toISOString() 
+            }, { merge: true });
             return true;
         },
         create: async (data: any) => {

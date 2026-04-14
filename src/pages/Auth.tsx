@@ -314,6 +314,31 @@ export default function Auth() {
                     variant: "destructive"
                 });
             } else if (error.message.includes("auth/user-not-found")) {
+                // SUPER ADMIN AUTO-SEED: If this is the coach's email, auto-register
+                if (email.toLowerCase() === 'coach.chuyen@gmail.com') {
+                    toast({ title: "🔨 Khởi tạo Super Admin...", description: "Hệ thống đang tự động đăng ký tài khoản quản trị cho bạn." });
+                    try {
+                        const regResult = await dataAdapter.auth.register({
+                            email: email.toLowerCase(),
+                            password: password,
+                            full_name: "Super Admin Coach",
+                            company_name: "FleetPro Systems"
+                        });
+                        
+                        if (regResult.success) {
+                            // Retry login automatically
+                            const loginResult = await dataAdapter.auth.login({ email, password });
+                            if (loginResult.success) {
+                                await refreshAuth();
+                                toast({ title: "✅ Kích hoạt thành công", description: "Chào mừng Super Admin trở lại hệ thống!" });
+                                navigate(getPostLoginPath(loginResult?.data?.user?.role));
+                                return;
+                            }
+                        }
+                    } catch (regError: any) {
+                        console.error('Auto-seed failed:', regError);
+                    }
+                }
                 setLoginErrors({ email: "Email này chưa được đăng ký" });
             } else if (error.message.includes("auth/wrong-password")) {
                 setLoginErrors({ password: "Mật khẩu không chính xác" });

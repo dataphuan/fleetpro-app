@@ -133,21 +133,27 @@ export default function SuperAdminDashboard() {
                                 <div className="space-y-1">
                                     <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">Công ty</div>
                                     <div className="text-xl font-bold text-slate-900">{currentSettings.company_name}</div>
+                                    <div className="text-[10px] font-mono text-slate-400">{currentSettings.id}</div>
                                 </div>
                                 <div className="flex justify-between items-center border-t border-b py-4">
                                     <div>
-                                        <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Gói hiện tại</div>
-                                        <Badge className={`px-3 py-1 text-sm ${PLAN_OPTIONS.find(p => p.value === (currentSettings.subscription?.plan || 'trial'))?.color}`}>
+                                        <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1 text-center">Hiện tại</div>
+                                        <Badge className={`px-3 py-1 text-[10px] w-full justify-center ${PLAN_OPTIONS.find(p => p.value === (currentSettings.subscription?.plan || 'trial'))?.color}`}>
                                             {(currentSettings.subscription?.plan || 'trial').toUpperCase()}
                                         </Badge>
                                     </div>
                                     <ArrowRight className="w-5 h-5 text-slate-300" />
                                     <div className="text-right">
-                                        <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Gói đề xuất</div>
-                                        <Badge variant="outline" className="px-3 py-1 text-sm border-blue-500 text-blue-600">
+                                        <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1 text-center">Nâng cấp</div>
+                                        <Badge variant="outline" className="px-3 py-1 text-[10px] border-blue-500 text-blue-600 w-full justify-center">
                                             {selectedPlan.toUpperCase()}
                                         </Badge>
                                     </div>
+                                </div>
+                                <div className="space-y-1 border-t pt-4">
+                                    <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">Thông tin liên hệ</div>
+                                    <div className="text-sm font-medium text-slate-700">{currentSettings.email || 'N/A'}</div>
+                                    <div className="text-sm text-slate-600 line-clamp-1">{currentSettings.address || 'Chưa cập nhật địa chỉ'}</div>
                                 </div>
                             </div>
                         ) : (
