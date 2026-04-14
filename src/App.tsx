@@ -100,6 +100,10 @@ const TrackingCenter = lazy(() => import("./pages/TrackingCenter").catch(err => 
   console.error('Failed to load TrackingCenter:', err);
   return { default: () => <div>Tracking Center failed to load</div> };
 }));
+const SuperAdminDashboard = lazy(() => import("./pages/SuperAdminDashboard").catch(err => {
+  console.error('Failed to load SuperAdminDashboard:', err);
+  return { default: () => <div>Super Admin failed to load</div> };
+}));
 
 const PhuAnDocs = lazy(() => import("./pages/docs/PhuAnDocs").catch(err => {
   console.error('Failed to load PhuAnDocs:', err);
@@ -192,6 +196,11 @@ const App = () => {
                   <Route path="/members" element={<Members />} />
                   <Route path="/logs" element={<Logs />} />
                   <Route path="/tracking-center" element={<TrackingCenter />} />
+                  <Route path="/super-admin" element={
+                    <Suspense fallback={<PageSkeleton />}>
+                      <SuperAdminDashboard />
+                    </Suspense>
+                  } />
                   <Route path="*" element={<NotFound />} />
                 </Route>
 

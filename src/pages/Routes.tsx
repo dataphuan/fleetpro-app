@@ -426,9 +426,11 @@ export default function Routes() {
   const handleImportData = async (rows: any[]) => {
     let successCount = 0;
     let errorCount = 0;
+    const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
     for (const row of rows) {
       try {
+        await delay(50); // Pacing for stability
         await createMutation.mutateAsync({
           ...row,
           route_code: String(row.route_code || `TD0000`),

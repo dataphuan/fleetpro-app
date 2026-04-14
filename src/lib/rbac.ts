@@ -1,6 +1,7 @@
 import type { UserRole } from "@/shared/types/domain";
 
 export const APP_ROLES: ReadonlyArray<UserRole> = [
+  "superadmin",
   "admin",
   "manager",
   "dispatcher",

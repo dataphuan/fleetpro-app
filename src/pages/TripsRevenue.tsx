@@ -358,7 +358,7 @@ export default function TripsRevenue() {
     useEffect(() => {
         const selectedTripId = sessionStorage.getItem('selectedTripId');
         if (selectedTripId && trips) {
-            const tripToOpen = trips.find(t => t.id === selectedTripId);
+            const tripToOpen = trips?.find(t => t.id === selectedTripId);
             if (tripToOpen) {
                 // Clear sessionStorage
                 sessionStorage.removeItem('selectedTripId');
@@ -797,9 +797,11 @@ export default function TripsRevenue() {
     const handleImportData = async (rows: any[]) => {
         let successCount = 0;
         let errorCount = 0;
+        const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
         for (const row of rows) {
             try {
+                await delay(50); // Pacing for stability
                 const vehicle = vehicles?.find(v =>
                     v.license_plate.toLowerCase() === String(row.license_plate).toLowerCase() ||
                     v.vehicle_code?.toLowerCase() === String(row.license_plate).toLowerCase()

@@ -69,7 +69,7 @@ export function DispatchHub({ trips, vehicles, drivers }: DispatchHubProps) {
     const vehicleId = e.dataTransfer.getData("vehicleId");
     if (!vehicleId) return;
 
-    const vehicle = vehicles.find(v => v.id === vehicleId);
+    const vehicle = vehicles?.find(v => v.id === vehicleId);
     if (!vehicle) return;
 
     // Use vehicle's default driver if available

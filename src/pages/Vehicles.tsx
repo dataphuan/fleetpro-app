@@ -351,7 +351,7 @@ export default function Vehicles() {
   useEffect(() => {
     const selectedVehicleId = sessionStorage.getItem('selectedVehicleId');
     if (selectedVehicleId && vehicles) {
-      const vehicle = vehicles.find(v => v.id === selectedVehicleId);
+      const vehicle = vehicles?.find(v => v.id === selectedVehicleId);
       if (vehicle) {
         handleRowClick(vehicle);
         sessionStorage.removeItem('selectedVehicleId');
@@ -496,8 +496,11 @@ export default function Vehicles() {
   // Handle Excel import data
   const handleExcelImport = async (data: Record<string, unknown>[]) => {
     let successCount = 0;
+    const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
+
     for (const row of data) {
       try {
+        await delay(50); // Pacing for stability
         await createMutation.mutateAsync({
           vehicle_code: String(row.vehicle_code),
           license_plate: String(row.license_plate),

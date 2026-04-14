@@ -28,6 +28,11 @@ const buildMutationKey = (collectionName: string, action: string, id?: string, p
         || payload?.expense_code
         || payload?.vehicle_id
         || payload?.driver_id
+        || payload?.license_plate
+        || payload?.vehicle_code
+        || payload?.driver_code
+        || payload?.customer_code
+        || payload?.route_code
         || '';
     return `${tenantId}:${userId}:${collectionName}:${action}:${stableToken}`;
 };

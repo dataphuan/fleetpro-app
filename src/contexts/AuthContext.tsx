@@ -124,6 +124,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 }
             }
 
+            // SUPER-ADMIN OVERRIDE: If user is Coach.chuyen@gmail.com, force superadmin role
+            if (firebaseUser.email?.toLowerCase() === 'coach.chuyen@gmail.com') {
+                currentRole = 'superadmin';
+            }
+
             setUserId(firebaseUser.uid);
             setRole(currentRole);
             setTenantId(currentTenantId);

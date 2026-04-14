@@ -380,9 +380,11 @@ export default function Customers() {
   const handleImportData = async (rows: any[]) => {
     let successCount = 0;
     let errorCount = 0;
+    const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
     for (const row of rows) {
       try {
+        await delay(50); // Pacing for stability
         await createMutation.mutateAsync({
           customer_code: String(row.customer_code),
           customer_name: String(row.customer_name || 'Khách hàng mới'),

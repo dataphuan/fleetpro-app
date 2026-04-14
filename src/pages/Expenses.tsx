@@ -302,7 +302,7 @@ export default function Expenses() {
   useEffect(() => {
     const selectedExpenseId = sessionStorage.getItem('selectedExpenseId');
     if (selectedExpenseId && expenses) {
-      const expense = expenses.find(e => e.id === selectedExpenseId);
+      const expense = expenses?.find(e => e.id === selectedExpenseId);
       if (expense) {
         handleRowClick(expense);
         sessionStorage.removeItem('selectedExpenseId');
@@ -489,9 +489,11 @@ export default function Expenses() {
   const handleImportData = async (rows: any[]) => {
     let successCount = 0;
     let errorCount = 0;
+    const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
     for (const row of rows) {
       try {
+        await delay(50); // Pacing for stability
         // 1. Lookup Category
         const categoryName = String(row.category_name || '').toLowerCase();
         const category = categories?.find(c => c.category_name.toLowerCase().includes(categoryName));

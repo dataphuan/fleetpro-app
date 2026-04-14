@@ -52,7 +52,8 @@ const roleAccessMap: Record<string, UserRole[]> = {
   "/logs": ["admin"],
   "/tracking-center": ["admin", "manager", "dispatcher", "accountant", "driver", "viewer"],
   "/coaching": ["admin", "manager"],
-  "/profile": ["admin", "manager", "dispatcher", "accountant", "driver", "viewer"],
+  "/profile": ["superadmin", "admin", "manager", "dispatcher", "accountant", "driver", "viewer"],
+  "/super-admin": ["superadmin"],
 };
 
 // Compact sidebar types
@@ -105,6 +106,13 @@ const navSections: NavSection[] = [
     items: [
       { path: "/maintenance", label: "Bảo Trì", icon: Wrench },
       { path: "/inventory/tires", label: "Kho & Lốp", icon: Package },
+    ],
+  },
+  {
+    label: "HỆ THỐNG",
+    items: [
+      { path: "/super-admin", label: "Quản trị Hệ thống", icon: ShieldCheck },
+      { path: "/logs", label: "Nhật ký Hệ thống", icon: Lock },
     ],
   },
 ];

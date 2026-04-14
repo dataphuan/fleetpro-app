@@ -2,7 +2,7 @@
  * Domain Types - Used across offline-db and UI
  */
 
-export type UserRole = 'admin' | 'manager' | 'dispatcher' | 'accountant' | 'driver' | 'viewer';
+export type UserRole = 'superadmin' | 'admin' | 'manager' | 'dispatcher' | 'accountant' | 'driver' | 'viewer';
 export type UserStatus = 'active' | 'inactive' | 'locked';
 
 export interface User {

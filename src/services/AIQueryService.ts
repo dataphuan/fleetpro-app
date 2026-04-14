@@ -31,7 +31,7 @@ export const aiQueryService = {
 
         if (params.licensePlate) {
             results = results.filter(v =>
-                v.license_plate.toLowerCase().includes(params.licensePlate!.toLowerCase())
+                v.license_plate?.toLowerCase().includes(params.licensePlate!.toLowerCase())
             );
         }
 
@@ -66,19 +66,19 @@ export const aiQueryService = {
 
         if (params.name) {
             results = results.filter(d =>
-                d.full_name.toLowerCase().includes(params.name!.toLowerCase())
+                d.full_name?.toLowerCase().includes(params.name!.toLowerCase())
             );
         }
 
         if (params.phone) {
             results = results.filter(d =>
-                d.phone_number.includes(params.phone!)
+                d.phone_number?.includes(params.phone!)
             );
         }
 
         if (params.licenseNumber) {
             results = results.filter(d =>
-                d.license_number.includes(params.licenseNumber!)
+                d.license_number?.includes(params.licenseNumber!)
             );
         }
 

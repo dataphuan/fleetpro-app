@@ -305,7 +305,7 @@ export default function Drivers() {
   useEffect(() => {
     const selectedDriverId = sessionStorage.getItem('selectedDriverId');
     if (selectedDriverId && drivers) {
-      const driver = drivers.find(d => d.id === selectedDriverId);
+      const driver = drivers?.find(d => d.id === selectedDriverId);
       if (driver) {
         handleRowClick(driver);
         sessionStorage.removeItem('selectedDriverId');
@@ -466,9 +466,11 @@ export default function Drivers() {
   const handleExcelImport = async (rows: Record<string, unknown>[]) => {
     let successCount = 0;
     let errorCount = 0;
+    const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
     for (const row of rows) {
       try {
+        await delay(50); // Pacing for stability
         await createMutation.mutateAsync({
           driver_code: String(row.driver_code || `TX-00`),
           full_name: String(row.full_name || 'Unknown'),

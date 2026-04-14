@@ -106,6 +106,53 @@ export default function PhuAnDocs() {
             </li>
           </ol>
         </section>
+        
+        {/* Section IV */}
+        <section className="space-y-6">
+          <h2 className="text-2xl font-bold text-slate-800 border-b pb-2 border-slate-200">IV. ĐẶC QUYỀN GÓI ENTERPRISE (CAO CẤP NHẤT)</h2>
+          <div className="bg-gradient-to-br from-indigo-900 to-blue-800 p-6 rounded-2xl text-white shadow-xl relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-10">
+                <Zap className="w-24 h-24" />
+            </div>
+            <h3 className="text-xl font-bold mb-4 flex items-center gap-2">💎 Phú An Premium Enterprise</h3>
+            <p className="text-blue-100 text-sm mb-6">Tài khoản Phú An đã được kích hoạt gói cao cấp nhất toàn hệ thống với các đặc quyền độc bản:</p>
+            
+            <div className="grid sm:grid-cols-2 gap-4">
+                <div className="flex items-start gap-3 bg-white/10 p-3 rounded-lg backdrop-blur-sm">
+                    <Check className="w-5 h-5 text-emerald-400 mt-0.5" />
+                    <div>
+                        <div className="font-bold text-sm">Vô hạn số lượng Xe</div>
+                        <div className="text-xs text-blue-200">Không giới hạn quy mô đội xe.</div>
+                    </div>
+                </div>
+                <div className="flex items-start gap-3 bg-white/10 p-3 rounded-lg backdrop-blur-sm">
+                    <Check className="w-5 h-5 text-emerald-400 mt-0.5" />
+                    <div>
+                        <div className="font-bold text-sm">Vô hạn Nhân sự</div>
+                        <div className="text-xs text-blue-200">Thêm bao nhiêu tài xế & kế toán tùy ý.</div>
+                    </div>
+                </div>
+                <div className="flex items-start gap-3 bg-white/10 p-3 rounded-lg backdrop-blur-sm">
+                    <Check className="w-5 h-5 text-emerald-400 mt-0.5" />
+                    <div>
+                        <div className="font-bold text-sm">Trợ lý AI Pro</div>
+                        <div className="text-xs text-blue-200">Sử dụng mô hình AI mạnh nhất hiện nay.</div>
+                    </div>
+                </div>
+                <div className="flex items-start gap-3 bg-white/10 p-3 rounded-lg backdrop-blur-sm">
+                    <Check className="w-5 h-5 text-emerald-400 mt-0.5" />
+                    <div>
+                        <div className="font-bold text-sm">Sao lưu Google Drive</div>
+                        <div className="text-xs text-blue-200">Dữ liệu được bảo mật 2 lớp tự động.</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div className="mt-8 p-4 bg-white/5 border border-white/10 rounded-xl text-xs text-blue-200 italic">
+                * Lưu ý: Mọi yêu cầu điều chỉnh cấu hình đặc thù, vui lòng liên hệ trực tiếp Super Admin (Coach Chuyen) qua kênh support riêng.
+            </div>
+          </div>
+        </section>
 
         <div className="mt-12 text-center pb-8 border-t pt-8">
             <Button size="lg" className="rounded-full shadow-lg h-14 px-8 text-lg" asChild>

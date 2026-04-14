@@ -411,9 +411,11 @@ export default function Maintenance() {
   const handleImportData = async (rows: any[]) => {
     let successCount = 0;
     let errorCount = 0;
+    const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
     for (const row of rows) {
       try {
+        await delay(50); // Pacing for stability
         // 1. Lookup Vehicle
         let vehicleId = "";
         if (row.vehicle_license_plate) {
