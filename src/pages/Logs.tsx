@@ -148,7 +148,7 @@ export default function Logs() {
 
       return rows.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
     },
-    enabled: !!tenantId && ['admin', 'manager', 'dispatcher', 'accountant'].includes(role)
+    enabled: !!tenantId && ['superadmin', 'admin', 'manager', 'dispatcher', 'accountant'].includes(role)
   });
 
   const getActionBadge = (action: string) => {
@@ -211,7 +211,7 @@ export default function Logs() {
     return hitQuery && hitSource;
   });
 
-  if (!['admin', 'manager', 'dispatcher', 'accountant'].includes(role)) {
+  if (!['superadmin', 'admin', 'manager', 'dispatcher', 'accountant'].includes(role)) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] space-y-4">
         <ShieldAlert className="w-12 h-12 text-destructive" />
