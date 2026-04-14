@@ -91,9 +91,14 @@ export function DriverVehicleAssignModal({
                             ))}
                         </select>
                         {poolVehicles.length === 0 ? (
-                            <p className="text-xs text-red-600 mt-1 italic">
-                                Hiện không có xe nào trống. Vui lòng liên hệ Quản lý để được giao xe.
-                            </p>
+                            <div className="bg-rose-50 border border-rose-100 p-3 rounded-lg mt-2">
+                                <p className="text-xs text-rose-800 font-bold mb-1 flex items-center gap-1">
+                                    ⚠️ KHÔNG TÌM THẤY XE TRỐNG
+                                </p>
+                                <p className="text-[11px] text-rose-700 leading-relaxed">
+                                    Để bắt đầu, Sếp (Admin) cần vào trang <strong>"Quản lý Xe"</strong> nạp biển số thật và đặt trạng thái là <strong>"Dùng chung (Pool)"</strong> thì bạn mới có thể nhận xe tại đây.
+                                </p>
+                            </div>
                         ) : (
                             <p className="text-[11px] text-slate-500 italic">
                                 * Lưu ý: Sau khi xác nhận, xe này sẽ được gán cố định cho bạn cho đến khi được thay đổi.

@@ -1284,8 +1284,8 @@ export default function DriverDashboard() {
                     </CardContent>
                 </Card>
 
-                {/* THIẾU XE CỐ ĐỊNH - ĐẨY LÊN CTA CHÍNH */}
-                {!linkedDriver?.assigned_vehicle_id && (
+                {/* THIẾU XE CỐ ĐỊNH - ĐẨY LÊN CTA CHÍNH (Sửa lỗi: check biến assignedVehicle thực tế) */}
+                {!assignedVehicle && (
                     <div className="px-1 mt-2 mb-2">
                         <Button 
                             className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 h-14 rounded-2xl shadow-xl shadow-blue-600/30 text-white text-base font-bold transition-transform active:scale-[0.98] border border-blue-400/50"
@@ -1297,7 +1297,7 @@ export default function DriverDashboard() {
                 )}
 
                 {/* NẾU CÓ XE POOL & ĐANG SẴN SÀNG */}
-                {poolVehicles.length > 0 && availabilityStatus === 'available' && !linkedDriver?.assigned_vehicle_id && (
+                {poolVehicles.length > 0 && availabilityStatus === 'available' && !assignedVehicle && (
                     <Card className="border border-purple-100 bg-purple-50/50 rounded-[20px] shadow-sm">
                         <CardContent className="pt-3 pb-3">
                             <p className="text-xs font-semibold text-purple-800 mb-2">🚛 Xe Pool đang trống ({poolVehicles.length})</p>
@@ -1310,6 +1310,21 @@ export default function DriverDashboard() {
                             </div>
                         </CardContent>
                     </Card>
+                )}
+
+                {/* HƯỚNG DẪN KHI CHƯA CÓ DỮ LIỆU XE (Dành cho bản Reset hoặc Mới) */}
+                {vehicles.length === 0 && availabilityStatus === 'available' && (
+                    <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex gap-3 items-start animate-pulse">
+                        <div className="bg-amber-100 p-2 rounded-xl text-amber-600">
+                            <Truck className="w-5 h-5" />
+                        </div>
+                        <div className="space-y-1">
+                            <p className="text-sm font-bold text-amber-900">Chưa có phương tiện!</p>
+                            <p className="text-xs text-amber-800 leading-relaxed font-medium">
+                                Hệ thống vừa mới khởi tạo. Vui lòng báo Quản lý (Admin) vào mục "Quản lý Xe" để thêm biển số thật vào hệ thống trước khi bạn có thể nhận việc.
+                            </p>
+                        </div>
+                    </div>
                 )}
 
                 {/* ANIMATION RADAR / EMPTY STATE HERO */}
@@ -1356,7 +1371,7 @@ export default function DriverDashboard() {
                         <div 
                             className="flex flex-col items-center justify-center gap-2 cursor-pointer"
                             onClick={() => {
-                                if (!linkedDriver?.assigned_vehicle_id) {
+                                if (!assignedVehicle) {
                                     toast({ title: "Chưa nhận xe", description: "Vui lòng 'NHẬN XE ĐỂ BẮT ĐẦU' trước.", variant: "destructive" });
                                     setIsAssignVehicleModalOpen(true);
                                     return;
@@ -1443,7 +1458,7 @@ export default function DriverDashboard() {
                             id="driver-fab-create-trip"
                             className="fixed bottom-24 right-4 z-40 w-14 h-14 rounded-full shadow-2xl bg-blue-600 hover:bg-blue-700 p-0 flex items-center justify-center transition-transform active:scale-95 border-2 border-white"
                             onClick={() => {
-                                if (!linkedDriver?.assigned_vehicle_id) {
+                                if (!assignedVehicle) {
                                     toast({
                                         title: "Chưa nhận xe",
                                         description: "Vui lòng hoàn thành 'BƯỚC 0' để nhận xe điều hành.",
