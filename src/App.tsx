@@ -101,6 +101,11 @@ const TrackingCenter = lazy(() => import("./pages/TrackingCenter").catch(err => 
   return { default: () => <div>Tracking Center failed to load</div> };
 }));
 
+const PhuAnDocs = lazy(() => import("./pages/docs/PhuAnDocs").catch(err => {
+  console.error('Failed to load PhuAnDocs:', err);
+  return { default: () => <div>Documentation failed to load</div> };
+}));
+
 // Driver PWA Routes
 const DriverDashboard = lazy(() => import("./pages/driver/DriverDashboard").catch(err => {
   console.error('Failed to load DriverDashboard:', err);
@@ -149,6 +154,11 @@ const App = () => {
             <ErrorBoundary>
               <Routes>
                 <Route path="/auth" element={<Auth />} />
+                <Route path="/docs/huong-dan-phu-an" element={
+                  <Suspense fallback={<PageSkeleton />}>
+                    <PhuAnDocs />
+                  </Suspense>
+                } />
 
                 <Route
                   element={
