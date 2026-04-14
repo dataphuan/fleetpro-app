@@ -83,39 +83,14 @@ export default function Pricing() {
     };
 
     const handleUpgradeSuccess = async (details: any) => {
-        setIsProcessing(true);
-        try {
-            const next30Days = new Date();
-            next30Days.setDate(next30Days.getDate() + 30);
-            
-            // Update the subscription payload in the tenant's companySettings
-            await companySettingsAdapter.upsert({
-                id: tenantId || 'default',
-                subscription: {
-                    plan: 'professional',
-                    status: 'active',
-                    trial_ends_at: new Date().toISOString(),
-                    next_billing_date: next30Days.toISOString()
-                }
-            });
+        // Now mostly used for UI feedback after server verification
+        toast({
+            title: "Thanh toán thành công!",
+            description: `Cảm ơn bạn ${details.payer?.name?.given_name || 'đã thanh toán'}. Giao dịch đang được Server xác thực. Vui lòng đợi trong giây lát...`,
+        });
 
-            toast({
-                title: "Thanh toán thành công!",
-                description: `Cảm ơn bạn ${details.payer?.name?.given_name || 'đã thanh toán'}. Lịch sử thanh toán đã lưu. Hệ thống đã mở khóa gói Chuyên Nghiệp. Vui lòng đợi trong giây lát...`,
-            });
-
-            // Reload after 3 seconds to clear the PaywallGuard overlay
-            setTimeout(() => window.location.reload(), 3000);
-            
-        } catch (error: any) {
-            toast({
-                title: "Lỗi kích hoạt",
-                description: "Thanh toán thành công nhưng không thể tự động mở khóa. Vui lòng nhắn tin CSKH kèm mã đơn hàng.",
-                variant: "destructive"
-            });
-        } finally {
-            setIsProcessing(false);
-        }
+        // Reload after 3 seconds to clear the PaywallGuard overlay and fetch new settings
+        setTimeout(() => window.location.reload(), 3000);
     };
 
     const handleMomoClick = async (plan: string) => {
@@ -257,12 +232,39 @@ export default function Pricing() {
                                             ],
                                         });
                                     }}
-                                    onApprove={async (data, actions) => {
+                                    onApprove: async (data, actions) => {
                                         if (actions.order) {
                                             const details = await actions.order.capture();
-                                            handleUpgradeSuccess(details);
+                                            
+                                            // Secure: Call Server-side verification instead of client-side upgrade
+                                            setIsProcessing(true);
+                                            try {
+                                                const response = await fetch("/api/payment/paypal-verify", {
+                                                    method: "POST",
+                                                    headers: { "Content-Type": "application/json" },
+                                                    body: JSON.stringify({
+                                                        orderID: data.orderID,
+                                                        tenantId: tenantId || 'default'
+                                                    })
+                                                });
+
+                                                if (!response.ok) {
+                                                    const errData = await response.json() as any;
+                                                    throw new Error(errData.message || "Lỗi xác thực PayPal tại Server");
+                                                }
+
+                                                handleUpgradeSuccess(details);
+                                            } catch (error: any) {
+                                                toast({
+                                                    title: "Lỗi đồng bộ",
+                                                    description: error.message || "PayPal đã trừ tiền nhưng server chưa thể cập nhật. Vui lòng liên hệ Admin.",
+                                                    variant: "destructive"
+                                                });
+                                            } finally {
+                                                setIsProcessing(false);
+                                            }
                                         }
-                                    }}
+                                    },
                                     onError={(err) => {
                                         toast({
                                             title: "Lỗi kết nối PayPal",
