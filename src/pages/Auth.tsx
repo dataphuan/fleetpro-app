@@ -12,40 +12,81 @@ import { Truck, Mail, Lock, Building, User, ChevronDown, ChevronUp, Key, Info, A
 import { useAuth } from "@/contexts/AuthContext";
 import { dataAdapter } from "@/lib/data-adapter";
 
-const DEMO_ACCOUNTS = [
-    { 
-        role: "👑 Admin", 
-        email: "admindemo@tnc.io.vn", 
-        password: "Demo@1234", 
-        color: "text-red-500",
-        description: "Quản lý toàn bộ hệ thống",
-        badge: "Full Access"
-    },
-    { 
-        role: "👔 Quản lý", 
-        email: "quanlydemo@tnc.io.vn", 
-        password: "Demo@1234", 
-        color: "text-orange-500",
-        description: "Điều phối xe & chuyến đi",
-        badge: "Dispatch"
-    },
-    { 
-        role: "🧾 Kế toán", 
-        email: "ketoandemo@tnc.io.vn", 
-        password: "Demo@1234", 
-        color: "text-emerald-500",
-        description: "Chi phí & báo cáo tài chính",
-        badge: "Finance"
-    },
-    { 
-        role: "🚚 Tài xế", 
-        email: "taixedemo@tnc.io.vn", 
-        password: "Demo@1234", 
-        color: "text-blue-500",
-        description: "Giao diện di động (PWA)",
-        badge: "Mobile"
-    },
-];
+const getDemoAccounts = () => {
+    const isPhuAn = typeof window !== 'undefined' && window.location.hostname.includes('phuan.tnc.io.vn');
+    
+    if (isPhuAn) {
+        return [
+            { 
+                role: "👑 Admin Phú An", 
+                email: "admin@phuancr.com", 
+                password: "Demo@1234", 
+                color: "text-red-500",
+                description: "Quản lý toàn bộ hệ thống Phú An",
+                badge: "Full Access"
+            },
+            { 
+                role: "👔 Quản lý Phú An", 
+                email: "quanly@phuancr.com", 
+                password: "Demo@1234", 
+                color: "text-orange-500",
+                description: "Điều phối xe & chuyến đi Phú An",
+                badge: "Dispatch"
+            },
+            { 
+                role: "🧾 Kế toán Phú An", 
+                email: "ketoan@phuancr.com", 
+                password: "Demo@1234", 
+                color: "text-emerald-500",
+                description: "Chi phí & báo cáo tài chính Phú An",
+                badge: "Finance"
+            },
+            { 
+                role: "🚚 Tài xế P.A", 
+                email: "taixe1@phuancr.com", 
+                password: "Demo@1234", 
+                color: "text-blue-500",
+                description: "Giao diện di động (PWA)",
+                badge: "Mobile"
+            },
+        ];
+    }
+    
+    return [
+        { 
+            role: "👑 Admin", 
+            email: "admindemo@tnc.io.vn", 
+            password: "Demo@1234", 
+            color: "text-red-500",
+            description: "Quản lý toàn bộ hệ thống",
+            badge: "Full Access"
+        },
+        { 
+            role: "👔 Quản lý", 
+            email: "quanlydemo@tnc.io.vn", 
+            password: "Demo@1234", 
+            color: "text-orange-500",
+            description: "Điều phối xe & chuyến đi",
+            badge: "Dispatch"
+        },
+        { 
+            role: "🧾 Kế toán", 
+            email: "ketoandemo@tnc.io.vn", 
+            password: "Demo@1234", 
+            color: "text-emerald-500",
+            description: "Chi phí & báo cáo tài chính",
+            badge: "Finance"
+        },
+        { 
+            role: "🚚 Tài xế", 
+            email: "taixedemo@tnc.io.vn", 
+            password: "Demo@1234", 
+            color: "text-blue-500",
+            description: "Giao diện di động (PWA)",
+            badge: "Mobile"
+        },
+    ];
+};
 
 // 🟡 Vietnamese Validation Schema
 const VALIDATION_MESSAGES = {
@@ -132,7 +173,7 @@ export default function Auth() {
     };
 
     // 🟢 Demo Account Auto-Fill Handler with Instant Login
-    const handleDemoAccountClick = async (demoAccount: typeof DEMO_ACCOUNTS[0]) => {
+    const handleDemoAccountClick = async (demoAccount: any) => {
         setEmail(demoAccount.email);
         setPassword(demoAccount.password);
         setLoginErrors({}); // Clear errors
@@ -158,6 +199,7 @@ export default function Auth() {
                 full_name: activeLoginResult?.data?.user?.full_name,
             });
 
+            const DEMO_ACCOUNTS = getDemoAccounts();
             const adminDemoAccount = DEMO_ACCOUNTS[0];
             const isNotAdminDemo = demoAccount.email !== adminDemoAccount.email;
 
@@ -431,10 +473,10 @@ export default function Auth() {
                                 <div className="mb-4 rounded-xl border border-primary/30 bg-gradient-to-r from-primary/10 to-blue-50 p-3">
                                     <div className="text-xs font-bold text-slate-800 mb-3 flex items-center gap-2">
                                         <Key className="w-3 h-3 text-primary" />
-                                        ⚡ Trải nghiệm nhanh (1 chạm) - Gói PRO cao cấp
+                                        ⚡ Trải nghiệm nhanh (1 chạm) - {typeof window !== 'undefined' && window.location.hostname.includes('phuan') ? `Dữ liệu thật Phú An` : `Gói PRO cao cấp`}
                                     </div>
                                     <div className="grid grid-cols-2 gap-2">
-                                        {DEMO_ACCOUNTS.map((acc, idx) => (
+                                        {getDemoAccounts().map((acc, idx) => (
                                             <Button
                                                 key={idx}
                                                 type="button"

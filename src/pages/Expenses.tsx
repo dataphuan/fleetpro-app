@@ -63,6 +63,8 @@ import { useClosedPeriods, isDateInClosedPeriod } from '@/hooks/useAccountingPer
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePermissions } from "@/hooks/usePermissions";
 import { getNextCodeByPrefix } from "@/lib/code-generator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { SmartExpenseAudit } from "@/components/finance/SmartExpenseAudit";
 
 
 // Types
@@ -750,8 +752,28 @@ export default function Expenses() {
         </Card>
       </div>
 
-      {/* Unified Toolbar - Matches Vehicles.tsx Pattern */}
-      <div className="flex flex-col xl:flex-row gap-2 items-start xl:items-center justify-between bg-muted/10 p-2 rounded-lg border">
+      <Tabs defaultValue="list" className="w-full">
+        {isAccountant && (
+          <div className="flex justify-between items-center mb-4">
+            <TabsList className="bg-slate-100 border border-slate-200 h-10 p-1">
+              <TabsTrigger value="list" className="data-[state=active]:bg-white data-[state=active]:text-slate-900 data-[state=active]:shadow-sm px-4">
+                Sổ Chi Phí
+              </TabsTrigger>
+              <TabsTrigger value="audit" className="data-[state=active]:bg-rose-50 data-[state=active]:text-rose-700 data-[state=active]:font-bold data-[state=active]:shadow-sm px-4 transition-all relative">
+                Đối Soát AI
+                {kpiSummary.pendingCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shadow-sm ring-2 ring-white">
+                    {kpiSummary.pendingCount > 9 ? '9+' : kpiSummary.pendingCount}
+                  </span>
+                )}
+              </TabsTrigger>
+            </TabsList>
+          </div>
+        )}
+        
+        <TabsContent value="list" className="space-y-4 m-0 border-none p-0 outline-none">
+          {/* Unified Toolbar - Matches Vehicles.tsx Pattern */}
+          <div className="flex flex-col xl:flex-row gap-2 items-start xl:items-center justify-between bg-muted/10 p-2 rounded-lg border">
         {/* Left Side: Date Filter + Search + Category Chips */}
         <div className="flex flex-wrap items-center gap-2 flex-1">
           <DateFilter
@@ -864,6 +886,18 @@ export default function Expenses() {
         onSelectionChange={setSelectedIds}
         hideToolbar={true}
       />
+      </TabsContent>
+
+      {isAccountant && (
+        <TabsContent value="audit" className="m-0 border-none p-0 outline-none h-[600px]">
+           <SmartExpenseAudit 
+             expenses={expenses || []} 
+             trips={trips || []} 
+             onReviewExpense={handleRowClick} 
+           />
+        </TabsContent>
+      )}
+      </Tabs>
 
       {/* Import Dialog */}
       <ExcelImportDialog
