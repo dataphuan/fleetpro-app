@@ -18,23 +18,32 @@ export default function Pricing() {
     const [searchParams, setSearchParams] = useSearchParams();
     const navigate = useNavigate();
 
-    // MoMo Frontend Webhook Interceptor
+    // MoMo Frontend Webhook Interceptor (Safeguard)
     useEffect(() => {
         const resultCode = searchParams.get("resultCode");
         const orderId = searchParams.get("orderId");
-        if (resultCode === "0" && orderId) {
+        if (resultCode && orderId) {
             // Clean the URL immediately to prevent duplicate triggers on reload
             searchParams.delete("resultCode");
             searchParams.delete("orderId");
             setSearchParams(searchParams, { replace: true });
 
-            // Simulate successful upgrade payload
-            handleUpgradeSuccess({
-                payer: { name: { given_name: "Khách hàng MoMo" } },
-                source: "momo"
-            });
+            if (resultCode === "0") {
+                 toast({
+                     title: "Giao dịch đang được xử lý",
+                     description: "Server đang xác thực giao dịch từ MoMo. Nếu giao dịch thành công, gói cước sẽ tự động kích hoạt trong ít phút. Vui lòng làm mới trang (F5) nếu chưa thấy sự thay đổi.",
+                 });
+                 // Note: We NO LONGER call companySettingsAdapter.upsert() here.
+                 // The Webhook (functions/api/payment/webhook.ts) handles the DB update securely.
+            } else {
+                 toast({
+                     title: "Trạng thái giao dịch",
+                     description: `Thanh toán chưa hoàn tất (Mã trạng thái: ${resultCode}). Vui lòng thử lại.`,
+                     variant: "destructive"
+                 });
+            }
         }
-    }, [searchParams, setSearchParams]);
+    }, [searchParams, setSearchParams, toast]);
 
     const handleDemoUpgrade = async (plan: string) => {
         setIsProcessing(true);

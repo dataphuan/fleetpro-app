@@ -54,7 +54,7 @@ export const onRequestPost = async (context: any) => {
       orderId,
       orderInfo,
       redirectUrl,
-      ipnUrl: redirectUrl, // In real world, use a webhook receiver
+      ipnUrl: `${new URL(request.url).origin}/api/payment/webhook`, // SEVERE BUG FIX: Redirect MoMo's backend response to our secure webhook
       lang: "vi",
       requestType,
       autoCapture: true,
