@@ -6,10 +6,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { db } from "@/lib/firebase";
+import { db, storage } from "@/lib/firebase";
 import { doc, updateDoc } from "firebase/firestore";
-import { Calendar, Mail, Shield, User, LogOut } from "lucide-react";
-import { useState } from "react";
+import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+import { Calendar, Mail, Shield, User, LogOut, Upload, Camera, Trash2, Loader2, Image as ImageIcon } from "lucide-react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 
 const roleLabels: Record<string, string> = {
@@ -36,6 +37,9 @@ export default function UserProfilePage() {
     const navigate = useNavigate();
     const [avatarUrl, setAvatarUrl] = useState(user?.avatar_url || "");
     const [savingAvatar, setSavingAvatar] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState<number | null>(null);
+    const [isDragging, setIsDragging] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
     const displayName = user?.full_name || user?.email || "";
     const initial = displayName ? displayName.trim().charAt(0).toUpperCase() : "?";
 
@@ -46,54 +50,91 @@ export default function UserProfilePage() {
         }
     };
 
-    const isValidAvatarUrl = (value: string) => {
-        if (!value) return true;
-        try {
-            const url = new URL(value);
-            if (url.protocol !== "http:" && url.protocol !== "https:") return false;
-            return /\.(png|jpg|jpeg)$/i.test(url.pathname);
-        } catch {
-            return false;
-        }
-    };
+    const handleFileUpload = async (file: File) => {
+        if (!userId) return;
 
-    const handleSaveAvatar = async () => {
-        if (!userId) {
-            toast({ title: "Lỗi", description: "Không tìm thấy tài khoản hiện tại.", variant: "destructive" });
+        // Validations
+        if (!file.type.startsWith("image/")) {
+            toast({ title: "Lỗi", description: "Vui lòng chọn tệp hình ảnh.", variant: "destructive" });
             return;
         }
 
-        if (!isValidAvatarUrl(avatarUrl.trim())) {
-            toast({
-                title: "URL không hợp lệ",
-                description: "Chỉ chấp nhận http/https và định dạng .jpg hoặc .png",
-                variant: "destructive"
-            });
+        if (file.size > 5 * 1024 * 1024) {
+            toast({ title: "Lỗi", description: "Kích thước ảnh không được vượt quá 5MB.", variant: "destructive" });
             return;
         }
 
         setSavingAvatar(true);
+        setUploadProgress(0);
+
         try {
-            await updateDoc(doc(db, "users", userId), {
-                avatar_url: avatarUrl.trim()
-            });
-            await refreshAuth();
-            toast({ title: "Đã lưu", description: "Ảnh đại diện đã được cập nhật." });
+            // Use a specific path for the user's avatar to overwrite previous ones
+            const fileExtension = file.name.split('.').pop();
+            const storagePath = `avatars/${userId}/avatar.${fileExtension}`;
+            const fileRef = ref(storage, storagePath);
+
+            const uploadTask = uploadBytesResumable(fileRef, file);
+
+            uploadTask.on(
+                "state_changed",
+                (snapshot) => {
+                    const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                    setUploadProgress(progress);
+                },
+                (error) => {
+                    console.error("Upload error:", error);
+                    toast({ title: "Lỗi upload", description: error.message, variant: "destructive" });
+                    setSavingAvatar(false);
+                    setUploadProgress(null);
+                },
+                async () => {
+                    const downloadURL = await getDownloadURL(fileRef);
+                    await updateDoc(doc(db, "users", userId), {
+                        avatar_url: downloadURL
+                    });
+                    await refreshAuth();
+                    setAvatarUrl(downloadURL);
+                    toast({ title: "Thành công", description: "Ảnh đại diện đã được cập nhật." });
+                    setSavingAvatar(false);
+                    setUploadProgress(null);
+                }
+            );
         } catch (error: any) {
-            toast({ title: "Lỗi cập nhật", description: error.message || "Không thể lưu avatar", variant: "destructive" });
-        } finally {
+            console.error("Error in upload process:", error);
+            toast({ title: "Lỗi", description: error.message, variant: "destructive" });
             setSavingAvatar(false);
+            setUploadProgress(null);
+        }
+    };
+
+    const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) {
+            handleFileUpload(file);
         }
     };
 
     const handleClearAvatar = async () => {
-        setAvatarUrl("");
         if (!userId) return;
+
+        if (!window.confirm("Bạn có chắc chắn muốn xóa ảnh đại diện?")) return;
 
         setSavingAvatar(true);
         try {
+            // Optional: Delete from storage if it's a firebase storage URL
+            if (user?.avatar_url && user.avatar_url.includes("firebasestorage.googleapis.com")) {
+                try {
+                    const fileRef = ref(storage, user.avatar_url);
+                    await deleteObject(fileRef);
+                } catch (e) {
+                    console.error("Could not delete file from storage:", e);
+                    // Continue anyway to clear the URL in DB
+                }
+            }
+
             await updateDoc(doc(db, "users", userId), { avatar_url: "" });
             await refreshAuth();
+            setAvatarUrl("");
             toast({ title: "Đã xóa", description: "Ảnh đại diện đã được gỡ bỏ." });
         } catch (error: any) {
             toast({ title: "Lỗi cập nhật", description: error.message || "Không thể xóa avatar", variant: "destructive" });
@@ -128,45 +169,89 @@ export default function UserProfilePage() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    <div className="flex items-center gap-4">
-                        <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center overflow-hidden">
+                    <div className="flex flex-col items-center justify-center py-6 space-y-4">
+                        <div 
+                            className={`relative h-32 w-32 rounded-full border-4 transition-all duration-300 flex items-center justify-center overflow-hidden cursor-pointer group
+                                ${isDragging ? 'border-primary border-dashed bg-primary/5 scale-105' : 'border-background shadow-lg hover:border-primary/50'}
+                                ${savingAvatar ? 'opacity-70 pointer-events-none' : ''}`}
+                            onDragOver={(e) => {
+                                e.preventDefault();
+                                setIsDragging(true);
+                            }}
+                            onDragLeave={() => setIsDragging(false)}
+                            onDrop={(e) => {
+                                e.preventDefault();
+                                setIsDragging(false);
+                                const file = e.dataTransfer.files?.[0];
+                                if (file) handleFileUpload(file);
+                            }}
+                            onClick={() => fileInputRef.current?.click()}
+                        >
                             {user?.avatar_url ? (
                                 <img
                                     src={user.avatar_url}
                                     alt={displayName || "Avatar"}
-                                    className="h-full w-full object-cover"
-                                    loading="lazy"
+                                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-110"
                                 />
                             ) : (
-                                <span className="text-lg font-semibold text-primary">{initial}</span>
+                                <div className="h-full w-full bg-primary/10 flex items-center justify-center text-3xl font-bold text-primary">
+                                    {initial}
+                                </div>
+                            )}
+
+                            {/* Hover Overlay */}
+                            {!savingAvatar && (
+                                <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                    <Camera className="w-8 h-8 text-white mb-1" />
+                                    <span className="text-[10px] text-white font-medium uppercase tracking-wider">Đổi ảnh</span>
+                                </div>
+                            )}
+
+                            {/* Uploading Spinner */}
+                            {savingAvatar && uploadProgress !== null && (
+                                <div className="absolute inset-0 bg-white/80 flex flex-col items-center justify-center">
+                                    <Loader2 className="w-8 h-8 animate-spin text-primary mb-2" />
+                                    <span className="text-xs font-bold text-primary">{Math.round(uploadProgress)}%</span>
+                                </div>
                             )}
                         </div>
-                        <div>
-                            <p className="text-sm text-muted-foreground">Ảnh đại diện</p>
-                            <p className="text-sm font-medium break-all">
-                                {user?.avatar_url || "Chưa cấu hình"}
-                            </p>
+
+                        <div className="text-center space-y-1">
+                            <h3 className="font-semibold text-lg">{displayName}</h3>
+                            <p className="text-sm text-muted-foreground">Chạm hoặc kéo thả ảnh để thay đổi</p>
                         </div>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto_auto] gap-3 items-end">
-                        <div className="space-y-2">
-                            <Label htmlFor="avatar_url">URL ảnh đại diện</Label>
-                            <Input
-                                id="avatar_url"
-                                value={avatarUrl}
-                                onChange={(e) => setAvatarUrl(e.target.value)}
-                                placeholder="https://.../avatar.jpg"
+
+                        <div className="flex flex-wrap justify-center gap-3">
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                onChange={handleFileChange}
+                                className="hidden"
+                                accept="image/*"
                             />
-                            {!isValidAvatarUrl(avatarUrl.trim()) && (
-                                <p className="text-xs text-destructive">Chỉ chấp nhận http/https và đuôi .jpg hoặc .png</p>
+                            <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="gap-2 border-primary/20 hover:bg-primary/5"
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={savingAvatar}
+                            >
+                                <Upload className="w-4 h-4" />
+                                Tải ảnh lên
+                            </Button>
+                            {user?.avatar_url && (
+                                <Button 
+                                    variant="outline" 
+                                    size="sm" 
+                                    className="gap-2 text-destructive border-destructive/20 hover:bg-destructive/5 hover:text-destructive"
+                                    onClick={handleClearAvatar}
+                                    disabled={savingAvatar}
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                    Xóa ảnh
+                                </Button>
                             )}
                         </div>
-                        <Button onClick={handleSaveAvatar} disabled={savingAvatar || !isValidAvatarUrl(avatarUrl.trim())}>
-                            {savingAvatar ? "Đang lưu..." : "Lưu avatar"}
-                        </Button>
-                        <Button variant="outline" onClick={handleClearAvatar} disabled={savingAvatar}>
-                            Xóa avatar
-                        </Button>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="flex items-center gap-3">
