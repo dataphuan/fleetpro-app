@@ -90,13 +90,47 @@ export default function Dashboard() {
         </div>
       )}
 
-      {isDemoMode && !isPaidPlan && (
-        <Card className="border-amber-200 bg-amber-50/30 shadow-sm overflow-hidden mb-4">
-          <CardContent className="p-3">
-             {/* ... Banner content remains ... */}
-          </CardContent>
-        </Card>
-      )}
+      {/* Trial Progress Bar — visible to trial users */}
+      {currentPlan === 'trial' && role === 'admin' && (() => {
+        const trialEnd = companySettings?.subscription?.trial_ends_at;
+        const trialEndMs = trialEnd ? new Date(trialEnd).getTime() : Date.now() + 14 * 24 * 60 * 60 * 1000;
+        const totalDays = 14;
+        const daysLeft = Math.max(0, Math.ceil((trialEndMs - Date.now()) / (1000 * 60 * 60 * 24)));
+        const daysUsed = totalDays - daysLeft;
+        const progress = Math.min(100, Math.round((daysUsed / totalDays) * 100));
+        const isUrgent = daysLeft <= 3;
+
+        return (
+          <div className={`rounded-xl p-4 border shadow-sm ${isUrgent ? 'bg-red-50 border-red-200' : 'bg-gradient-to-r from-blue-50 to-indigo-50 border-blue-200'}`}>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-2">
+                  {isUrgent ? (
+                    <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
+                  ) : (
+                    <Zap className="w-4 h-4 text-blue-500 shrink-0" />
+                  )}
+                  <span className={`text-sm font-bold ${isUrgent ? 'text-red-700' : 'text-blue-700'}`}>
+                    {isUrgent ? `⚠️ Chỉ còn ${daysLeft} ngày dùng thử!` : `📅 Dùng thử: ${daysUsed}/${totalDays} ngày`}
+                  </span>
+                  <span className="text-xs text-slate-500 ml-auto hidden sm:inline">Gói Trial • 5 xe / 5 tài xế</span>
+                </div>
+                <div className="w-full bg-slate-200 rounded-full h-2.5 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-1000 ${isUrgent ? 'bg-red-500' : 'bg-gradient-to-r from-blue-500 to-indigo-500'}`}
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+              </div>
+              <Link to="/pricing">
+                <Button size="sm" className={`whitespace-nowrap ${isUrgent ? 'bg-red-600 hover:bg-red-500' : 'bg-blue-600 hover:bg-blue-500'} text-white`}>
+                  {isUrgent ? '🔥 Nâng cấp ngay' : 'Xem gói Pro →'}
+                </Button>
+              </Link>
+            </div>
+          </div>
+        );
+      })()}
 
       {isPaidPlan && isDemoMode && role === 'admin' && (
          <div className="bg-blue-50 border-l-4 border-blue-400 p-3 mb-4 rounded shadow-sm flex items-center justify-between">

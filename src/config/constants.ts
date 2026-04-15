@@ -4,11 +4,12 @@
  */
 
 // ==================== SaaS Plan Limits ====================
-export const PLAN_LIMITS = {
-    trial: { vehicles: 50, drivers: 50, trips_per_month: 200 },
-    professional: { vehicles: 100, drivers: 100, trips_per_month: 2000 },
-    enterprise: { vehicles: Infinity, drivers: Infinity, trips_per_month: Infinity },
-} as const;
+export const PLAN_LIMITS: Record<string, Record<string, number>> = {
+    trial: { vehicles: 5, drivers: 5, trips_per_month: 100, customers: 10, routes: 10 },
+    professional: { vehicles: 50, drivers: 25, trips_per_month: 2000, customers: 100, routes: 50 },
+    business: { vehicles: Infinity, drivers: Infinity, trips_per_month: Infinity, customers: Infinity, routes: Infinity },
+    enterprise: { vehicles: Infinity, drivers: Infinity, trips_per_month: Infinity, customers: Infinity, routes: Infinity },
+};
 
 // ==================== Trial Configuration ====================
 export const TRIAL_DURATION_DAYS = 14;

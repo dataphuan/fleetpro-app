@@ -27,13 +27,13 @@ export const PaywallGuard: React.FC<{ children: React.ReactNode }> = ({ children
         return <>{children}</>;
     }
 
-    // Vehicle quota limits per plan
+    // Vehicle quota limits per plan — must match PLAN_LIMITS in constants.ts
     const quotaLimits: Record<string, number> = {
-        trial: Infinity,      // Unlimited during trial
-        pro: 100,             // Pro Plan (Legacy Pro mapping)
-        professional: 100,    // Standard Pro Plan
-        business: Infinity,   // Business Plan (Enterprise)
-        enterprise: Infinity, // Standard Enterprise
+        trial: 5,             // Match PLAN_LIMITS.trial.vehicles
+        pro: 50,              // Legacy Pro mapping
+        professional: 50,     // Standard Pro Plan
+        business: Infinity,   // Business Plan
+        enterprise: Infinity, // Enterprise Plan
     };
 
     const planName = (sub.plan || 'trial').toLowerCase();
