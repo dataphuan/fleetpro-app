@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { isElectron } from '@/lib/data-adapter';
 import { useToast } from '@/hooks/use-toast';

@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/shared/PageHeader";
+import { SectionErrorBoundary } from "@/components/shared/SectionErrorBoundary";
 import { DashboardContainer } from "@/components/dashboard/DashboardContainer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DashboardRevenueTab } from "./dashboard/revenue/DashboardRevenueTab";
@@ -143,41 +144,48 @@ export default function Dashboard() {
 
         <div className="mt-2 min-h-[500px]">
           <TabsContent value="overview">
-            <DashboardContainer />
+            <SectionErrorBoundary sectionName="Tổng quan">
+              <DashboardContainer />
+            </SectionErrorBoundary>
           </TabsContent>
 
           <TabsContent value="revenue">
             <div className="bg-card border rounded-lg p-4 shadow-sm">
-
-              <DashboardRevenueTab />
+              <SectionErrorBoundary sectionName="Doanh Thu">
+                <DashboardRevenueTab />
+              </SectionErrorBoundary>
             </div>
           </TabsContent>
 
           <TabsContent value="expenses">
             <div className="bg-card border rounded-lg p-4 shadow-sm">
-
-              <DashboardExpensesTab />
+              <SectionErrorBoundary sectionName="Chi Phí">
+                <DashboardExpensesTab />
+              </SectionErrorBoundary>
             </div>
           </TabsContent>
 
           <TabsContent value="trips">
             <div className="bg-card border rounded-lg p-4 shadow-sm">
-
-              <DashboardTripsTab />
+              <SectionErrorBoundary sectionName="Chuyến Đi">
+                <DashboardTripsTab />
+              </SectionErrorBoundary>
             </div>
           </TabsContent>
 
           <TabsContent value="fleet">
             <div className="bg-card border rounded-lg p-4 shadow-sm">
-
-              <DashboardFleetPerformanceTab />
+              <SectionErrorBoundary sectionName="Hiệu Suất">
+                <DashboardFleetPerformanceTab />
+              </SectionErrorBoundary>
             </div>
           </TabsContent>
 
           <TabsContent value="alerts">
             <div className="bg-card border rounded-lg p-4 shadow-sm">
-
-              <DashboardAlertsTab />
+              <SectionErrorBoundary sectionName="Cảnh Báo">
+                <DashboardAlertsTab />
+              </SectionErrorBoundary>
             </div>
           </TabsContent>
         </div>

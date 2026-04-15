@@ -232,7 +232,7 @@ export default function Pricing() {
                                             ],
                                         });
                                     }}
-                                    onApprove: async (data, actions) => {
+                                    onApprove={async (data, actions) => {
                                         if (actions.order) {
                                             const details = await actions.order.capture();
                                             
@@ -264,7 +264,7 @@ export default function Pricing() {
                                                 setIsProcessing(false);
                                             }
                                         }
-                                    },
+                                    }}
                                     onError={(err) => {
                                         toast({
                                             title: "Lỗi kết nối PayPal",

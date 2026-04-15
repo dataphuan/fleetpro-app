@@ -4,6 +4,7 @@ import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged, signOut as firebaseSignOut } from "firebase/auth";
 import { collection, doc, getDoc, getDocs, query, setDoc, where } from "firebase/firestore";
 import { setRuntimeTenantId } from "@/lib/data-adapter";
+import { IDLE_SESSION_TIMEOUT_MS, TRIAL_DURATION_DAYS } from "@/config/constants";
 
 import { UserRole } from "@/shared/types/domain";
 import { normalizeUserRole } from "@/lib/rbac";
@@ -124,7 +125,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                         subscription: { 
                             plan: 'trial', 
                             status: 'active',
-                            trial_ends_at: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString() // 14-day trial
+                            trial_ends_at: new Date(Date.now() + TRIAL_DURATION_DAYS * 24 * 60 * 60 * 1000).toISOString()
                         },
                         created_at: new Date().toISOString(),
                         updated_at: new Date().toISOString(),
@@ -134,9 +135,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 }
             }
 
-            // SUPER-ADMIN OVERRIDE: If user is Coach.chuyen@gmail.com, force superadmin role
-            if (firebaseUser.email?.toLowerCase() === 'coach.chuyen@gmail.com') {
-                currentRole = 'superadmin';
+            // SUPER-ADMIN: Determined from Firestore role field (not hardcoded email)
+            // Set superadmin role in Firestore: users/{uid}.role = 'superadmin'
+            if (currentRole === 'superadmin') {
                 const cachedTenant = typeof localStorage !== 'undefined' ? localStorage.getItem('fleetpro_tenant_id') : null;
                 // Inherit cached tenant if impersonating, otherwise default to the isolated system view
                 currentTenantId = cachedTenant || 'system-admin';
@@ -210,7 +211,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (import.meta.env.MODE === 'development') return;
         if (!userId) return;
 
-        const IDLE_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+        const IDLE_TIMEOUT = IDLE_SESSION_TIMEOUT_MS;
         let idleTimer: ReturnType<typeof setTimeout>;
 
         const resetTimer = () => {
@@ -218,7 +219,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             idleTimer = setTimeout(async () => {
                 console.warn('[Auth] Session expired due to inactivity');
                 await signOut();
-            }, IDLE_TIMEOUT_MS);
+            }, IDLE_TIMEOUT);
         };
 
         const events = ['mousedown', 'mousemove', 'keydown', 'touchstart', 'scroll', 'visibilitychange'];

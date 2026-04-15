@@ -93,23 +93,9 @@ const defaultPermissions: Permissions = {
 export function usePermissions(tabName?: TabName): Permissions {
     const { role, tenantId } = useAuth();
 
-    // MASTER BYPASS: Phú An and Internal Demo tenants always have FULL power for "WOA" experience
-    const userEmail = useAuth().user?.email || '';
-    const isMasterTenant = tenantId === 'internal-tenant-1' || 
-                           tenantId === 'internal-tenant-phuan' || 
-                           tenantId?.includes('phuan') ||
-                           userEmail.endsWith('@phuancr.com');
-
-    if (isMasterTenant) {
-        return {
-            canView: true,
-            canCreate: true,
-            canEdit: true,
-            canDelete: true,
-            canLock: true,
-            canExport: true,
-        };
-    }
+    // QA AUDIT FIX P0-SEC-04: Removed broad tenant/email bypass.
+    // All tenants now follow the standard RBAC permission matrix.
+    // To grant full access to specific tenants, assign 'admin' role to their users in Firestore.
 
     const rolePerms = permissionMatrix[role];
     if (!rolePerms) return defaultPermissions;

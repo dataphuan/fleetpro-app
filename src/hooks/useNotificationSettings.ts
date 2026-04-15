@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 // Supabase removed for offline mode
 import { useToast } from '@/hooks/use-toast';

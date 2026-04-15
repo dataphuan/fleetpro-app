@@ -261,12 +261,6 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
       <div className="border-t border-sidebar-border/50 px-1.5 py-1.5 space-y-0.5">
         {!collapsed ? (
           <div className="flex items-center gap-0.5 flex-wrap">
-            {hasAccess("/profile") && (
-              <Link to="/profile" className={cn("flex-1 flex min-h-1w items-center justify-center gap-1 py-2 rounded text-[11px] font-medium transition-colors", location.pathname === '/profile' ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/30')} title="Hồ Sơ">
-                <UserCircle className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">Hồ Sơ</span>
-              </Link>
-            )}
             {hasAccess("/settings") && (
               <Link to="/settings" className={cn("flex-1 flex min-h-1w items-center justify-center gap-1 py-2 rounded text-[11px] font-medium transition-colors", location.pathname === '/settings' ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/30')} title="Cài Đặt">
                 <Settings className="w-3.5 h-3.5" />
@@ -279,19 +273,11 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
                 <span className="hidden md:inline font-bold">Gói Cước</span>
               </Link>
             )}
-            {hasAccess("/members") && (
-              <Link to="/members" className={cn("flex-1 flex min-h-1w items-center justify-center gap-1 py-2 rounded text-[11px] font-medium transition-colors", location.pathname === '/members' ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/30')} title="Thành Viên">
-                <Users className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">Team</span>
-              </Link>
-            )}
           </div>
         ) : (
           <div className="flex flex-col items-center gap-1">
-            {hasAccess("/profile") && <Link to="/profile" className="p-2 min-h-[40px] flex items-center justify-center rounded text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/30" title="Hồ Sơ"><UserCircle className="w-5 h-5" /></Link>}
             {hasAccess("/settings") && <Link to="/settings" className="p-2 min-h-[40px] flex items-center justify-center rounded text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/30" title="Cài Đặt"><Settings className="w-5 h-5" /></Link>}
             {hasAccess("/pricing") && <Link to="/pricing" className="p-2 min-h-[40px] flex items-center justify-center rounded text-amber-600 bg-amber-50 hover:text-amber-700 hover:bg-amber-100" title="Gói Cước & Thanh toán"><CreditCard className="w-5 h-5" /></Link>}
-            {hasAccess("/members") && <Link to="/members" className="p-2 min-h-[40px] flex items-center justify-center rounded text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/30" title="Thành Viên"><Users className="w-5 h-5" /></Link>}
             {hasAccess("/logs") && <Link to="/logs" className="p-2 min-h-[40px] flex items-center justify-center rounded text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/30" title="Nhật Ký"><Lock className="w-5 h-5" /></Link>}
           </div>
         )}

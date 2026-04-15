@@ -55,34 +55,27 @@ interface DashboardExpenseItem {
 export const useDashboardStats = (startDate: string, endDate: string) => {
     return useQuery({
         queryKey: ['dashboard', 'stats', startDate, endDate],
+        staleTime: 2 * 60 * 1000, // 2 min cache — avoid refetching on every tab switch
         queryFn: async () => {
-            // Fetch trips in range
             const trips = await tripAdapter.listByDateRange(startDate, endDate);
+            const allExpenses = await expenseAdapter.list();
 
-            // Fetch ALL expenses to find unlinked or link to trips? 
-            // For Dashboard stats, we usually focus on Trip Performance.
-            // But we also need Overhead (unlinked expenses). 
-            // For simplicity in this version, we'll sum Trip Fields for Revenue/Profit
-            // and maybe fetch expenses to double check if needed. 
-            // Trips table has 'total_revenue' and 'total_expense' columns which are usually reliable or calculated.
-            // Wait, SQLite trips might not have 'total_expense' populated if it's dynamic?
-            // In verification test, 'total_expense' column was MISSING in trips table.
 
-            // We need to fetch expenses to calculate cost accurately.
-            // This is heavy but necessary without backend aggregation.
-            const allExpenses = await expenseAdapter.list(); // Optim: Filter by date in JS
+
+            // QA AUDIT FIX P1-PERF-01: Pre-group expenses by trip_id (O(n) instead of O(n*m))
+            const expensesByTrip = new Map<string, number>();
+            allExpenses.forEach((e: any) => {
+                const tid = e.trip_id;
+                if (tid) expensesByTrip.set(tid, (expensesByTrip.get(tid) || 0) + (e.amount || 0));
+            });
 
             const stats = getEmptyStats();
 
-            // Process Trips
             trips.forEach((trip: any) => {
                 const status = trip.status;
                 const rev = trip.total_revenue || 0;
                 const km = trip.actual_distance_km || 0;
-
-                // Calculate expense for this trip
-                const tripExpenses = allExpenses.filter((e: any) => e.trip_id === trip.id);
-                const exp = tripExpenses.reduce((sum: number, e: any) => sum + (e.amount || 0), 0);
+                const exp = expensesByTrip.get(trip.id) || 0;
                 const profit = rev - exp;
 
                 if (status === 'closed') {
@@ -133,6 +126,7 @@ export const usePeriodStatus = (periodCode: string) => {
 export const useMonthlyTrend = (months: number = 6) => {
     return useQuery({
         queryKey: ['dashboard', 'trend', months],
+        staleTime: 5 * 60 * 1000, // 5 min cache
         queryFn: async () => {
             const items = [];
             // Fetch all trips? Or list by date range covering 6 months?
@@ -156,17 +150,20 @@ export const useMonthlyTrend = (months: number = 6) => {
                 current.setMonth(current.getMonth() + 1);
             }
 
-            // Agg trips
+            // QA AUDIT FIX P1-PERF-01: Pre-group expenses by trip_id
+            const expensesByTrip = new Map<string, number>();
+            expenses.forEach((e: any) => {
+                const tid = e.trip_id;
+                if (tid) expensesByTrip.set(tid, (expensesByTrip.get(tid) || 0) + (e.amount || 0));
+            });
+
             trips.forEach((trip: any) => {
                 if (trip.status === 'closed' || trip.status === 'completed') {
-                    const month = trip.departure_date.substring(0, 7); // YYYY-MM
+                    const month = trip.departure_date.substring(0, 7);
                     if (grouped.has(month)) {
                         const data = grouped.get(month)!;
                         const rev = trip.total_revenue || 0;
-
-                        const tripExp = expenses
-                            .filter((e: any) => e.trip_id === trip.id)
-                            .reduce((sum: number, e: any) => sum + (e.amount || 0), 0);
+                        const tripExp = expensesByTrip.get(trip.id) || 0;
 
                         data.revenue += rev;
                         data.profit += (rev - tripExp);
@@ -189,6 +186,7 @@ export const useMonthlyTrend = (months: number = 6) => {
 export const useExpenseBreakdown = (startDate: string, endDate: string) => {
     return useQuery({
         queryKey: ['dashboard', 'expenses', startDate, endDate],
+        staleTime: 2 * 60 * 1000,
         queryFn: async () => {
             const categories = await dataAdapter.expenseCategories.list().catch(() => []);
             const catMap = new Map<string, string>(categories.map((c: any) => [String(c.id), String(c.category_name)]));
@@ -229,12 +227,19 @@ export const useExpenseBreakdown = (startDate: string, endDate: string) => {
 export const useVehiclePerformance = (limit: number = 5) => {
     return useQuery({
         queryKey: ['dashboard', 'vehicles', limit],
+        staleTime: 5 * 60 * 1000,
         queryFn: async () => {
-            // Need all completed trips to aggregate
-            // Simple approach: list all trips
             const trips = await tripAdapter.list();
             const expenses = await expenseAdapter.list();
             const vehicles = await vehicleAdapter.list();
+
+            // QA AUDIT FIX P1-PERF-01: Pre-group expenses by trip_id
+            const expensesByTrip = new Map<string, number>();
+            expenses.forEach((e: any) => {
+                const tid = e.trip_id;
+                if (tid) expensesByTrip.set(tid, (expensesByTrip.get(tid) || 0) + (e.amount || 0));
+            });
+
             const vMap = new Map();
 
             vehicles.forEach((v: any) => vMap.set(v.id, { ...v, rev: 0, profit: 0, trips: 0 }));
@@ -244,7 +249,7 @@ export const useVehiclePerformance = (limit: number = 5) => {
                     const v = vMap.get(t.vehicle_id);
                     if (v) {
                         const rev = t.total_revenue || 0;
-                        const exp = expenses.filter((e: any) => e.trip_id === t.id).reduce((s: number, x: any) => s + (x.amount || 0), 0);
+                        const exp = expensesByTrip.get(t.id) || 0;
                         v.rev += rev;
                         v.profit += (rev - exp);
                         v.trips++;
@@ -273,10 +278,19 @@ export const useVehiclePerformance = (limit: number = 5) => {
 export const useDriverPerformance = (limit: number = 5) => {
     return useQuery({
         queryKey: ['dashboard', 'drivers', limit],
+        staleTime: 5 * 60 * 1000,
         queryFn: async () => {
             const trips = await tripAdapter.list();
             const expenses = await expenseAdapter.list();
             const drivers = await driverAdapter.list();
+
+            // QA AUDIT FIX P1-PERF-01: Pre-group expenses by trip_id
+            const expensesByTrip = new Map<string, number>();
+            expenses.forEach((e: any) => {
+                const tid = e.trip_id;
+                if (tid) expensesByTrip.set(tid, (expensesByTrip.get(tid) || 0) + (e.amount || 0));
+            });
+
             const dMap = new Map();
 
             drivers.forEach((d: any) => dMap.set(d.id, { ...d, rev: 0, profit: 0, trips: 0 }));
@@ -286,7 +300,7 @@ export const useDriverPerformance = (limit: number = 5) => {
                     const d = dMap.get(t.driver_id);
                     if (d) {
                         const rev = t.total_revenue || 0;
-                        const exp = expenses.filter((e: any) => e.trip_id === t.id).reduce((s: number, x: any) => s + (x.amount || 0), 0);
+                        const exp = expensesByTrip.get(t.id) || 0;
                         d.rev += rev;
                         d.profit += (rev - exp);
                         d.trips++;
@@ -315,6 +329,7 @@ export const useDriverPerformance = (limit: number = 5) => {
 export const useRecentTrips = (limit: number = 5) => {
     return useQuery({
         queryKey: ['dashboard', 'recent_trips', limit],
+        staleTime: 60 * 1000,
         queryFn: async () => {
             const trips = await tripAdapter.list();
             // Sort DESC
@@ -330,6 +345,7 @@ export const useRecentTrips = (limit: number = 5) => {
 export const useMaintenanceAlerts = () => {
     return useQuery({
         queryKey: ['dashboard', 'maintenance'],
+        staleTime: 5 * 60 * 1000,
         queryFn: async () => {
             // Adapter needs a way to list active/scheduled?
             // checking listByStatus

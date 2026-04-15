@@ -13,9 +13,9 @@ import { validateAdapterData } from './schemas';
 import { TENANT_DEMO_SEED } from '../data/tenantDemoSeed';
 import { getNextSequentialId } from './id-service';
 import { googleDriveService } from '../services/googleDrive';
+import { PLAN_LIMITS as PLAN_LIMITS_CONFIG, MUTATION_THROTTLE_WINDOW_MS, INTERNAL_TENANT_WHITELIST } from '../config/constants';
 
 const mutationLastSeen = new Map<string, number>();
-const MUTATION_THROTTLE_WINDOW_MS = 800;
 
 const buildMutationKey = (collectionName: string, action: string, id?: string, payload?: any) => {
     const userId = auth.currentUser?.uid || 'anonymous';
@@ -203,11 +203,7 @@ const logActivity = async (action: 'CREATE' | 'UPDATE' | 'DELETE' | 'RESTORE' | 
 /**
  * SaaS Quota Enforcement
  */
-const PLAN_LIMITS: Record<string, any> = {
-    trial: { vehicles: 50, drivers: 50, trips_per_month: 200 },
-    professional: { vehicles: 100, drivers: 100, trips_per_month: 2000 },
-    enterprise: { vehicles: Infinity, drivers: Infinity, trips_per_month: Infinity }
-};
+const PLAN_LIMITS = PLAN_LIMITS_CONFIG;
 
 const checkQuotas = async (tenantId: string, collectionName: string) => {
     const settingsDoc = await getDoc(doc(db, 'company_settings', tenantId));
@@ -215,16 +211,9 @@ const checkQuotas = async (tenantId: string, collectionName: string) => {
     const sub = companySettings?.subscription || { plan: 'trial' };
     let plan = sub?.plan || 'trial';
     
-    // Nâng cấp tài khoản demo và tài khoản Phú An mặc định full quyền trải nghiệm gói không giới hạn
-    const companyName = companySettings?.company_name?.toLowerCase() || '';
+    // QA AUDIT FIX P0-SEC-03: Explicit whitelist for internal/demo tenants only
     const lowTenantId = tenantId.toLowerCase();
-    const isMasterDemo = lowTenantId === 'internal-tenant-1' || 
-                         lowTenantId === 'internal-tenant-phuan' || 
-                         lowTenantId.includes('phuan') || 
-                         lowTenantId.includes('demo') ||
-                         companyName.includes('demo') || 
-                         companyName.includes('tnc') || 
-                         companyName.includes('phú an');
+    const isMasterDemo = INTERNAL_TENANT_WHITELIST.has(lowTenantId);
 
     if (isMasterDemo) {
         plan = 'enterprise';

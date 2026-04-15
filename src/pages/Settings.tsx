@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { PageHeader } from "@/components/shared/PageHeader";
 import { Button } from "@/components/ui/button";
 import {
