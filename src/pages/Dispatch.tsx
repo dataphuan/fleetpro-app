@@ -15,7 +15,11 @@ import {
   Filter,
   Search,
   Sparkles,
-  Bot
+  Bot,
+  Check,
+  X,
+  AlertCircle,
+  List
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -26,7 +30,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useTripsByDateRange } from "@/hooks/useTrips";
+import { useTripsByDateRange, useTrips } from "@/hooks/useTrips";
 import { useVehicles } from "@/hooks/useVehicles";
 import { useDrivers } from "@/hooks/useDrivers";
 import { DispatchTripDrawer } from "@/components/dispatch/DispatchTripDrawer";
@@ -39,6 +43,7 @@ import { AISuggestionDrawer, AISuggestion } from "@/components/dispatch/AISugges
 import { useLocation } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useUpdateTrip } from "@/hooks/useTrips";
+import { generateTripCode } from "@/lib/utils";
 
 const weekDays = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
 import { FleetMap } from "@/components/dispatch/FleetMap";
@@ -393,6 +398,115 @@ export default function Dispatch() {
           </div>
         }
       />
+
+      {/* ===== MOBILE: Draft Approval Panel ===== */}
+      {(() => {
+        const allDrafts = (trips || []).filter(t => t.status === 'draft');
+        const driverDrafts = allDrafts.filter((t: any) => t.source === 'driver-self-draft');
+        const pendingDrafts = driverDrafts.length > 0 ? driverDrafts : allDrafts.slice(0, 5);
+        
+        if (pendingDrafts.length === 0) return null;
+        
+        return (
+          <div className="md:hidden">
+            <Card className="border-amber-200 bg-gradient-to-r from-amber-50 to-orange-50">
+              <CardHeader className="pb-2 pt-3 px-4">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-sm font-bold text-amber-800 flex items-center gap-2">
+                    <AlertCircle className="w-4 h-4" />
+                    {pendingDrafts.length} Lệnh Nháp cần duyệt
+                  </CardTitle>
+                  <Badge variant="outline" className="bg-amber-100 text-amber-700 border-amber-300 text-[10px]">
+                    Chờ duyệt
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent className="px-4 pb-3 space-y-2">
+                {pendingDrafts.map((trip: any) => (
+                  <div key={trip.id} className="bg-white rounded-lg border p-3 shadow-sm">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono font-bold text-sm text-slate-800">{trip.trip_code}</span>
+                          {(trip as any).source === 'driver-self-draft' && (
+                            <Badge className="bg-amber-100 text-amber-700 border-amber-200 text-[9px] h-4 px-1">🚚 TX nháp</Badge>
+                          )}
+                        </div>
+                        <div className="text-xs text-slate-500 mt-1 space-y-0.5">
+                          <div className="flex items-center gap-1">
+                            <Truck className="w-3 h-3" /> {trip.vehicle?.license_plate || '—'}
+                            <span className="mx-1">•</span>
+                            <User className="w-3 h-3" /> {trip.driver?.full_name || '—'}
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <MapPin className="w-3 h-3" /> {trip.route?.route_name || trip.customer?.customer_name || '—'}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-1.5 shrink-0">
+                        <Button
+                          size="sm"
+                          className="h-8 px-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              const newCode = trip.trip_code?.startsWith('LĐX') ? generateTripCode() : trip.trip_code;
+                              await updateTrip({ id: trip.id, updates: { status: 'confirmed', trip_code: newCode } });
+                              queryClient.invalidateQueries({ queryKey: ['trips'] });
+                              toast({ title: '✅ Đã duyệt', description: `Lệnh ${newCode} đã xác nhận.` });
+                            } catch (err: any) {
+                              toast({ title: 'Lỗi duyệt', description: err.message, variant: 'destructive' });
+                            }
+                          }}
+                        >
+                          <Check className="w-3.5 h-3.5 mr-1" /> Duyệt
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 px-2 border-red-200 text-red-600 hover:bg-red-50 text-xs"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              await updateTrip({ id: trip.id, updates: { status: 'cancelled', notes: (trip.notes || '') + ' [QL từ chối]' } });
+                              queryClient.invalidateQueries({ queryKey: ['trips'] });
+                              toast({ title: 'Đã từ chối', description: `Lệnh ${trip.trip_code} đã hủy.` });
+                            } catch (err: any) {
+                              toast({ title: 'Lỗi', description: err.message, variant: 'destructive' });
+                            }
+                          }}
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+        );
+      })()}
+
+      {/* ===== MOBILE: Compact KPI Strip ===== */}
+      <div className="flex md:hidden gap-2 overflow-x-auto pb-1 scrollbar-hide">
+        <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 shrink-0">
+          <Truck className="w-3.5 h-3.5 text-blue-600" />
+          <span className="text-xs font-bold text-blue-700">{stats.activeVehicles} xe</span>
+        </div>
+        <div className="flex items-center gap-1.5 bg-green-50 border border-green-200 rounded-lg px-3 py-2 shrink-0">
+          <User className="w-3.5 h-3.5 text-green-600" />
+          <span className="text-xs font-bold text-green-700">{stats.activeDrivers} TX</span>
+        </div>
+        <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 shrink-0">
+          <CalendarIcon className="w-3.5 h-3.5 text-amber-600" />
+          <span className="text-xs font-bold text-amber-700">{stats.tripsThisWeek} CD</span>
+        </div>
+        <div className="flex items-center gap-1.5 bg-purple-50 border border-purple-200 rounded-lg px-3 py-2 shrink-0">
+          <MapPin className="w-3.5 h-3.5 text-purple-600" />
+          <span className="text-xs font-bold text-purple-700">{stats.tripsInProgress} chạy</span>
+        </div>
+      </div>
 
       {/* Stats Cards */}
       <div className="hidden md:grid grid-cols-4 gap-4">
