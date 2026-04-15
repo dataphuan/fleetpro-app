@@ -67,7 +67,7 @@ export default function LandingPage() {
                 Dùng thử miễn phí 14 ngày <ArrowRight className="w-5 h-5 ml-2" />
               </Link>
             </Button>
-            <Button size="lg" variant="outline" className="border-slate-600 text-white hover:bg-white/10 text-base sm:text-lg h-12 sm:h-14 px-6 sm:px-8 font-semibold" asChild>
+            <Button size="lg" className="bg-slate-700 hover:bg-slate-600 text-white border border-slate-500 text-base sm:text-lg h-12 sm:h-14 px-6 sm:px-8 font-semibold" asChild>
               <a href="https://zalo.me/0989890022" target="_blank" rel="noopener noreferrer">
                 <MessageCircle className="w-5 h-5 mr-2" /> Tư vấn qua Zalo
               </a>
@@ -185,7 +185,7 @@ export default function LandingPage() {
             <Button size="lg" className="bg-blue-600 hover:bg-blue-500 text-base sm:text-lg h-12 sm:h-14 px-8 sm:px-10 shadow-lg shadow-blue-500/25 font-semibold" asChild>
               <Link to="/auth">Bắt đầu miễn phí <ArrowRight className="w-5 h-5 ml-2" /></Link>
             </Button>
-            <Button size="lg" variant="outline" className="border-slate-600 text-white hover:bg-white/10 text-base sm:text-lg h-12 sm:h-14 px-8 font-semibold" asChild>
+            <Button size="lg" className="bg-slate-700 hover:bg-slate-600 text-white border border-slate-500 text-base sm:text-lg h-12 sm:h-14 px-8 font-semibold" asChild>
               <a href="https://cal.com/fleetpro-app/30min" target="_blank" rel="noopener noreferrer">
                 <Calendar className="w-5 h-5 mr-2" /> Đặt lịch tư vấn 30p
               </a>
