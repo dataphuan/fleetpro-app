@@ -191,8 +191,38 @@ export function DashboardOwnerRealtime() {
         });
     }
 
+    // 5. SLA OVERDUE — trips running longer than 24h
+    const overdueTrips = trips.filter((t: any) => {
+        if (t.status !== 'in_progress') return false;
+        const departTime = t.actual_departure_time || t.departure_date;
+        if (!departTime) return false;
+        const hoursElapsed = (Date.now() - new Date(String(departTime)).getTime()) / (1000 * 60 * 60);
+        return hoursElapsed > 24;
+    });
+    if (overdueTrips.length > 0) {
+        insights.push({
+            icon: AlertTriangle,
+            title: '⏰ SLA vượt thời gian',
+            message: `${overdueTrips.length} chuyến đang chạy quá 24h: ${overdueTrips.slice(0, 3).map((t: any) => t.trip_code || t.id).join(', ')}. Cần kiểm tra tài xế.`,
+            colorClass: 'border-red-200 text-red-700 bg-red-50'
+        });
+    }
+
+    // 6. Idle vehicles — active vehicles with no trip today
+    const idleVehicles = vehicles.filter((v: any) => 
+        v.status === 'active' && !currentTripByVehicle.has(v.id)
+    );
+    if (idleVehicles.length > 0 && runningTrips > 0) {
+        insights.push({
+            icon: Truck,
+            title: 'Xe trống lệnh',
+            message: `${idleVehicles.length} xe sẵn sàng nhưng chưa có chuyến: ${idleVehicles.slice(0, 3).map((v: any) => v.license_plate).join(', ')}. Cân nhắc điều phối thêm.`,
+            colorClass: 'border-amber-200 text-amber-700 bg-amber-50'
+        });
+    }
+
     return insights;
-  }, [vehicles, runningTrips, expenseTodayByVehicle]);
+  }, [vehicles, trips, runningTrips, expenseTodayByVehicle, currentTripByVehicle]);
 
   return (
     <div className="space-y-4">
@@ -234,6 +264,68 @@ export function DashboardOwnerRealtime() {
           </CardContent>
         </Card>
       </div>
+
+      {/* MONTHLY P&L SUMMARY — REAL DATA */}
+      {(() => {
+        const now = new Date();
+        const thisMonth = now.getMonth();
+        const thisYear = now.getFullYear();
+        
+        const isThisMonth = (dateVal: unknown) => {
+          if (!dateVal) return false;
+          const d = new Date(String(dateVal));
+          return d.getMonth() === thisMonth && d.getFullYear() === thisYear;
+        };
+
+        const monthlyRevenue = trips
+          .filter((t: any) => isThisMonth(t.departure_date || t.created_at))
+          .reduce((sum: number, t: any) => sum + Number(t.total_revenue || t.freight_revenue || 0), 0);
+
+        const monthlyExpenses = expenses
+          .filter((e: any) => isThisMonth(e.expense_date || e.created_at) && !e.is_deleted)
+          .reduce((sum: number, e: any) => sum + Number(e.amount || 0), 0);
+
+        const monthlyProfit = monthlyRevenue - monthlyExpenses;
+        const monthlyTrips = trips.filter((t: any) => isThisMonth(t.departure_date || t.created_at)).length;
+        const totalKm = trips
+          .filter((t: any) => isThisMonth(t.departure_date || t.created_at))
+          .reduce((sum: number, t: any) => sum + Number(t.actual_distance_km || 0), 0);
+        const costPerKm = totalKm > 0 ? Math.round(monthlyExpenses / totalKm) : 0;
+
+        const fmt = (v: number) => v.toLocaleString('vi-VN');
+
+        return (
+          <Card className="border-emerald-100 bg-gradient-to-r from-emerald-50/40 via-white to-blue-50/30">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-bold flex items-center gap-2 text-emerald-800">
+                <Wallet className="h-4 w-4" />
+                P&L Tháng {thisMonth + 1}/{thisYear}
+                <Badge variant="outline" className="ml-auto text-[10px]">{monthlyTrips} chuyến • {fmt(totalKm)} km</Badge>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                <div className="rounded-lg bg-white border p-3">
+                  <p className="text-[10px] uppercase font-bold text-emerald-600 opacity-70 mb-1">Doanh Thu</p>
+                  <p className="text-lg font-black text-emerald-700"><AnimatedValue value={monthlyRevenue} /><span className="text-xs font-normal">đ</span></p>
+                </div>
+                <div className="rounded-lg bg-white border p-3">
+                  <p className="text-[10px] uppercase font-bold text-red-600 opacity-70 mb-1">Chi Phí</p>
+                  <p className="text-lg font-black text-red-600"><AnimatedValue value={monthlyExpenses} /><span className="text-xs font-normal">đ</span></p>
+                </div>
+                <div className={`rounded-lg border p-3 ${monthlyProfit >= 0 ? 'bg-emerald-50 border-emerald-200' : 'bg-red-50 border-red-200'}`}>
+                  <p className="text-[10px] uppercase font-bold opacity-70 mb-1">{monthlyProfit >= 0 ? '✅ Lợi Nhuận' : '⚠️ Lỗ'}</p>
+                  <p className={`text-lg font-black ${monthlyProfit >= 0 ? 'text-emerald-800' : 'text-red-700'}`}><AnimatedValue value={Math.abs(monthlyProfit)} /><span className="text-xs font-normal">đ</span></p>
+                </div>
+                <div className="rounded-lg bg-white border p-3">
+                  <p className="text-[10px] uppercase font-bold text-blue-600 opacity-70 mb-1">Chi Phí/km</p>
+                  <p className="text-lg font-black text-blue-700">{costPerKm > 0 ? <AnimatedValue value={costPerKm} /> : '—'}<span className="text-xs font-normal">{costPerKm > 0 ? 'đ/km' : ''}</span></p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      })()}
       
       {/* AI OPERATING INSIGHTS - WOW FACTOR FOR CEO */}
       <Card className="border-indigo-100 bg-gradient-to-br from-indigo-50/50 via-white to-purple-50/30">
