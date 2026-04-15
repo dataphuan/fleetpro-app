@@ -63,31 +63,35 @@ export const CODE_FORMATS = {
     },
     REVENUE: {
         prefix: CODE_PREFIXES.REVENUE,
-        digitCount: 4,
-        length: 6,
-        pattern: /^DT\d{4}$/,
-        example: 'DT0001',
+        digitCount: 2,
+        hasDate: true,
+        separator: '-',
+        pattern: /^DT\d{4}-\d{1,3}$/,
+        example: 'DT2604-01',
     },
     EXPENSE: {
         prefix: CODE_PREFIXES.EXPENSE,
-        digitCount: 4,
-        length: 6,
-        pattern: /^PC\d{4}$/,
-        example: 'PC0001',
+        digitCount: 2,
+        hasDate: true,
+        separator: '-',
+        pattern: /^PC\d{4}-\d{1,3}$/,
+        example: 'PC2604-01',
     },
     MAINTENANCE: {
         prefix: CODE_PREFIXES.MAINTENANCE,
-        digitCount: 4,
-        length: 6,
-        pattern: /^BD\d{4}$/,
-        example: 'BD0001',
+        digitCount: 2,
+        hasDate: true,
+        separator: '-',
+        pattern: /^BD\d{4}-\d{1,3}$/,
+        example: 'BD2604-01',
     },
     TRANSPORT_ORDER: {
         prefix: CODE_PREFIXES.TRANSPORT_ORDER,
-        digitCount: 4,
-        length: 6,
-        pattern: /^DH\d{4}$/,
-        example: 'DH0001',
+        digitCount: 2,
+        hasDate: true,
+        separator: '-',
+        pattern: /^DH\d{4}-\d{1,3}$/,
+        example: 'DH2604-01',
     },
 } as const;
 
@@ -226,8 +230,10 @@ export function validateCode(code: string, entityType: EntityType): { valid: boo
         return { valid: false, error: `Mã không được để trống` };
     }
 
-    if (code.length !== format.length) {
-        return { valid: false, error: `Mã phải có ${format.length} ký tự (VD: ${format.example})` };
+    // Skip fixed length check for date-based codes (variable length: CD2604-1 vs CD2604-100)
+    const hasDate = 'hasDate' in format && format.hasDate;
+    if (!hasDate && 'length' in format && code.length !== (format as any).length) {
+        return { valid: false, error: `Mã phải có ${(format as any).length} ký tự (VD: ${format.example})` };
     }
 
     if (!format.pattern.test(code)) {
