@@ -55,10 +55,11 @@ export const CODE_FORMATS = {
     },
     TRIP: {
         prefix: CODE_PREFIXES.TRIP,
-        digitCount: 4,
-        length: 6,
-        pattern: /^CD\d{4}$/,
-        example: 'CD0001',
+        digitCount: 2,
+        hasDate: true,
+        separator: '-',
+        pattern: /^CD\d{4}-\d{1,3}$/,
+        example: 'CD2604-01',
     },
     REVENUE: {
         prefix: CODE_PREFIXES.REVENUE,
@@ -109,6 +110,12 @@ export function getCurrentYYMM(): string {
  */
 export function extractSequenceNumber(code: string, format: typeof CODE_FORMATS[keyof typeof CODE_FORMATS]): number {
     if (!code) return 0;
+    // Handle dash-separated format: CD2604-01
+    const separator = 'separator' in format ? (format as any).separator : '';
+    if (separator && code.includes(separator)) {
+        const parts = code.split(separator);
+        return parseInt(parts[parts.length - 1], 10) || 0;
+    }
     const digitPart = code.slice(-format.digitCount);
     return parseInt(digitPart, 10) || 0;
 }
@@ -128,9 +135,9 @@ export function generateSimpleCode(prefix: string, sequence: number): string {
  * @param sequence - The sequence number
  * @param yymm - Optional YYMM override (defaults to current)
  */
-export function generateDateCode(prefix: string, sequence: number, yymm?: string): string {
+export function generateDateCode(prefix: string, sequence: number, yymm?: string, separator: string = ''): string {
     const dateStr = yymm || getCurrentYYMM();
-    return `${prefix}${dateStr}${String(sequence).padStart(3, '0')}`;
+    return `${prefix}${dateStr}${separator}${String(sequence).padStart(2, '0')}`;
 }
 
 // ============================================
@@ -190,7 +197,8 @@ export function getNextCode(
     const nextSequence = maxSequence + 1;
 
     if (hasDate) {
-        return generateDateCode(format.prefix, nextSequence);
+        const separator = 'separator' in format ? (format as any).separator : '';
+        return generateDateCode(format.prefix, nextSequence, undefined, separator);
     } else {
         return generateSimpleCode(format.prefix, nextSequence);
     }
