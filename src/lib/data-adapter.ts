@@ -2341,7 +2341,6 @@ const clearTenantOperationalData = async (payload: { tenantId: string; keepUserI
         'routes',
         'trips',
         'expenses',
-        'tripExpenses',
         'transportOrders',
         'maintenance',
         'inventory',
@@ -2349,25 +2348,31 @@ const clearTenantOperationalData = async (payload: { tenantId: string; keepUserI
         'tires',
         'purchaseOrders',
         'alerts',
-        'tripLocationLogs',
+        'trip_location_logs',
         'expenseCategories',
         'accountingPeriods',
         'partners',
+        'costs',
     ];
 
     let deleted = 0;
     for (const collName of operationalCollections) {
-        const snap = await getDocs(query(collection(db, collName), where('tenant_id', '==', tenantId)));
-        if (snap.empty) continue;
+        try {
+            const snap = await getDocs(query(collection(db, collName), where('tenant_id', '==', tenantId)));
+            if (snap.empty) continue;
 
-        const docs = snap.docs;
-        const chunkSize = 400;
-        for (let i = 0; i < docs.length; i += chunkSize) {
-            const batch = writeBatch(db);
-            docs.slice(i, i + chunkSize).forEach((d) => batch.delete(d.ref));
-            await batch.commit();
+            const docs = snap.docs;
+            const chunkSize = 400;
+            for (let i = 0; i < docs.length; i += chunkSize) {
+                const batch = writeBatch(db);
+                docs.slice(i, i + chunkSize).forEach((d) => batch.delete(d.ref));
+                await batch.commit();
+            }
+            deleted += docs.length;
+        } catch (err) {
+            // Some collections may not exist or lack read permission — skip gracefully
+            console.warn(`[clearTenantOperationalData] Skip ${collName}:`, (err as any)?.code || err);
         }
-        deleted += docs.length;
     }
 
     // FIX: During demo reset, preserve ALL existing tenant users.
@@ -2724,6 +2729,7 @@ const webDataAdapters: Record<string, any> = {
                 return {
                     success: false,
                     seeded: false,
+                    message: error?.message || 'Không thể kiểm tra/khởi tạo dữ liệu demo.',
                     error: error?.message || 'Không thể kiểm tra/khởi tạo dữ liệu demo.',
                 };
             }
