@@ -188,7 +188,7 @@ export default function Dispatch() {
                       description: `Các chuyến đi cùng tuyến ${group[0].route?.route_name || 'Chưa rõ'} cùng ngày ${group[0].departure_date}. Tổng tải trọng ${totalWeight}T (Dưới 20T).`,
                       confidence: 94,
                       trips: group,
-                      savings: "Giảm 50% chi phí nhiên liệu & lương tài xế.",
+                      savings: `${group.length} chuyến cùng tuyến, tổng tải ${totalWeight}T — xem xét ghép 1 xe.`,
                       logic: "Route Matching & Load Balance"
                   });
               }
@@ -213,7 +213,7 @@ export default function Dispatch() {
                       description: `Sau khi giao hàng tại ${dest}, xe này có thể lấy hàng chuyến ${t2.trip_code} tại cùng khu vực thay vì chạy rỗng về kho.`,
                       confidence: 88,
                       trips: [t1, t2],
-                      savings: "Tiết kiệm 200-300km tiền dầu chạy rỗng.",
+                      savings: `Xe ${t1.vehicle?.license_plate || ''} đến ${dest} có thể lấy hàng chiều về thay vì chạy rỗng.`,
                       logic: "Geospatial Proximity Match"
                   });
               }

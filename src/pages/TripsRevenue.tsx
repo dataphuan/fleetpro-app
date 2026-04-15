@@ -625,45 +625,13 @@ export default function TripsRevenue() {
     };
 
     const handleAiScan = () => {
-        if (!selectedTrip) return;
-        
-        setAiScanDialogOpen(true);
-        setAiScanProgress(0);
-        setAiRecognizedFields([]);
-        
-        const fields = ["Biển số xe: Match 100%", "Tài xế: Xác nhận", "Cước vận chuyển: 8,500,000đ", "Phụ phí: 450,000đ"];
-        
-        // WOW: Simulated progressive recognition
-        const interval = setInterval(() => {
-            setAiScanProgress(prev => {
-                if (prev >= 100) {
-                    clearInterval(interval);
-                    return 100;
-                }
-                
-                // Add fields as progress goes
-                if (prev === 20) setAiRecognizedFields([fields[0]]);
-                if (prev === 40) setAiRecognizedFields([fields[0], fields[1]]);
-                if (prev === 70) setAiRecognizedFields([fields[0], fields[1], fields[2]]);
-                if (prev === 90) setAiRecognizedFields(fields);
-                
-                return prev + 5;
-            });
-        }, 100);
-
-        setTimeout(() => {
-            form.setValue("freight_revenue", 8500000);
-            form.setValue("additional_charges", 450000);
-            const currentNotes = form.getValues("notes") || "";
-            if (!currentNotes.includes("AI OCR")) {
-                form.setValue("notes", `${currentNotes} [AI OCR: 8.5Tr, 450k]`.trim());
-            }
-            
-            toast({
-                title: "Đối soát AI hoàn tất",
-                description: "Đã tự động điền dữ liệu cước và phụ phí từ chứng từ mờ.",
-            });
-        }, 2200);
+        // TODO: Integrate real OCR API (Google Vision / Tesseract)
+        // Currently no AI backend — show honest message instead of fake scan
+        toast({
+            title: "Tính năng AI OCR đang phát triển",
+            description: "Chụp ảnh chứng từ → AI tự nhận dạng cước phí sẽ ra mắt trong phiên bản tiếp theo. Hiện tại vui lòng nhập thủ công.",
+            variant: "default",
+        });
     };
 
     const onSubmit = async (data: TripFormValues) => {
@@ -2055,62 +2023,7 @@ export default function TripsRevenue() {
                 </AlertDialogContent>
             </AlertDialog>
 
-            {/* AI SCAN WOW DIALOG */}
-            <Dialog open={aiScanDialogOpen} onOpenChange={setAiScanDialogOpen}>
-                <DialogContent className="sm:max-w-[450px] p-0 overflow-hidden border-none shadow-2xl">
-                    <div className="bg-gradient-to-br from-blue-600 to-indigo-700 p-6 text-white text-center relative overflow-hidden">
-                        <div className="absolute top-0 right-0 p-4 opacity-10">
-                            <Sparkles className="w-24 h-24" />
-                        </div>
-                        <h2 className="text-2xl font-bold mb-1 relative z-10">AI Discovery Scanning</h2>
-                        <p className="text-blue-100 text-sm relative z-10">Đang đối soát dữ liệu từ tài xế...</p>
-                    </div>
-                    
-                    <div className="p-8 space-y-6 bg-white">
-                        <div className="relative h-64 bg-slate-100 rounded-xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center overflow-hidden">
-                            <div className="scanning-laser-effect absolute inset-0 bg-black/5" />
-                            <div className="z-20 text-center space-y-3">
-                                <ScanText className="w-16 h-16 text-blue-500 mx-auto opacity-50" />
-                                <div className="space-y-1">
-                                    <p className="text-sm font-semibold text-slate-700">Đang phân tích chứng từ mờ...</p>
-                                    <p className="text-xs text-slate-400">Google Gemini Flash 2.0</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="space-y-4">
-                            <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden border border-slate-200">
-                                <div 
-                                    className="bg-blue-600 h-full transition-all duration-300 ease-out"
-                                    style={{ width: `${aiScanProgress}%` }}
-                                />
-                            </div>
-
-                            <div className="space-y-2 min-h-[100px]">
-                                {aiRecognizedFields.map((field, idx) => (
-                                    <div key={idx} className="flex items-center gap-2 text-xs font-medium text-emerald-600 animate-slide-in">
-                                        <CheckCircle className="w-3.5 h-3.5" />
-                                        {field}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-
-                        <Button 
-                            className="w-full bg-slate-900 hover:bg-black h-12" 
-                            disabled={aiScanProgress < 100}
-                            onClick={() => setAiScanDialogOpen(false)}
-                        >
-                            {aiScanProgress < 100 ? (
-                                <>
-                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" /> 
-                                    Đang nhận diện ({aiScanProgress}%)
-                                </>
-                            ) : "Áp dụng kết quả"}
-                        </Button>
-                    </div>
-                </DialogContent>
-            </Dialog>
+            {/* AI OCR Dialog removed — no real backend yet */}
         </div>
     );
 }
