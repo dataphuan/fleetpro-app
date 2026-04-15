@@ -24,9 +24,9 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
     }
 
 
-    // In production, require authentication
+    // In production, require authentication — show landing page first
     if (!userId) {
-        return <Navigate to="/auth" replace />;
+        return <Navigate to="/landing" replace />;
     }
 
     return <>{children}</>;

@@ -110,6 +110,11 @@ const PhuAnDocs = lazy(() => import("./pages/docs/PhuAnDocs").catch(err => {
   return { default: () => <div>Documentation failed to load</div> };
 }));
 
+const LandingPage = lazy(() => import("./pages/Index").catch(err => {
+  console.error('Failed to load LandingPage:', err);
+  return { default: () => <div>Landing page failed to load</div> };
+}));
+
 // Driver PWA Routes
 const DriverDashboard = lazy(() => import("./pages/driver/DriverDashboard").catch(err => {
   console.error('Failed to load DriverDashboard:', err);
@@ -158,6 +163,11 @@ const App = () => {
             <ErrorBoundary>
               <Routes>
                 <Route path="/auth" element={<Auth />} />
+                <Route path="/landing" element={
+                  <Suspense fallback={<PageSkeleton />}>
+                    <LandingPage />
+                  </Suspense>
+                } />
                 <Route path="/docs/huong-dan-phu-an" element={
                   <Suspense fallback={<PageSkeleton />}>
                     <PhuAnDocs />
