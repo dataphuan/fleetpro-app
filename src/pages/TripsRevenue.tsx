@@ -690,6 +690,9 @@ export default function TripsRevenue() {
             estimated_fuel: data.estimated_fuel || 0,
             estimated_toll: data.estimated_toll || 0,
             estimated_allowance: data.estimated_allowance || 0,
+            // KHÓA CỨNG: Map estimated costs → actual cost fields for workflow validation
+            fuel_cost: data.estimated_fuel || 0,
+            total_expenses: (data.estimated_fuel || 0) + (data.estimated_toll || 0) + (data.estimated_allowance || 0),
         };
 
         try {

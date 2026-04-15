@@ -59,7 +59,12 @@ export function DriverVehicleAssignModal({
         }
     };
 
-    const poolVehicles = availableVehicles.filter(v => !v.assigned_driver_id && v.status === 'active');
+    // Show pool vehicles (assignment_type='pool') + any unassigned active vehicles
+    const poolVehicles = availableVehicles.filter(v => 
+        v.status === 'active' && !v.is_deleted && (
+            v.assignment_type === 'pool' || !v.assigned_driver_id
+        )
+    );
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>

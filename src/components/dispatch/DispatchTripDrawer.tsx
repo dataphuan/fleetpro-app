@@ -251,15 +251,21 @@ export function DispatchTripDrawer({
             // Format Date+Time for saving
             const combinedDateTime = `${data.departure_date}T${data.departure_time}:00`;
 
+            const selectedRouteData = routes?.find(r => r.id === data.route_id);
+            const fuelCostFromRoute = selectedRouteData?.fuel_cost_standard || 0;
+            const tollCost = data.additional_charges || 0;
+            
             const payload = {
                 ...data,
-                vehicle_id: data.vehicle_id, // Ensure UUID
-                driver_id: data.driver_id,   // Ensure UUID
+                vehicle_id: data.vehicle_id,
+                driver_id: data.driver_id,
                 customer_id: data.customer_id === "none" ? null : data.customer_id,
                 route_id: data.route_id === "none" ? null : data.route_id,
-                // Don't send status if creating new, default is draft (handled by DB default usually, but schema has it, so optional)
                 status: data.status,
-                departure_date: combinedDateTime, // Save as ISO timestamp
+                departure_date: combinedDateTime,
+                // KHÓA CỨNG: Map costs for workflow validation
+                fuel_cost: fuelCostFromRoute,
+                total_expenses: fuelCostFromRoute + tollCost,
             };
 
             // Remove non-DB fields
