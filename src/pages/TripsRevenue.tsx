@@ -221,10 +221,7 @@ export default function TripsRevenue() {
     const [pendingOverrideData, setPendingOverrideData] = useState<any>(null);
     const [overrideWarningMsg, setOverrideWarningMsg] = useState("");
     
-    // AI Scan WOW UI states
-    const [aiScanDialogOpen, setAiScanDialogOpen] = useState(false);
-    const [aiScanProgress, setAiScanProgress] = useState(0);
-    const [aiRecognizedFields, setAiRecognizedFields] = useState<string[]>([]);
+
 
     // Import Columns Configuration
     const importColumns: ImportColumn[] = [
@@ -624,15 +621,7 @@ export default function TripsRevenue() {
         }
     };
 
-    const handleAiScan = () => {
-        // TODO: Integrate real OCR API (Google Vision / Tesseract)
-        // Currently no AI backend — show honest message instead of fake scan
-        toast({
-            title: "Tính năng AI OCR đang phát triển",
-            description: "Chụp ảnh chứng từ → AI tự nhận dạng cước phí sẽ ra mắt trong phiên bản tiếp theo. Hiện tại vui lòng nhập thủ công.",
-            variant: "default",
-        });
-    };
+
 
     const onSubmit = async (data: TripFormValues) => {
         // Calculate total_revenue
@@ -1121,16 +1110,7 @@ export default function TripsRevenue() {
                 description="Danh sách chuyến & doanh thu – phục vụ tính lợi nhuận"
                 actions={
                     <div className="flex items-center gap-2">
-                        {isFinancialRole && (
-                            <Button
-                                variant="outline"
-                                className="bg-blue-50 border-blue-200 text-blue-700 hover:bg-blue-100 gap-2 font-semibold shadow-sm animate-pulse-subtle"
-                                onClick={handleAiScan}
-                            >
-                                <Sparkles className="w-4 h-4 text-amber-500" />
-                                Đối soát thông minh
-                            </Button>
-                        )}
+
                         {canCreate && <QuickTripModal triggerLabel="+ Tạo Chuyến" />}
                     </div>
                 }
@@ -1933,22 +1913,6 @@ export default function TripsRevenue() {
                                                 </FormItem>
                                             )}
                                         />
-                                    </div>
-
-                                    {/* AI OCR Trigger */}
-                                    <div className="mb-4">
-                                        <Button
-                                            type="button"
-                                            variant="secondary"
-                                            className="w-full bg-blue-600 text-white hover:bg-blue-700 gap-2 h-12 shadow-lg shadow-blue-200 font-bold transition-all hover:scale-[1.02]"
-                                            onClick={handleAiScan}
-                                        >
-                                            <Sparkles className="w-5 h-5 text-amber-300 animate-pulse" />
-                                            Đối soát thông minh (AI Discovery)
-                                        </Button>
-                                        <p className="text-[10px] text-muted-foreground mt-2 text-center italic">
-                                            Phân tích biên bản bàn giao & POD ảnh từ tài xế để tự động khớp số liệu cực nhanh.
-                                        </p>
                                     </div>
 
                                     {/* Revenue Summary */}
