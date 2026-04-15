@@ -125,6 +125,14 @@ service cloud.firestore {
       allow delete: if canAccessTenantData() && sameTenantOnReadUpdateDelete() && isTenantAdmin();
     }
 
+    // Public Tracking: READ-ONLY for anyone (no auth required)
+    // Contains ONLY safe public fields: trip_code, status, origin, destination, dates, vehicle_plate
+    // NO revenue, costs, driver phone, or internal notes — synced from trips collection
+    match /public_tracking/{trackId} {
+      allow read: if true;
+      allow write: if isAuthed() && canAccessTenantData();
+    }
+
     // Drivers: DATA ISOLATION — driver can only read own record
     match /drivers/{driverId} {
       allow read: if canAccessTenantData() && sameTenantOnReadUpdateDelete() && (

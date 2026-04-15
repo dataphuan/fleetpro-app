@@ -157,6 +157,8 @@ const createTripDirectWrite = async (validatedData: any, tenantId: string) => {
     };
 
     const docRef = await addDoc(collection(db, 'trips'), payload);
+    // Sync to public_tracking for unauthenticated customer lookups
+    syncPublicTracking(docRef.id, payload).catch(() => null);
     return { id: docRef.id, payload };
 };
 
@@ -168,7 +170,36 @@ const updateTripDirectWrite = async (id: string, oldData: any, validatedData: an
         ...buildTripFinancialFields(merged),
     };
     await updateDoc(doc(db, 'trips', id), patch);
+    // Sync to public_tracking for unauthenticated customer lookups
+    syncPublicTracking(id, { ...oldData, ...patch }).catch(() => null);
     return patch;
+};
+
+/**
+ * Sync safe public fields to public_tracking collection.
+ * This collection has `allow read: if true` in Firestore rules,
+ * enabling customers to track shipments without login.
+ * NEVER includes: revenue, costs, driver phone, internal notes.
+ */
+const syncPublicTracking = async (tripId: string, tripData: any) => {
+    try {
+        const publicData = {
+            trip_code: tripData.trip_code || '',
+            status: tripData.status || 'draft',
+            origin: tripData.origin || tripData.route?.origin || '',
+            destination: tripData.destination || tripData.route?.destination || '',
+            departure_date: tripData.departure_date || tripData.created_at || '',
+            arrival_date: tripData.arrival_date || tripData.completed_at || null,
+            vehicle_plate: tripData.vehicle?.license_plate || tripData.vehicle_plate || null,
+            route_name: tripData.route?.route_name || tripData.route_name || null,
+            distance_km: tripData.distance_km || tripData.route?.distance_km || null,
+            updated_at: tripData.updated_at || new Date().toISOString(),
+            tenant_id: tripData.tenant_id || '',
+        };
+        await setDoc(doc(db, 'public_tracking', tripId), publicData, { merge: true });
+    } catch (e) {
+        console.warn('[syncPublicTracking] Failed:', e);
+    }
 };
 
 /**
