@@ -1927,10 +1927,26 @@ export default function TripsRevenue() {
                                 </TabsContent>
                             </Tabs>
 
-                            <DialogFooter>
+                            <DialogFooter className="gap-2">
                                 <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                                     Hủy
                                 </Button>
+                                {selectedTrip && (
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="border-blue-200 text-blue-700 hover:bg-blue-50"
+                                        onClick={() => {
+                                            const baseUrl = window.location.origin;
+                                            const trackUrl = `${baseUrl}/track/${form.getValues('trip_code')}`;
+                                            navigator.clipboard.writeText(trackUrl).then(() => {
+                                                toast({ title: "📋 Link tracking đã copy!", description: trackUrl });
+                                            });
+                                        }}
+                                    >
+                                        📦 Copy link tracking
+                                    </Button>
+                                )}
                                 <Button
                                     type="submit"
                                     disabled={createMutation.isPending || updateMutation.isPending}
