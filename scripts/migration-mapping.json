@@ -1,9 +1,0 @@
-{
-  "vehicles": { "file": "vehicles_template.csv", "keyColumn": "Mã xe" },
-  "drivers": { "file": "drivers_template.csv", "keyColumn": "Mã tài xế" },
-  "customers": { "file": "customers_template.csv", "keyColumn": "Mã KH" },
-  "routes": { "file": "routes_template.csv", "keyColumn": "Mã tuyến" },
-  "trips": { "file": "trips_template.csv", "keyColumn": "Mã chuyến" },
-  "expenses": { "file": "expenses_template.csv", "keyColumn": "Mã chi phí" },
-  "maintenance": { "file": "maintenance_template.csv", "keyColumn": "Mã lệnh" }
-}

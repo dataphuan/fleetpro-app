@@ -1,24 +1,11 @@
 # Build Output
+dist/
+dist-ssr/
 release/
 out/
-dist/
-dist-electron/
-dist-ssr/
 
-# Local Dev
-# Build Output
-release/
-out/
-dist/
-dist-electron/
-dist-ssr/
-
-# Local Dev
-*.local
-*.sqlite
-*.tmp
-*.log
-logs/
+# Dependencies
+node_modules/
 
 # Env and Secrets
 .env
@@ -29,15 +16,30 @@ service-account*.json
 credentials*.json
 scripts/cloudflare-pages-secrets.production.json
 
-# Build and IDE
-node_modules
-dist/
-dist-electron/
-release/
+# Generated seed data (regenerate: node scripts/generate-tenant-demo-seed.mjs)
+scripts/tenantDemoSeed.json
+src/data/tenantDemoSeed.ts
+
+# Firebase
+firestore-debug.log
+ui-debug.log
+
+# Vite
+vite.config.ts.timestamp-*
+
+# IDE
 .vscode/*
 !.vscode/extensions.json
-.idea
+.idea/
+
+# OS
 .DS_Store
+Thumbs.db
+
+# Temp & Scratch
 *.log
 *.sqlite
 *.tmp
+scratch/
+DATA-DEMO/
+.wrangler/
