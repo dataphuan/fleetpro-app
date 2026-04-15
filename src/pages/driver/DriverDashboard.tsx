@@ -181,8 +181,9 @@ export default function DriverDashboard() {
         );
         if (byIdentity) return byIdentity;
 
-        // Demo fallback: pick first active driver in tenant so driver role can always experience workflow.
-        return (drivers || []).find((d: any) => d.status === 'active') || (drivers || [])[0] || null;
+        // NO FALLBACK — each driver account must be properly linked.
+        // If no match: linkedDriver = null → UI shows "chưa liên kết" message.
+        return null;
     }, [drivers, user?.email, user?.id]);
 
     // Sync availability status from Firestore when linkedDriver loads
