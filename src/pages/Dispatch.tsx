@@ -40,7 +40,7 @@ import { useToast } from "@/hooks/use-toast";
 import { startOfWeek, endOfWeek, addDays, format, subWeeks, addWeeks, isSameDay, subDays, startOfMonth, endOfMonth, subMonths, addMonths, eachDayOfInterval, isSameMonth } from "date-fns";
 import { vi } from "date-fns/locale";
 import { AISuggestionDrawer, AISuggestion } from "@/components/dispatch/AISuggestionDrawer";
-import { useLocation } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { useUpdateTrip } from "@/hooks/useTrips";
 import { generateTripCode } from "@/lib/utils";
@@ -493,24 +493,24 @@ export default function Dispatch() {
         );
       })()}
 
-      {/* ===== MOBILE: Compact KPI Strip ===== */}
+      {/* ===== MOBILE: Compact KPI Strip (all linked to real data) ===== */}
       <div className="flex md:hidden gap-2 overflow-x-auto pb-1 scrollbar-hide">
-        <div className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 shrink-0">
+        <Link to="/vehicles" className="flex items-center gap-1.5 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 shrink-0 active:scale-95 transition-transform">
           <Truck className="w-3.5 h-3.5 text-blue-600" />
           <span className="text-xs font-bold text-blue-700">{stats.activeVehicles} xe</span>
-        </div>
-        <div className="flex items-center gap-1.5 bg-green-50 border border-green-200 rounded-lg px-3 py-2 shrink-0">
+        </Link>
+        <Link to="/drivers" className="flex items-center gap-1.5 bg-green-50 border border-green-200 rounded-lg px-3 py-2 shrink-0 active:scale-95 transition-transform">
           <User className="w-3.5 h-3.5 text-green-600" />
           <span className="text-xs font-bold text-green-700">{stats.activeDrivers} TX</span>
-        </div>
-        <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 shrink-0">
+        </Link>
+        <Link to="/trips" className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 shrink-0 active:scale-95 transition-transform">
           <CalendarIcon className="w-3.5 h-3.5 text-amber-600" />
           <span className="text-xs font-bold text-amber-700">{stats.tripsThisWeek} {viewMode === 'day' || viewMode === 'hub' ? 'hôm nay' : viewMode === 'month' ? 'tháng' : 'tuần'}</span>
-        </div>
-        <div className="flex items-center gap-1.5 bg-purple-50 border border-purple-200 rounded-lg px-3 py-2 shrink-0">
+        </Link>
+        <Link to="/tracking" className="flex items-center gap-1.5 bg-purple-50 border border-purple-200 rounded-lg px-3 py-2 shrink-0 active:scale-95 transition-transform">
           <MapPin className="w-3.5 h-3.5 text-purple-600" />
-          <span className="text-xs font-bold text-purple-700">{stats.tripsInProgress} chạy</span>
-        </div>
+          <span className="text-xs font-bold text-purple-700">{stats.tripsInProgress} đang chạy</span>
+        </Link>
       </div>
 
       {/* Stats Cards */}
