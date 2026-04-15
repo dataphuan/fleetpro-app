@@ -51,7 +51,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import {
   Wallet, Receipt, Fuel, Wrench, Users, Loader2, Trash2, RefreshCw,
-  X, Shield, FileText, Search, Plus, Upload, Download
+  X, Shield, FileText, Search, Plus, Upload, Download, Camera
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -65,6 +65,7 @@ import { usePermissions } from "@/hooks/usePermissions";
 import { getNextCodeByPrefix } from "@/lib/code-generator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SmartExpenseAudit } from "@/components/finance/SmartExpenseAudit";
+import { InvoiceOCRDialog } from "@/components/expenses/InvoiceOCRDialog";
 
 
 // Types
@@ -157,6 +158,7 @@ export default function Expenses() {
   const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
 
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [ocrDialogOpen, setOcrDialogOpen] = useState(false);
 
 
   // Import Columns Config
@@ -871,6 +873,12 @@ export default function Expenses() {
           )}
 
           {canCreate && (
+            <Button size="sm" variant="outline" onClick={() => setOcrDialogOpen(true)} className="h-8 gap-1 ml-1 border-blue-200 text-blue-700 hover:bg-blue-50">
+              <Camera className="w-4 h-4" />
+              <span className="hidden lg:inline">Scan AI</span>
+            </Button>
+          )}
+          {canCreate && (
             <Button size="sm" onClick={handleAdd} className="h-8 gap-1 ml-1">
               <Plus className="w-4 h-4" />
               Thêm phiếu chi
@@ -1309,6 +1317,59 @@ export default function Expenses() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Invoice OCR Dialog — REAL Gemini Vision */}
+      <InvoiceOCRDialog
+        open={ocrDialogOpen}
+        onOpenChange={setOcrDialogOpen}
+        onApply={(ocrData) => {
+          // Map OCR category to internal category
+          const categoryMap: Record<string, string> = {
+            'cat_fuel': 'fuel',
+            'cat_toll': 'toll',
+            'cat_meal': 'allowance',
+            'cat_maint': 'maintenance',
+            'cat_loading': 'labor',
+            'cat_insurance': 'other',
+            'cat_other': 'other',
+          };
+
+          // Find matching vehicle by plate
+          let vehicleId = null;
+          if (ocrData.vehicle_plate && vehicles) {
+            const v = vehicles.find((v: any) => 
+              v.license_plate?.replace(/[\s\-\.]/g, '').toLowerCase().includes(
+                ocrData.vehicle_plate!.replace(/[\s\-\.]/g, '').toLowerCase()
+              )
+            );
+            vehicleId = v?.id || null;
+          }
+
+          const nextCode = getNextCodeByPrefix(
+            (expenses || []).map(e => e.expense_code),
+            'PC',
+            4
+          );
+
+          setSelectedExpense(null);
+          form.reset({
+            expense_code: nextCode,
+            expense_date: ocrData.date || format(new Date(), 'yyyy-MM-dd'),
+            category_id: categoryMap[ocrData.category] || 'other',
+            amount: ocrData.amount,
+            description: ocrData.description,
+            vehicle_id: vehicleId,
+            driver_id: null,
+            trip_id: null,
+            status: 'draft',
+          });
+          setDialogOpen(true);
+          toast({
+            title: "📸 AI đã trích xuất",
+            description: `${ocrData.amount.toLocaleString('vi-VN')}đ — ${ocrData.description}`,
+          });
+        }}
+      />
     </div>
   );
 }
