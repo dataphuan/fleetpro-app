@@ -342,15 +342,15 @@ export default function Dispatch() {
     return filtered;
   }, [trips, searchQuery, filterStatus]);
 
-  // Stats Calculation
+  // Stats Calculation — reactive to filters
   const stats = useMemo(() => {
-    const activeVehicles = vehicles?.filter(v => v.status === 'active').length || 0;
-    const activeDrivers = drivers?.filter(d => d.status === 'active').length || 0;
-    const tripsThisWeek = trips?.length || 0;
-    const tripsInProgress = trips?.filter(t => t.status === 'in_progress' || t.status === 'dispatched').length || 0;
+    const activeVehicles = vehicles?.filter(v => v.status === 'active' && !v.is_deleted).length || 0;
+    const activeDrivers = drivers?.filter(d => d.status === 'active' && !d.is_deleted).length || 0;
+    const tripsCount = filteredTrips.length;
+    const tripsInProgress = filteredTrips.filter(t => t.status === 'in_progress' || t.status === 'dispatched').length;
 
-    return { activeVehicles, activeDrivers, tripsThisWeek, tripsInProgress };
-  }, [vehicles, drivers, trips]);
+    return { activeVehicles, activeDrivers, tripsThisWeek: tripsCount, tripsInProgress };
+  }, [vehicles, drivers, filteredTrips]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
