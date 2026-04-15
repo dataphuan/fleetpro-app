@@ -451,7 +451,12 @@ export default function Dispatch() {
                             e.stopPropagation();
                             try {
                               const newCode = trip.trip_code?.startsWith('LĐX') ? generateTripCode() : trip.trip_code;
-                              await updateTrip({ id: trip.id, updates: { status: 'confirmed', trip_code: newCode } });
+                              await updateTrip({ id: trip.id, updates: { 
+                                status: 'confirmed', 
+                                trip_code: newCode,
+                                vehicle_id: trip.vehicle_id,
+                                driver_id: trip.driver_id,
+                              } });
                               queryClient.invalidateQueries({ queryKey: ['trips'] });
                               toast({ title: '✅ Đã duyệt', description: `Lệnh ${newCode} đã xác nhận.` });
                             } catch (err: any) {
@@ -500,7 +505,7 @@ export default function Dispatch() {
         </div>
         <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 shrink-0">
           <CalendarIcon className="w-3.5 h-3.5 text-amber-600" />
-          <span className="text-xs font-bold text-amber-700">{stats.tripsThisWeek} CD</span>
+          <span className="text-xs font-bold text-amber-700">{stats.tripsThisWeek} {viewMode === 'day' || viewMode === 'hub' ? 'hôm nay' : viewMode === 'month' ? 'tháng' : 'tuần'}</span>
         </div>
         <div className="flex items-center gap-1.5 bg-purple-50 border border-purple-200 rounded-lg px-3 py-2 shrink-0">
           <MapPin className="w-3.5 h-3.5 text-purple-600" />
