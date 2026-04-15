@@ -289,20 +289,60 @@ export function QuickTripModal({
 
           <div className="grid gap-4 py-2">
             <div className="grid gap-2">
-              <Label>Chọn xe *</Label>
+              <Label>Chọn xe <span className="text-red-500">*</span></Label>
               <Select value={vehicleId} onValueChange={setVehicleId}>
                 <SelectTrigger>
                   <SelectValue placeholder="Chọn xe và tài xế phân công" />
                 </SelectTrigger>
                 <SelectContent>
-                  {vehicles.map((vehicle: any) => {
-                    const assignedDriver = drivers.find((d: any) => d.id === vehicle.default_driver_id || d.id === vehicle.assigned_driver_id || d.assigned_vehicle_id === vehicle.id);
+                  {/* Priority 1: My assigned vehicle */}
+                  {(() => {
+                    const available = vehicles.filter((v: any) => v.status === 'active' && !v.is_deleted);
+                    const myVehicle = available.filter((v: any) => v.assigned_driver_id === userId || v.default_driver_id === userId);
+                    const poolVehicles = available.filter((v: any) => v.assignment_type === 'pool' && !myVehicle.find((m: any) => m.id === v.id));
+                    const otherVehicles = available.filter((v: any) => !myVehicle.find((m: any) => m.id === v.id) && v.assignment_type !== 'pool');
+
                     return (
-                      <SelectItem key={vehicle.id} value={String(vehicle.id)}>
-                        {vehicle.license_plate || vehicle.vehicle_code} {assignedDriver ? `• ${assignedDriver.full_name}` : '• Chưa phân công tài xế'}
-                      </SelectItem>
+                      <>
+                        {myVehicle.length > 0 && (
+                          <>
+                            <div className="px-2 py-1.5 text-xs font-bold text-blue-600 bg-blue-50">🔒 Xe của tôi</div>
+                            {myVehicle.map((vehicle: any) => {
+                              const assignedDriver = drivers.find((d: any) => d.id === vehicle.default_driver_id || d.id === vehicle.assigned_driver_id || d.assigned_vehicle_id === vehicle.id);
+                              return (
+                                <SelectItem key={vehicle.id} value={String(vehicle.id)}>
+                                  ⭐ {vehicle.license_plate || vehicle.vehicle_code} {assignedDriver ? `• ${assignedDriver.full_name}` : ''}
+                                </SelectItem>
+                              );
+                            })}
+                          </>
+                        )}
+                        {poolVehicles.length > 0 && (
+                          <>
+                            <div className="px-2 py-1.5 text-xs font-bold text-purple-600 bg-purple-50">🔄 Xe Pool (dùng chung)</div>
+                            {poolVehicles.map((vehicle: any) => (
+                              <SelectItem key={vehicle.id} value={String(vehicle.id)}>
+                                {vehicle.license_plate || vehicle.vehicle_code} • Pool
+                              </SelectItem>
+                            ))}
+                          </>
+                        )}
+                        {otherVehicles.length > 0 && (
+                          <>
+                            <div className="px-2 py-1.5 text-xs font-bold text-slate-500 bg-slate-50">📋 Xe khác có sẵn</div>
+                            {otherVehicles.map((vehicle: any) => {
+                              const assignedDriver = drivers.find((d: any) => d.id === vehicle.default_driver_id || d.id === vehicle.assigned_driver_id || d.assigned_vehicle_id === vehicle.id);
+                              return (
+                                <SelectItem key={vehicle.id} value={String(vehicle.id)}>
+                                  {vehicle.license_plate || vehicle.vehicle_code} {assignedDriver ? `• ${assignedDriver.full_name}` : '• Chưa phân công'}
+                                </SelectItem>
+                              );
+                            })}
+                          </>
+                        )}
+                      </>
                     );
-                  })}
+                  })()}
                 </SelectContent>
               </Select>
             </div>

@@ -22,6 +22,7 @@ export const VehicleSchema = z.object({
   payload_capacity: z.number().min(0, { message: 'Tải trọng phải >= 0' }).optional(),
   insurance_expiry: z.string().optional().nullable(),
   registration_expiry: z.string().optional().nullable(),
+  assignment_type: z.enum(['fixed', 'pool']).default('fixed'),
 }).passthrough().refine(data => {
   const idValue = data.id || data['Mã xe'];
   if (idValue && typeof idValue === 'string') {
@@ -36,8 +37,12 @@ export const DriverSchema = z.object({
   driver_code: driverIdSchema.optional(),
   full_name: z.string().min(1, { message: 'Bắt buộc nhập họ tên' }),
   phone: z.string().min(8, { message: 'Bắt buộc nhập số điện thoại hợp lệ' }),
-  license_expiry: z.string().optional().nullable(),
+  id_card_number: z.string().min(9, { message: 'Bắt buộc nhập số CCCD/CMND (9-12 số)' }).optional(),
+  license_class: z.string().min(1, { message: 'Bắt buộc nhập hạng bằng lái (B2/C/D/E/FC)' }).optional(),
+  license_expiry: z.string().min(1, { message: 'Bắt buộc nhập hạn bằng lái' }).optional(),
   health_check_expiry: z.string().optional().nullable(),
+  date_of_birth: z.string().optional().nullable(),
+  address: z.string().optional().nullable(),
 }).passthrough().refine(data => {
   const idValue = data.id || data['Mã tài xế'] || data.driver_code;
   if (idValue && typeof idValue === 'string') {
@@ -96,7 +101,21 @@ export const TripSchema = z.object({
     return data.end_odometer >= data.start_odometer;
   }
   return true;
-}, { message: 'ODO cuối không được nhỏ hơn ODO đầu', path: ['end_odometer'] });
+}, { message: 'ODO cuối không được nhỏ hơn ODO đầu', path: ['end_odometer'] })
+.refine(data => {
+  // KHÓA CỨNG: Hoàn thành/Đóng chuyến PHẢI có Doanh thu cước > 0
+  if (data.status === 'completed' || data.status === 'closed') {
+    return (data.freight_revenue ?? 0) > 0;
+  }
+  return true;
+}, { message: 'Doanh thu cước (freight_revenue) phải > 0 khi hoàn thành chuyến', path: ['freight_revenue'] })
+.refine(data => {
+  // KHÓA CỨNG: Hoàn thành/Đóng bắt buộc tiền dầu > 0
+  if (data.status === 'completed' || data.status === 'closed') {
+    return (data.fuel_cost ?? 0) > 0;
+  }
+  return true;
+}, { message: 'Tiền dầu (fuel_cost) phải > 0 — chuyến vận tải luôn tốn nhiên liệu', path: ['fuel_cost'] });
 
 export const ExpenseSchema = z.object({
   expense_code: expenseIdSchema.optional(),
@@ -126,13 +145,18 @@ export const MaintenanceSchema = z.object({
 export const RouteSchema = z.object({
   route_code: routeIdSchema.optional(),
   route_name: z.string().min(1, { message: 'Phải nhập tên tuyến đường' }),
-  distance_km: z.number().min(0, { message: 'Khoảng cách phải >= 0' }).optional(),
-  standard_freight_rate: z.number().min(0, { message: 'Cước chuẩn phải >= 0' }).optional(),
+  origin: z.string().min(1, { message: 'Bắt buộc nhập điểm đi' }).optional(),
+  destination: z.string().min(1, { message: 'Bắt buộc nhập điểm đến' }).optional(),
+  distance_km: z.number().min(0.1, { message: 'Khoảng cách phải > 0 km' }).optional(),
+  standard_freight_rate: z.number().min(1, { message: 'Cước chuẩn phải > 0 VND' }).optional(),
 }).passthrough();
 
 export const CustomerSchema = z.object({
   customer_code: customerIdSchema.optional(),
   customer_name: z.string().min(1, { message: 'Phải nhập tên khách hàng' }),
+  contact_phone: z.string().min(8, { message: 'Bắt buộc nhập SĐT liên hệ' }).optional(),
+  address: z.string().min(1, { message: 'Bắt buộc nhập địa chỉ' }).optional(),
+  tax_code: z.string().optional().nullable(),
   credit_limit: z.number().min(0, { message: 'Hạn mức tín dụng phải >= 0' }).optional(),
 }).passthrough();
 
@@ -169,7 +193,7 @@ export const AlertSchema = z.object({
 export const CompanySettingsSchema = z.object({
   company_name: z.string().min(1, { message: 'Tên công ty là bắt buộc' }).optional(),
   subscription: z.object({
-    plan: z.enum(['trial', 'professional', 'enterprise']).optional(),
+    plan: z.enum(['trial', 'professional', 'business', 'enterprise']).optional(),
     status: z.string().optional(),
   }).optional(),
 }).passthrough();

@@ -61,6 +61,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { vehicleAdapter } from "@/lib/data-adapter";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
+import { PLAN_LIMITS } from "@/config/constants";
 // Type definitions
 interface Vehicle {
   id: string;
@@ -120,6 +121,7 @@ const vehicleSchema = z.object({
   purchase_price: z.coerce.number().min(1, "Giá mua xe bắt buộc > 0"),
   notes: z.string().optional(),
   status: z.enum(['active', 'maintenance', 'inactive', 'on_trip'] as const),
+  assignment_type: z.enum(['fixed', 'pool'] as const).default('fixed'),
 });
 
 type VehicleFormValues = z.infer<typeof vehicleSchema>;
@@ -245,16 +247,12 @@ export default function Vehicles() {
       const plan = (companySettings.subscription.plan || 'trial').toLowerCase();
       const currentCount = vehicles?.length || 0;
       
-      let limit = 0;
-      if (plan === 'trial') limit = 2;
-      else if (plan === 'basic') limit = 20;
-      else if (plan === 'pro' || plan === 'professional') limit = 100;
-      else if (plan === 'business' || plan === 'enterprise') limit = 999999;
+      let limit = PLAN_LIMITS[plan]?.vehicles ?? 5;
       
       if (currentCount >= limit) {
         toast({
           title: "Đã đạt giới hạn Quota",
-          description: `Gói cước hiện tại (${plan.toUpperCase()}) chỉ cho phép tối đa ${limit} Xe. Vui lòng nâng cấp gói cước để thêm xe mới!`,
+          description: `Gói cước hiện tại (${plan.toUpperCase()}) chỉ cho phép tối đa ${limit} xe. Vui lòng nâng cấp gói cước!`,
           variant: "destructive",
         });
         return;
@@ -304,6 +302,7 @@ export default function Vehicles() {
       purchase_price: 0,
       notes: "",
       status: "active",
+      assignment_type: "fixed",
     });
     setDialogOpen(true);
   };
@@ -334,6 +333,7 @@ export default function Vehicles() {
       purchase_price: (vehicle as any).purchase_price || 0,
       notes: vehicle.notes || "",
       status: vehicle.status || "active",
+      assignment_type: (vehicle as any).assignment_type || "fixed",
     });
     setDialogOpen(true);
   }, [form]);
@@ -396,6 +396,20 @@ export default function Vehicles() {
   };
 
   const onSubmit = async (data: VehicleFormValues) => {
+    // KHÓA CỨNG: Enforce tối thiểu 5 xe pool
+    const poolCount = (vehicles || []).filter(v => (v as any).assignment_type === 'pool' && !v.is_deleted).length;
+    const wasPool = selectedVehicle ? (selectedVehicle as any).assignment_type === 'pool' : false;
+    const isNowFixed = data.assignment_type === 'fixed';
+    
+    if (wasPool && isNowFixed && poolCount <= 5) {
+      toast({
+        title: "Không thể đổi sang Xe cố định",
+        description: `Hệ thống yêu cầu tối thiểu 5 xe Pool. Hiện chỉ còn ${poolCount} xe Pool. Vui lòng thêm xe Pool khác trước.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Validate Dates
     if (data.insurance_purchase_date && data.insurance_expiry_date) {
       if (new Date(data.insurance_expiry_date) < new Date(data.insurance_purchase_date)) {
@@ -1330,7 +1344,7 @@ export default function Vehicles() {
                     name="status"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Trạng thái</FormLabel>
+                        <FormLabel>Trạng thái <span className="text-red-500">*</span></FormLabel>
                         <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger>
@@ -1343,6 +1357,30 @@ export default function Vehicles() {
                             <SelectItem value="inactive">Ngừng</SelectItem>
                           </SelectContent>
                         </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="assignment_type"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phân loại xe <span className="text-red-500">*</span></FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Chọn loại phân xe" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="fixed">🔒 Xe cố định (giao 1 tài xế)</SelectItem>
+                            <SelectItem value="pool">🔄 Xe Pool (dùng chung)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {field.value === 'pool' ? 'Tất cả tài xế đều có thể sử dụng xe này' : 'Chỉ tài xế được giao mới sử dụng'}
+                        </p>
                         <FormMessage />
                       </FormItem>
                     )}

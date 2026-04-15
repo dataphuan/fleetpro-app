@@ -30,6 +30,10 @@ interface Trip {
     actual_arrival_time?: string;
     actual_distance_km?: number;
     total_revenue?: number;
+    freight_revenue?: number;
+    fuel_cost?: number;
+    total_expenses?: number;
+    vehicle_id?: string;
     pod_status?: 'PENDING' | 'RECEIVED' | 'LOST';
     closed_at?: string;
     cancelled_at?: string;
@@ -87,11 +91,28 @@ export function TripWorkflowActions({
                 if (!trip.actual_distance_km || trip.actual_distance_km <= 0) {
                     errors.push('Chưa có số km thực tế (phải > 0)');
                 }
+                // KHÓA CỨNG: Doanh thu cước phải > 0
+                if (!trip.freight_revenue || trip.freight_revenue <= 0) {
+                    errors.push('Doanh thu cước (freight_revenue) phải > 0 — bắt buộc nhập trước khi hoàn thành');
+                }
+                // KHÓA CỨNG: Tiền dầu phải > 0
+                if (!trip.fuel_cost || trip.fuel_cost <= 0) {
+                    errors.push('Tiền dầu (fuel_cost) phải > 0 — chuyến vận tải luôn tốn nhiên liệu');
+                }
                 break;
 
             case 'close':
                 if (!trip.total_revenue || trip.total_revenue <= 0) {
                     errors.push('Chưa có doanh thu xác nhận (phải > 0)');
+                }
+                if (!trip.total_expenses || trip.total_expenses <= 0) {
+                    errors.push('Chưa có tổng chi phí (phải > 0) — chuyến vận tải luôn phát sinh chi phí');
+                }
+                if (!trip.freight_revenue || trip.freight_revenue <= 0) {
+                    errors.push('Doanh thu cước phải > 0');
+                }
+                if (!trip.fuel_cost || trip.fuel_cost <= 0) {
+                    errors.push('Tiền dầu phải > 0');
                 }
                 if (!trip.actual_departure_time) {
                     errors.push('Chưa có thời gian xuất phát thực tế');
