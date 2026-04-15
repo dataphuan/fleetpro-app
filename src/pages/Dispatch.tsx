@@ -374,7 +374,7 @@ export default function Dispatch() {
   };
 
   return (
-    <div className="space-y-4 animate-fade-in flex flex-col h-[calc(100vh-5rem)]">
+    <div className="space-y-4 animate-fade-in flex flex-col min-h-0">
       <PageHeader
         title="Điều Phối Vận Tải"
         description="Lập kế hoạch và phân công xe - tài xế"
@@ -395,7 +395,7 @@ export default function Dispatch() {
       />
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="hidden md:grid grid-cols-4 gap-4">
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
@@ -451,14 +451,14 @@ export default function Dispatch() {
       </div>
 
       {/* Main Calendar Section */}
-      <Card className="flex-1 flex flex-col overflow-hidden">
+      <Card className="flex-1 flex flex-col overflow-visible md:overflow-hidden">
         <CardHeader className="pb-4 border-b">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
 
             {/* View Mode Toggle + Navigation */}
             <div className="flex items-center gap-3">
               {/* Segmented Control */}
-              <div className="inline-flex rounded-lg border bg-muted p-1">
+              <div className="inline-flex rounded-lg border bg-muted p-1 overflow-x-auto max-w-[calc(100vw-2rem)] md:max-w-none">
                 <button
                   onClick={() => toggleViewMode('hub')}
                   className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${viewMode === 'hub'
@@ -586,7 +586,7 @@ export default function Dispatch() {
           </div>
         </CardHeader>
 
-        <CardContent className="flex-1 p-0 overflow-x-auto relative">
+        <CardContent className="flex-1 p-0 overflow-auto relative min-h-[60vh]">
           {/* Week & Month View - Grid */}
           {(viewMode === 'week' || viewMode === 'month') && (
             <div className={`grid grid-cols-7 h-full ${viewMode === 'week' ? 'min-w-[1000px]' : 'min-w-[1000px] auto-rows-fr'} divide-x divide-gray-100 border-l border-t`}>

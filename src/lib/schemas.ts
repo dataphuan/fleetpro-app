@@ -80,10 +80,11 @@ export const TripSchema = z.object({
 .refine(data => {
   const idValue = data.id || data['Mã chuyến'] || data.trip_code;
   if (idValue && typeof idValue === 'string') {
-    return /^(CD\d{4}|LĐX-[\w-]+)$/.test(idValue);
+    // Accept: CD + 4-6 digits, LĐX- prefix (driver self-draft), or any alphanumeric code
+    return /^(CD\d{4,6}|LĐX-[\w\d-]+|[A-Z]{2,4}\d{3,8})$/.test(idValue);
   }
   return true;
-}, { message: 'Mã chuyến đi không hợp lệ (Bắt buộc CD + 4 số, VD: CD0001)', path: ['id'] })
+}, { message: 'Mã chuyến đi không hợp lệ (VD: CD00001 hoặc LĐX-xxxxxx)', path: ['id'] })
 .refine(data => {
   if (data.status !== 'draft' && data.status !== 'cancelled') {
     return !!data.vehicle_id && !!data.driver_id;
