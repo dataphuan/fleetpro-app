@@ -2180,7 +2180,8 @@ const ensureTenantDemoReadiness = async (payload: EnsureDemoReadinessPayload) =>
     if (!user) {
         return { success: false, skipped: true, reason: 'missing_auth_user' };
     }
-    let adminUid = '';
+    // FIX: Set adminUid from authenticated user BEFORE wipe so keepUserId is valid
+    let adminUid = user.uid;
 
     if (payload?.force || versionMismatch) {
         console.log(`🧹 [ensureTenantDemoReadiness] Wipe Triggered: ${payload?.force ? 'Manual' : 'Version mismatch'}. Wiping ${tenantId}`);
@@ -2189,7 +2190,7 @@ const ensureTenantDemoReadiness = async (payload: EnsureDemoReadinessPayload) =>
 
     const companyName = String(payload?.company_name || '').trim() || 'FleetPro Demo Company';
 
-    adminUid = user.uid;
+    // adminUid already set above from user.uid
     let adminEmail = String(payload?.email || '').trim() || user.email || '';
     let adminName = String(payload?.full_name || '').trim() || user.displayName || user.email || 'Admin';
 
@@ -2369,18 +2370,23 @@ const clearTenantOperationalData = async (payload: { tenantId: string; keepUserI
         deleted += docs.length;
     }
 
-    // Keep admin currently using the system, remove other users in this tenant for a clean real-data start.
-    const usersSnap = await getDocs(query(collection(db, 'users'), where('tenant_id', '==', tenantId)));
-    if (!usersSnap.empty) {
-        const removable = usersSnap.docs.filter((d) => d.id !== keepUserId);
-        if (removable.length > 0) {
-            const chunkSize = 400;
-            for (let i = 0; i < removable.length; i += chunkSize) {
-                const batch = writeBatch(db);
-                removable.slice(i, i + chunkSize).forEach((d) => batch.delete(d.ref));
-                await batch.commit();
+    // FIX: During demo reset, preserve ALL existing tenant users.
+    // Only remove non-tenant users if keepUserId is explicitly set and non-empty.
+    // This prevents wiping drivers/managers who need to be able to log back in.
+    if (keepUserId) {
+        const usersSnap = await getDocs(query(collection(db, 'users'), where('tenant_id', '==', tenantId)));
+        if (!usersSnap.empty) {
+            // Keep all users who belong to this tenant — only remove orphaned users from other tenants
+            const removable = usersSnap.docs.filter((d) => d.id !== keepUserId && !d.data().tenant_id);
+            if (removable.length > 0) {
+                const chunkSize = 400;
+                for (let i = 0; i < removable.length; i += chunkSize) {
+                    const batch = writeBatch(db);
+                    removable.slice(i, i + chunkSize).forEach((d) => batch.delete(d.ref));
+                    await batch.commit();
+                }
+                deleted += removable.length;
             }
-            deleted += removable.length;
         }
     }
 

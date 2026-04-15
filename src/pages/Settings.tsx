@@ -300,20 +300,29 @@ export default function Settings() {
                </CardHeader>
                <CardContent>
                  <Button className="w-full" disabled={demoActionLoading} onClick={async () => {
-                    setDemoActionLoading(true);
-                    const res = await dataAdapter.auth.ensureTenantDemoReadiness({
-                      tenantId: tenantId || '',
-                      role: role || 'viewer',
-                      email: user?.email || '',
-                      full_name: user?.full_name || '',
-                      uid: userId || '',
-                      company_name: companyForm.company_name || 'FleetPro Demo',
-                      force: true
-                    });
-                    setDemoActionLoading(false);
-                    if (res?.success) toast({ title: '✅ Thành công', description: 'Hệ thống đã sẵn sàng.' });
-                 }}>
-                    {demoActionLoading ? 'Đang nạp...' : 'Nạp lại dữ liệu trải nghiệm (Reset về trạng thái gốc)'}
+                     setDemoActionLoading(true);
+                     try {
+                       const res = await dataAdapter.auth.ensureTenantDemoReadiness({
+                         tenantId: tenantId || '',
+                         role: role || 'viewer',
+                         email: user?.email || '',
+                         full_name: user?.full_name || '',
+                         uid: userId || '',
+                         company_name: companyForm.company_name || 'FleetPro Demo',
+                         force: true
+                       });
+                       if (res?.success) {
+                         toast({ title: '✅ Thành công', description: 'Dữ liệu mẫu đã được nạp. Hãy tải lại trang để xem.' });
+                       } else {
+                         toast({ title: '⚠️ Lưu ý', description: res?.message || 'Dữ liệu đã đầy đủ.', variant: 'default' });
+                       }
+                     } catch (err: any) {
+                       toast({ title: '❌ Lỗi nạp dữ liệu', description: err?.message || 'Không thể nạp dữ liệu mẫu.', variant: 'destructive' });
+                     } finally {
+                       setDemoActionLoading(false);
+                     }
+                  }}>
+                     {demoActionLoading ? 'Đang nạp...' : 'Nạp lại dữ liệu trải nghiệm (Reset về trạng thái gốc)'}
                  </Button>
                </CardContent>
              </Card>
