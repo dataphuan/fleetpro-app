@@ -17,9 +17,7 @@ export const TRIAL_DURATION_DAYS = 14;
 // Only these tenant IDs get automatic enterprise plan bypass
 export const INTERNAL_TENANT_WHITELIST = new Set([
     'internal-tenant-1',
-    'internal-tenant-2',
     'internal-tenant-phuan',
-    'demo-tenant-tnc-001',
 ]);
 
 // ==================== Session & Throttle ====================

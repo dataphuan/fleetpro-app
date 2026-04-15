@@ -34,24 +34,16 @@ service cloud.firestore {
     }
 
     function isTenantAdmin() {
-      return userRole() == 'admin' || userRole() == 'admin_tenant';
+      return userRole() == 'admin';
     }
 
+    // QA AUDIT FIX: Demo tenant check uses ONLY tenant_id from Firestore user doc.
+    // No email pattern matching — prevents unauthorized bypass via fake email domains.
     function isDemoTenant() {
-      // Robust check for demo tenant: either via user doc or if the user is a known demo email
-      return (userDocExists() && (
-               userDoc().data.tenant_id == 'demo-tenant-tnc-001' || 
-               userDoc().data.tenant_id == 'internal-tenant-1' || 
-               userDoc().data.tenant_id == 'internal-tenant-phuan'
-             )) || 
-             (request.auth.token.email.matches('.*@demo\\.tnc\\.io\\.vn') || 
-              request.auth.token.email.matches('.*@fleetpro\\.vn') ||
-              request.auth.token.email.matches('.*demo@tnc\\.io\\.vn'));
-    }
-
-    // Unified check for demo mode reading
-    function canReadDemoData(res) {
-       return isDemoTenant() && res.data.tenant_id == 'demo-tenant-tnc-001';
+      return userDocExists() && (
+        userDoc().data.tenant_id == 'internal-tenant-1' || 
+        userDoc().data.tenant_id == 'internal-tenant-phuan'
+      );
     }
 
     // --- SECURE COLLECTION MATCHES ---
@@ -105,9 +97,7 @@ service cloud.firestore {
       allow update, delete: if false; // Immutable
     }
 
-    // Tenants: Master collection — SERVER-SIDE ONLY (Cloud Functions / Admin SDK)
-    // QA AUDIT FIX 1.1: No client-side writes to tenant records
-    // Tenants: Master collection — SECURE ISOLATION
+    // Tenants: Master collection — Secure tenant isolation
     match /tenants/{tid} {
       allow read: if isAuthed() && (
         (userDocExists() && userDoc().data.tenant_id == tid) ||
@@ -119,26 +109,21 @@ service cloud.firestore {
     }
 
     // ID Counters: Decentralized sequential ID generation
+    // QA AUDIT FIX: Removed isDemoTenant bypass — demo tenants use same tenant prefix check
     match /counters/{counterId} {
-      allow read, write: if isAuthed() && (
-        (userDocExists() && counterId.lower().matches('^' + userDoc().data.tenant_id.lower() + '.*')) ||
-        isDemoTenant()
-      );
+      allow read, write: if isAuthed() && userDocExists() && 
+        counterId.lower().matches('^' + userDoc().data.tenant_id.lower() + '.*');
     }
 
-    // Trips: SECURITY HARDENING — Server-side Writes Only + Driver Isolation
+    // Trips: Secure tenant isolation + Driver data isolation
     match /trips/{tripId} {
-      // DATA ISOLATION: Drivers can only read their own trips, EXCEPT in Demo mode
-      allow read: if isAuthed() && (
-        canReadDemoData(resource) ||
-        (canAccessTenantData() && sameTenantOnReadUpdateDelete() && (
-          userRole() != 'driver' || resource.data.driver_id == request.auth.uid
-        ))
+      allow read: if isAuthed() && canAccessTenantData() && sameTenantOnReadUpdateDelete() && (
+        userRole() != 'driver' || resource.data.driver_id == request.auth.uid || isDemoTenant()
       );
-      // Allow same-tenant creation from authenticated tenant user; updates allowed for QA fallback.
       allow create: if canAccessTenantData() && sameTenantOnCreate();
       allow update: if canAccessTenantData() && sameTenantOnReadUpdateDelete();
-      allow delete: if canAccessTenantData() && sameTenantOnReadUpdateDelete() && isTenantAdmin();    }
+      allow delete: if canAccessTenantData() && sameTenantOnReadUpdateDelete() && isTenantAdmin();
+    }
 
     // Drivers: DATA ISOLATION — driver can only read own record
     match /drivers/{driverId} {
@@ -151,8 +136,9 @@ service cloud.firestore {
       allow delete: if canAccessTenantData() && sameTenantOnReadUpdateDelete() && isTenantAdmin();
     }
 
+    // QA AUDIT FIX: Explicit whitelist instead of catch-all wildcard.
+    // Only known collections are accessible — prevents arbitrary collection creation.
     match /{collection}/{id} {
-      // Role-based Access for other collections
       function canWriteMasterData() {
         return userRole() in ['admin', 'manager', 'dispatcher', 'accountant'];
       }
@@ -163,20 +149,27 @@ service cloud.firestore {
         return userRole() in ['admin', 'manager', 'dispatcher'];
       }
 
-      allow read: if !(collection in ['users', 'company_settings', 'system_logs', 'tenants', 'trips', 'drivers'])
+      function isAllowedCollection() {
+        return collection in [
+          'vehicles', 'routes', 'customers', 'expenses',
+          'maintenance', 'transportOrders', 'expenseCategories',
+          'alerts', 'trip_location_logs', 'accountingPeriods', 'costs',
+          'tires', 'inventory', 'inventoryTransactions', 'purchaseOrders', 'partners'
+        ];
+      }
+
+      allow read: if isAllowedCollection()
                     && canAccessTenantData() && sameTenantOnReadUpdateDelete();
       
-      // QA AUDIT FIX: Expanded permissions for Accountant (Master Data write)
-      allow create, update: if !(collection in ['users', 'company_settings', 'system_logs', 'tenants', 'trips', 'drivers'])
+      allow create, update: if isAllowedCollection()
                     && canAccessTenantData() && (
-                      // Demo tenants get full write access for seeding
                       isDemoTenant() ||
-                      (collection in ['vehicles', 'drivers', 'routes', 'customers'] && sameTenantOnCreate() && canWriteMasterData()) ||
+                      (collection in ['vehicles', 'routes', 'customers'] && sameTenantOnCreate() && canWriteMasterData()) ||
                       (collection == 'expenses' && canWriteFinancialData()) ||
                       (collection in ['maintenance', 'tires', 'inventory', 'inventoryTransactions', 'purchaseOrders', 'alerts', 'partners', 'transportOrders', 'expenseCategories', 'trip_location_logs', 'accountingPeriods', 'costs'] && (canWriteOperationalData() || canWriteFinancialData()))
                     );
 
-      allow delete: if (collection in ['vehicles', 'drivers', 'expenses', 'routes', 'customers'])
+      allow delete: if collection in ['vehicles', 'expenses', 'routes', 'customers']
                     && canAccessTenantData() && sameTenantOnReadUpdateDelete() && isTenantAdmin();
     }
   }
