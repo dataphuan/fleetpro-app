@@ -1356,11 +1356,11 @@ export default function DriverDashboard() {
                 <div className="bg-white rounded-[24px] p-4 shadow-sm border border-slate-100">
                     <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-4 px-1">CÔNG CỤ NHANH</h4>
                     <div className="grid grid-cols-4 gap-3">
-                        <Link to="/driver/menu" className="flex flex-col items-center justify-center gap-2">
+                        <Link to="/driver/history" className="flex flex-col items-center justify-center gap-2">
                             <div className="w-[52px] h-[52px] bg-blue-50 rounded-2xl flex items-center justify-center text-blue-600 border border-blue-100 shadow-sm active:scale-95 transition-transform"><CheckSquare className="w-6 h-6" /></div>
                             <span className="text-[10px] font-bold text-slate-600">Lệnh Xong</span>
                         </Link>
-                        <Link to="/driver/menu" className="flex flex-col items-center justify-center gap-2">
+                        <Link to="/driver/profile" className="flex flex-col items-center justify-center gap-2">
                             <div className="w-[52px] h-[52px] bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 border border-indigo-100 shadow-sm active:scale-95 transition-transform"><FileText className="w-6 h-6" /></div>
                             <span className="text-[10px] font-bold text-slate-600">Giấy Tờ</span>
                         </Link>
@@ -1775,27 +1775,25 @@ export default function DriverDashboard() {
                                     </label>
                                 </div>
 
-                                <Button
-                                    variant="outline"
-                                    className="mt-2 w-full bg-white border-slate-300 text-slate-700 cursor-pointer relative overflow-hidden"
-                                    disabled={getPrecheck(trip.id).isUploading}
+                                <label
+                                    className={`mt-2 w-full flex items-center justify-center gap-2 rounded-md border border-slate-300 bg-white text-slate-700 cursor-pointer relative overflow-hidden px-4 py-2.5 text-sm font-medium ${getPrecheck(trip.id).isUploading ? 'opacity-50 pointer-events-none' : 'active:bg-slate-50'}`}
                                 >
                                     {getPrecheck(trip.id).isUploading ? (
                                         <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Đang tải ảnh xe...</>
                                     ) : getPrecheck(trip.id).photoUrl ? (
                                         <><CheckCircle2 className="w-4 h-4 mr-2 text-green-600" /> Đã có ảnh checklist xe</>
                                     ) : (
-                                        <><Camera className="w-4 h-4 mr-2" /> Chụp ảnh xe trước chuyến</>
+                                        <><Camera className="w-4 h-4 mr-2" /> 📸 Chụp ảnh xe trước chuyến</>
                                     )}
                                     <input
                                         type="file"
                                         accept="image/*"
                                         capture="environment"
-                                        className="absolute inset-0 opacity-0 cursor-pointer"
+                                        className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                                         onChange={(e) => handlePrecheckPhotoUpload(e, trip.id)}
                                         disabled={getPrecheck(trip.id).isUploading}
                                     />
-                                </Button>
+                                </label>
 
                                 <div className={`mt-2 text-xs ${isPrecheckComplete(trip.id) ? 'text-emerald-700' : 'text-amber-700'}`}>
                                     {isPrecheckComplete(trip.id)
@@ -1864,27 +1862,25 @@ export default function DriverDashboard() {
                                         value={reportInputs[trip.id]?.note || ''}
                                         onChange={(e) => handleReportInputChange(trip.id, 'note', e.target.value)}
                                     />
-                                    <Button
-                                        variant="outline"
-                                        className="mt-2 w-full bg-white border-slate-300 text-slate-700 cursor-pointer relative overflow-hidden"
-                                        disabled={reportInputs[trip.id]?.isUploading}
+                                    <label
+                                        className={`mt-2 w-full flex items-center justify-center gap-2 rounded-md border border-slate-300 bg-white text-slate-700 cursor-pointer relative overflow-hidden px-4 py-2.5 text-sm font-medium ${reportInputs[trip.id]?.isUploading ? 'opacity-50 pointer-events-none' : 'active:bg-slate-50'}`}
                                     >
                                         {reportInputs[trip.id]?.isUploading ? (
                                             <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Đang tải ảnh...</>
                                         ) : reportInputs[trip.id]?.photoUrl ? (
                                             <><CheckCircle2 className="w-4 h-4 mr-2 text-green-600" /> Đã tải ảnh</>
                                         ) : (
-                                            <><Camera className="w-4 h-4 mr-2" /> Chụp ảnh vị trí</>
+                                            <><Camera className="w-4 h-4 mr-2" /> 📸 Chụp ảnh vị trí</>
                                         )}
                                         <input
                                             type="file"
                                             accept="image/*"
                                             capture="environment"
-                                            className="absolute inset-0 opacity-0 cursor-pointer"
+                                            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                                             onChange={(e) => handleReportPhotoUpload(e, trip.id)}
                                             disabled={reportInputs[trip.id]?.isUploading}
                                         />
-                                    </Button>
+                                    </label>
                                     {reportInputs[trip.id]?.uploadState === 'error' && (
                                         <div className="mt-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded-md px-2 py-1">
                                             {reportInputs[trip.id]?.uploadError || 'Tải ảnh thất bại.'}
@@ -1933,27 +1929,25 @@ export default function DriverDashboard() {
                                             onChange={(e) => handleExpenseInputChange(trip.id, 'note', e.target.value)}
                                         />
                                     </div>
-                                    <Button
-                                        variant="outline"
-                                        className="mt-2 w-full bg-white border-slate-300 text-slate-700 cursor-pointer relative overflow-hidden"
-                                        disabled={expenseInputs[trip.id]?.isUploading}
+                                    <label
+                                        className={`mt-2 w-full flex items-center justify-center gap-2 rounded-md border border-slate-300 bg-white text-slate-700 cursor-pointer relative overflow-hidden px-4 py-2.5 text-sm font-medium ${expenseInputs[trip.id]?.isUploading ? 'opacity-50 pointer-events-none' : 'active:bg-slate-50'}`}
                                     >
                                         {expenseInputs[trip.id]?.isUploading ? (
                                             <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Đang tải chứng từ...</>
                                         ) : expenseInputs[trip.id]?.photoUrl ? (
                                             <><CheckCircle2 className="w-4 h-4 mr-2 text-green-600" /> Đã tải chứng từ</>
                                         ) : (
-                                            <><Camera className="w-4 h-4 mr-2" /> Chụp chứng từ</>
+                                            <><Camera className="w-4 h-4 mr-2" /> 📸 Chụp chứng từ</>
                                         )}
                                         <input
                                             type="file"
                                             accept="image/*"
                                             capture="environment"
-                                            className="absolute inset-0 opacity-0 cursor-pointer"
+                                            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                                             onChange={(e) => handleExpensePhotoUpload(e, trip.id)}
                                             disabled={expenseInputs[trip.id]?.isUploading}
                                         />
-                                    </Button>
+                                    </label>
                                     {expenseInputs[trip.id]?.uploadState === 'error' && (
                                         <div className="mt-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded-md px-2 py-1">
                                             {expenseInputs[trip.id]?.uploadError || 'Tải chứng từ thất bại.'}
@@ -2000,23 +1994,23 @@ export default function DriverDashboard() {
                                     onChange={(e) => handleInputChange(trip.id, 'odo', e.target.value)}
                                 />
                                 <div className="flex items-center gap-2 mt-2">
-                                    <Button variant="outline" className="w-full bg-white border-slate-300 text-slate-700 cursor-pointer relative overflow-hidden" disabled={tripInputs[trip.id]?.isUploading}>
+                                    <label className={`w-full flex items-center justify-center gap-2 rounded-md border border-slate-300 bg-white text-slate-700 cursor-pointer relative overflow-hidden px-4 py-2.5 text-sm font-medium ${tripInputs[trip.id]?.isUploading ? 'opacity-50 pointer-events-none' : 'active:bg-slate-50'}`}>
                                         {tripInputs[trip.id]?.isUploading ? (
                                             <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Đang tải lên...</>
                                         ) : tripInputs[trip.id]?.receiptUrl ? (
                                             <><CheckCircle2 className="w-4 h-4 mr-2 text-green-600" /> Đã lưu Hóa đơn</>
                                         ) : (
-                                            <><Camera className="w-4 h-4 mr-2" /> Chụp hóa đơn / Bill</>
+                                            <><Camera className="w-4 h-4 mr-2" /> 📸 Chụp hóa đơn / Bill</>
                                         )}
                                         <input 
                                             type="file" 
                                             accept="image/*,.pdf" 
                                             capture="environment" 
-                                            className="absolute inset-0 opacity-0 cursor-pointer"
+                                            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                                             onChange={(e) => handleFileUpload(e, trip.id)}
                                             disabled={tripInputs[trip.id]?.isUploading}
                                         />
-                                    </Button>
+                                    </label>
                                 </div>
                                 {tripInputs[trip.id]?.uploadState === 'error' && (
                                     <div className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-md px-2 py-1">
