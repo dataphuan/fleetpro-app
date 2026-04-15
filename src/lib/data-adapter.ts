@@ -1688,8 +1688,8 @@ const normalizeSeedRows = (rowsByCollection: Record<string, Array<Record<string,
     });
 
     drivers.forEach((driver, idx) => {
-        driver.date_of_birth = driver.date_of_birth || driver.birth_date || addDaysIso('1988-01-01', idx * 170);
-        driver.birth_date = driver.birth_date || driver.date_of_birth;
+        // Use ONLY date_of_birth — no duplicate birth_date field
+        driver.date_of_birth = driver.date_of_birth || addDaysIso('1988-01-01', idx * 170);
         driver.contract_type = driver.contract_type || 'toan_thoi_gian';
         driver.license_issue_date = driver.license_issue_date || driver.hire_date;
         driver.tax_code = driver.tax_code || `0${String(100000000 + idx).slice(-9)}`;
@@ -1945,11 +1945,17 @@ const seedNewTenantDemoData = async (options: TenantSeedOptions) => {
 
     normalizeSeedRows(seedRowsByCollection);
 
-    // BUG #1 + #6 FIX: Link driver demo and assign dispatched/in_progress trips
+    // Link demo driver: for known tenants use the registered email, for new tenants generate a unique one
     const demoDriver = seedRowsByCollection.drivers?.[0];
     if (demoDriver) {
-        demoDriver.email = `demo.driver+${tenantId}@fleetpro.vn`;
-        // BUG #6 FIX: Set user_id for reliable DriverDashboard matching
+        if (tenantId === 'internal-tenant-1') {
+            demoDriver.email = 'taixedemo@tnc.io.vn';
+        } else if (tenantId === 'internal-tenant-phuan') {
+            demoDriver.email = 'taixe1@phuancr.com';
+        } else {
+            // New tenant: generate a unique email so it doesn't collide with known demo accounts
+            demoDriver.email = `driver1+${tenantId}@fleetpro.vn`;
+        }
         demoDriver.user_id = `demo-driver-uid-${tenantId}`;
     }
 
@@ -2012,9 +2018,9 @@ const seedNewTenantDemoData = async (options: TenantSeedOptions) => {
             }
 
             if (collectionName === 'vehicles') {
-                const expiringVehicleIdx = 3; // XE0004
-                if (idx === expiringVehicleIdx) {
-                    // Set some dates to expire VERY soon (within 3-5 days) to trigger CEO alerts
+                // Trigger expiry alert on a specific vehicle by code, not fragile array index
+                const EXPIRY_ALERT_VEHICLE_CODE = 'XE0003';
+                if (payload.vehicle_code === EXPIRY_ALERT_VEHICLE_CODE || payload.id === EXPIRY_ALERT_VEHICLE_CODE) {
                     const soon = new Date();
                     soon.setDate(soon.getDate() + 4);
                     const soonIso = soon.toISOString().slice(0, 10);
@@ -2134,9 +2140,9 @@ const ensureTenantDemoReadiness = async (payload: EnsureDemoReadinessPayload) =>
         return { success: false, skipped: true, reason: 'missing_tenant' };
     }
 
-    // 🛡️ CRITICAL GUARD: Only seed demo data for demo tenants or when force=true
-    // Allow resetting demo data on demo-tenant-* or internal-tenant-* (either auto or manual force)
-    const isDemoTenant = tenantId.startsWith('internal-tenant-') || tenantId.startsWith('demo-tenant-');
+    // Guard: Only seed for whitelisted internal tenants OR when force=true from admin
+    const DEMO_TENANT_PREFIXES = ['internal-tenant-'];
+    const isDemoTenant = DEMO_TENANT_PREFIXES.some(p => tenantId.startsWith(p));
     
     if (!isDemoTenant && !payload?.force) {
         return { success: true, seeded: false, skipped: true, message: 'Tài khoản thật — không cần nạp dữ liệu demo.' };

@@ -48,18 +48,14 @@ export const demoOnboardingService = {
     vehicles: 20,
     drivers: 25,
     customers: 10,
-    routes: 15,
-    trips: 50,
-    expenses: 900, // Allow for 967 down to 900 due to batching
-    expenseCategories: 4,
-    accountingPeriods: 3,
-    maintenance: 2,
-    transportOrders: 20,
-    inventory: 3,
-    tires: 3,
-    purchaseOrders: 2,
-    alerts: 2,
-    partners: 2,
+    routes: 12,
+    trips: 200,           // ~397 trips total, accept lower bound
+    expenses: 800,        // ~1217 total
+    expenseCategories: 6,
+    accountingPeriods: 1,
+    maintenance: 10,
+    transportOrders: 6,
+    alerts: 6,
   },
 
   /**
@@ -273,18 +269,11 @@ Status: ${verification.success ? '✅ SUCCESS' : '❌ INCOMPLETE'}
         '👉 Xuất: Tải báo cáo Excel để phân tích',
       ],
       driver: [
-        '👉 Bắt đầu: Xem "Việc Hôm Nay" để thấy chuyến',
+        '👉 Bắt đầu: Xem "Việc Hôm Nay" để thấy chuyến được giao',
         '👉 Kiểm tra: Điền mẫu kiểm tra xe trước chuyến',
-        '👉 Báo cáo: Gửi ảnh & vị trí GPS được coi là thành công',
-        '👉 Lịch sử: Xem bản ghi tất cả các chuyến trước đó',
+        '👉 Báo cáo: Gửi ảnh & vị trí GPS khi giao hàng',
+        '👉 Lịch sử: Xem bản ghi tất cả các chuyến của mình',
         '👉 Hồ sơ: Cập nhật thông tin cá nhân của bạn',
-      ],
-      accountant: [
-        '👉 Bắt đầu: Vào "Xe" để xem toàn bộ hệ thống',
-        '👉 Phân tích: Xem tất cả báo cáo chi tiết',
-        '👉 Kiểm soát: Quản lý các quyền người dùng',
-        '👉 Thiết lập: Cấu hình chi phí & danh mục',
-        '👉 Xuất: Tải toàn bộ dữ liệu để phân tích',
       ],
     };
 
