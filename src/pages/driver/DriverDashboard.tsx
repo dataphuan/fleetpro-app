@@ -1578,16 +1578,8 @@ export default function DriverDashboard() {
                 <p className="text-sm text-slate-500">Kéo xuống để xem tất cả ({myActiveTrips.length} chuyến)</p>
             </div>
 
-            {/* Proactive Draft Modal (Persistent floating button) */}
-            <div className="fixed bottom-20 right-4 z-50">
-                <Button 
-                    size="icon" 
-                    className="w-14 h-14 rounded-full bg-blue-600 hover:bg-blue-700 shadow-xl border-2 border-white animate-bounce-subtle"
-                    onClick={() => setIsQuickTripModalOpen(true)}
-                >
-                    <Plus className="w-6 h-6 text-white" />
-                </Button>
-            </div>
+
+
 
             {isTrackingActive ? (
                 <Card className="border-green-400 bg-green-50 shadow-md animate-in fade-in zoom-in duration-500 overflow-hidden relative">

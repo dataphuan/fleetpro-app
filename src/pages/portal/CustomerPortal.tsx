@@ -16,7 +16,7 @@ export default function CustomerPortal() {
     const normalizedRole = normalizeUserRole(role);
 
     // Filter trips for this customer
-    // Viewers only see their own trips, Admins see all for demo purposes
+    // Customers see only their trips, Admins/Managers see all for operational oversight
     const myTrips = trips.filter((t: any) => {
         const isOwner = t.customer?.email === user?.email || t.customer_id === user?.id || normalizedRole === 'admin' || normalizedRole === 'manager';
         const isVisibleStatus = ['confirmed', 'dispatched', 'in_progress', 'completed', 'closed'].includes(t.status);
@@ -188,16 +188,16 @@ export default function CustomerPortal() {
                                 Dữ liệu định vị GPS đang được Livestream về Cổng khách hàng.
                             </DialogDescription>
                         </DialogHeader>
-                        <div className="flex-1 relative bg-slate-100">
-                            <iframe 
-                                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d31340.54010899432!2d106.68!3d10.84!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMTDCsDUwJzI0LjAiTiAxMDbCsDQxJzQ4LjAiRQ!5e0!3m2!1sen!2s!4v1!5m2!1sen!2s" 
-                                width="100%" 
-                                height="100%" 
-                                style={{ border: 0 }} 
-                                allowFullScreen 
-                                loading="lazy"
-                                className="grayscale hover:grayscale-0 transition-all duration-1000"
-                            ></iframe>
+                        <div className="flex-1 relative bg-slate-100 flex items-center justify-center">
+                            <div className="text-center p-8">
+                                <MapPin className="w-16 h-16 text-purple-300 mx-auto mb-4 animate-bounce" />
+                                <h3 className="text-lg font-bold text-slate-700">Theo dõi GPS Trực tuyến</h3>
+                                <p className="text-sm text-slate-500 mt-2 max-w-sm">
+                                    Xe <strong>{showMapTrip.vehicle?.license_plate}</strong> đang trên tuyến.<br/>
+                                    Tính năng GPS live tracking cần kết nối thiết bị định vị phần cứng.
+                                </p>
+                                <p className="text-xs text-slate-400 mt-4">Liên hệ Điều phối để biết vị trí xe hiện tại.</p>
+                            </div>
                         </div>
                     </DialogContent>
                 </Dialog>
