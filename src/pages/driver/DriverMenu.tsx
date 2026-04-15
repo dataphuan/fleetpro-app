@@ -26,7 +26,7 @@ export default function DriverMenuPage() {
     || d.user_id === user?.id
     || (user?.email && d.email === user.email)
     || (user?.email && d.driver_email === user.email)
-  ) || (drivers || []).find((d: any) => d.status === 'active') || (drivers || [])[0] || null;
+  ) || null; // NO FALLBACK — must be properly linked
 
   const myTrips = (trips || []).filter((trip: any) => {
     return (

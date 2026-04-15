@@ -29,17 +29,6 @@ export const useTrips = () => {
             
             // DRIVER DATA ISOLATION: Filter to only this driver's trips
             if (isDriver && user?.id) {
-                // SPECIAL CASE: For Demo/Audit purposes, if it's a demo account, show all trips to provide "Full Experience"
-                const isDemoUser = String(user.id).includes('demo') || 
-                                 String(user.email).includes('demo') || 
-                                 String((user as any).company_name || '').toLowerCase().includes('demo') ||
-                                 String((user as any).company_name || '').toLowerCase().includes('tnc');
-                
-                if (isDemoUser) {
-                    console.log("🚛 [Demo Mode] Granting full visibility to driver for audit purposes");
-                    return allTrips;
-                }
-
                 return allTrips.filter((t: any) =>
                     t.driver_id === user.id
                     || t.driver_id === user.email

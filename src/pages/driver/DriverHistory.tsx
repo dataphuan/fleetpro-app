@@ -28,7 +28,7 @@ export default function DriverHistory() {
       || (user?.email && d.driver_email === user.email)
     );
     if (byIdentity) return byIdentity;
-    return (drivers || []).find((d: any) => d.status === 'active') || (drivers || [])[0] || null;
+    return null; // NO FALLBACK — must be properly linked
   }, [drivers, user?.email, user?.id]);
 
   const completedTrips = useMemo(() => {
