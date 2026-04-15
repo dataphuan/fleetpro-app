@@ -13,8 +13,6 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { collection, query, where, getDocs } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
 import { 
     Truck, Package, MapPin, Clock, CheckCircle2, Loader2, 
     Search, AlertTriangle, ArrowRight, Phone 
@@ -77,36 +75,17 @@ export default function PublicTracking() {
         setSearched(true);
 
         try {
-            // Search across ALL tenants by trip_code — public data only
-            const q = query(
-                collection(db, 'trips'),
-                where('trip_code', '==', tripCode.trim().toUpperCase())
-            );
-            const snap = await getDocs(q);
-            
-            if (snap.empty) {
-                setError('Không tìm thấy mã vận đơn. Vui lòng kiểm tra lại.');
+            // Use server-side API to bypass Firestore auth rules
+            const res = await fetch(`/api/track?code=${encodeURIComponent(tripCode.trim().toUpperCase())}`);
+            const json = await res.json();
+
+            if (!json.ok || !json.data) {
+                setError(json.error || 'Không tìm thấy mã vận đơn. Vui lòng kiểm tra lại.');
                 setLoading(false);
                 return;
             }
 
-            const doc = snap.docs[0];
-            const data = doc.data();
-
-            // ONLY expose safe public fields
-            setTrip({
-                trip_code: data.trip_code || tripCode,
-                status: data.status || 'draft',
-                origin: data.origin || data.route?.origin || 'Đang cập nhật',
-                destination: data.destination || data.route?.destination || 'Đang cập nhật',
-                departure_date: data.departure_date || data.created_at || '',
-                arrival_date: data.arrival_date || data.completed_at || undefined,
-                vehicle_plate: data.vehicle?.license_plate || data.vehicle_plate || undefined,
-                customer_name: data.customer?.company_name || data.customer_name || undefined,
-                route_name: data.route?.route_name || data.route_name || undefined,
-                distance_km: data.distance_km || data.route?.distance_km || undefined,
-                updated_at: data.updated_at || data.created_at || '',
-            });
+            setTrip(json.data as PublicTripData);
         } catch (err) {
             console.error('[PublicTracking] Error:', err);
             setError('Lỗi kết nối. Vui lòng thử lại sau.');
