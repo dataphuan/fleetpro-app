@@ -40,7 +40,7 @@ export const PaywallGuard: React.FC<{ children: React.ReactNode }> = ({ children
     let maxVehicles = quotaLimits[planName] || quotaLimits['professional'] || 100;
     const currentVehicles = activeVehicles.length;
     
-    // TRICK/MẸO: Hard-coded bypass for Phụ An and Enterprise to ensure zero blocking
+    // Business rule: Phú An (paying customer) and Enterprise/Business plans bypass vehicle limits
     const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
     const isMasterDemoId = settings?.tenant_id === 'internal-tenant-1' || 
                            settings?.tenant_id === 'internal-tenant-phuan' ||
