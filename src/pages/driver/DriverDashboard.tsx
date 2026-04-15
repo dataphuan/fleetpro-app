@@ -118,6 +118,24 @@ export default function DriverDashboard() {
     const [pickupOdo, setPickupOdo] = useState<string>('');
     const { mutateAsync: pickupTripMutation } = usePickupTrip();
 
+    const handleConfirmPickup = async () => {
+        if (!activeTripForPickup || !pickupOdo) return;
+        setIsUpdating(true);
+        try {
+            await pickupTripMutation({
+                id: activeTripForPickup.id,
+                startOdo: Number(pickupOdo),
+            });
+            setPickupDialogOpen(false);
+            setPickupOdo('');
+            setActiveTripForPickup(null);
+        } catch (error: any) {
+            // Error toast handled by hook's onError
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
     // (Removed old DraftRequestForm)
 
     useEffect(() => {
