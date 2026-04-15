@@ -129,10 +129,15 @@ const DriverMenu = lazy(() => import("./pages/driver/DriverMenu").catch(err => {
   return { default: () => <div>Driver Menu failed to load</div> };
 }));
 
-// Customer B2B Portal Routes
 const CustomerPortal = lazy(() => import("./pages/portal/CustomerPortal").catch(err => {
   console.error('Failed to load CustomerPortal:', err);
   return { default: () => <div>Customer Portal failed to load</div> };
+}));
+
+// Public Tracking (no auth required)
+const PublicTracking = lazy(() => import("./pages/PublicTracking").catch(err => {
+  console.error('Failed to load PublicTracking:', err);
+  return { default: () => <div>Tracking page failed to load</div> };
 }));
 
 const queryClient = new QueryClient({
@@ -171,6 +176,18 @@ const App = () => {
                 <Route path="/docs/huong-dan-phu-an" element={
                   <Suspense fallback={<PageSkeleton />}>
                     <PhuAnDocs />
+                  </Suspense>
+                } />
+
+                {/* Public Tracking — NO LOGIN REQUIRED */}
+                <Route path="/track/:code" element={
+                  <Suspense fallback={<PageSkeleton />}>
+                    <PublicTracking />
+                  </Suspense>
+                } />
+                <Route path="/track" element={
+                  <Suspense fallback={<PageSkeleton />}>
+                    <PublicTracking />
                   </Suspense>
                 } />
 
