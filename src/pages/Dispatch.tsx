@@ -513,61 +513,7 @@ export default function Dispatch() {
         </Link>
       </div>
 
-      {/* Stats Cards */}
-      <div className="hidden md:grid grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-lg bg-primary/10 flex items-center justify-center">
-                <Truck className="w-6 h-6 text-primary" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{stats.activeVehicles}</p>
-                <p className="text-sm text-muted-foreground">Xe sẵn sàng</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center">
-                <User className="w-6 h-6 text-green-700" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{stats.activeDrivers}</p>
-                <p className="text-sm text-muted-foreground">Tài xế sẵn sàng</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-lg bg-amber-100 flex items-center justify-center">
-                <CalendarIcon className="w-6 h-6 text-amber-700" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{stats.tripsThisWeek}</p>
-                <p className="text-sm text-muted-foreground">Chuyến {viewMode === 'day' ? 'hôm nay' : viewMode === 'month' ? 'tháng này' : 'tuần này'}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-lg bg-blue-100 flex items-center justify-center">
-                <MapPin className="w-6 h-6 text-blue-700" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{stats.tripsInProgress}</p>
-                <p className="text-sm text-muted-foreground">Đang vận chuyển</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Desktop stats removed — DispatchHub below shows actionable real data */}
 
       {/* Main Calendar Section */}
       <Card className="flex-1 flex flex-col overflow-visible md:overflow-hidden">
