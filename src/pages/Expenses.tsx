@@ -872,6 +872,30 @@ export default function Expenses() {
             </Button>
           )}
 
+          {canExport && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 px-2 lg:px-3 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+              onClick={() => {
+                const now = new Date();
+                import('@/lib/export').then(({ exportTaxReportB01DN }) => {
+                  exportTaxReportB01DN(
+                    trips || [],
+                    expenses || [],
+                    'Công ty vận tải', // Will use tenant name when available
+                    now.getMonth() + 1,
+                    now.getFullYear()
+                  );
+                  toast({ title: "📊 Đã xuất báo cáo B01-DN", description: `Tháng ${now.getMonth() + 1}/${now.getFullYear()} — 4 sheet Excel` });
+                });
+              }}
+            >
+              <FileText className="w-4 h-4 lg:mr-2" />
+              <span className="hidden lg:inline">B01-DN</span>
+            </Button>
+          )}
+
           {canCreate && (
             <Button size="sm" variant="outline" onClick={() => setOcrDialogOpen(true)} className="h-8 gap-1 ml-1 border-blue-200 text-blue-700 hover:bg-blue-50">
               <Camera className="w-4 h-4" />

@@ -132,11 +132,27 @@ const buildTripFinancialFields = (row: any) => {
 
 const createTripDirectWrite = async (validatedData: any, tenantId: string) => {
     const nowIso = new Date().toISOString();
+
+    // AUTO-APPROVE: Driver drafts with route + vehicle → auto-confirm
+    let finalStatus = validatedData.status || 'draft';
+    if (
+        finalStatus === 'draft' &&
+        validatedData.route_id &&
+        validatedData.vehicle_id &&
+        validatedData.driver_id &&
+        (validatedData.source === 'driver' || validatedData.trip_code?.startsWith('LĐX'))
+    ) {
+        finalStatus = 'confirmed';
+        console.log('[Auto-approve] Driver trip auto-confirmed:', validatedData.trip_code);
+    }
+
     const payload = {
         ...validatedData,
+        status: finalStatus,
         tenant_id: tenantId,
         created_at: nowIso,
         updated_at: nowIso,
+        ...(finalStatus === 'confirmed' && validatedData.status === 'draft' ? { auto_approved: true, auto_approved_at: nowIso } : {}),
         ...buildTripFinancialFields(validatedData),
     };
 
