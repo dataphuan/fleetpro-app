@@ -1987,7 +1987,7 @@ export default function TripsRevenue() {
                 </AlertDialogContent>
             </AlertDialog>
 
-            {/* AI OCR Dialog removed — no real backend yet */}
+            {/* AI OCR scan moved to Expenses page → InvoiceOCRDialog (Gemini Vision) */}
         </div>
     );
 }
