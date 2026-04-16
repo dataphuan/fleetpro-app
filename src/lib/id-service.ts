@@ -33,9 +33,12 @@ export const getNextSequentialId = async (tenantId: string, collectionName: stri
   const config = COUNTER_CONFIGS[collectionName];
   if (!config) throw new Error(`STT Counter not configured for collection: ${collectionName}`);
 
-  // Reference to the counter document for this tenant and collection
-  // Document path: counters/{tenantId}_{collectionName}
-  const counterDocId = `${tenantId}_${collectionName}`;
+  const now = new Date();
+  const yymm = now.toISOString().slice(2, 4) + now.toISOString().slice(5, 7); // e.g., "2604"
+
+  // Document path: counters/{tenantId}_{collectionName}_{yymm}
+  // Including YYMM in the ID ensures the counter resets automatically each month
+  const counterDocId = `${tenantId}_${collectionName}_${yymm}`;
   const counterRef = doc(db, 'counters', counterDocId);
 
   try {
@@ -51,17 +54,21 @@ export const getNextSequentialId = async (tenantId: string, collectionName: stri
       
       transaction.set(counterRef, {
         tenant_id: tenantId,
+        month_period: yymm,
         last_value: nextVal,
         updated_at: new Date().toISOString()
       }, { merge: true });
 
-      return `${config.prefix}${String(nextVal).padStart(config.padding, '0')}`;
+      // Format: PREFIX + YYMM + - + NN (padded to at least 2 digits)
+      return `${config.prefix}${yymm}-${String(nextVal).padStart(2, '0')}`;
     });
 
     return nextId;
   } catch (error) {
     console.error(`ID Counter Failure for ${collectionName}:`, error);
-    // Fallback to timestamp-based unique ID if transaction fails (better than crash)
-    return `${config.prefix}${Date.now().toString().slice(-config.padding)}`;
+    // Fallback logic
+    const yymmStr = now.toISOString().slice(2, 4) + now.toISOString().slice(5, 7);
+    return `${config.prefix}${yymmStr}-${Date.now().toString().slice(-4)}`;
   }
 };
+

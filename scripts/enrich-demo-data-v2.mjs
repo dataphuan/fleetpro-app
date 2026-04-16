@@ -1,292 +1,287 @@
 /**
- * 🔧 COMPREHENSIVE DATA ENRICHMENT SCRIPT
+ * 🔧 COMPREHENSIVE DATA ENRICHMENT v2 — WITH STT NORMALIZATION
  * 
- * Fixes all data quality issues found in the audit:
- * 1. Customers: Add company_name, contact_phone, contact_person
- * 2. Drivers: Add license_type, license_number
- * 3. Expenses: Add category based on description
- * 4. public_tracking: Enrich with origin/destination from routes
- * 
- * Runs for BOTH tenants: internal-tenant-1, internal-tenant-phuan
+ * Target: Normalize all IDs to the new format: PREFIX + YYMM + -NN
+ * Handles:
+ * 1. Renaming Document IDs (Create-Delete batches)
+ * 2. Updating all foreign key references
+ * 3. Initializing Firestore 'counters' collection
+ * 4. General data quality fixes (Company names, License info, Expense categories)
  * 
  * Usage: node scripts/enrich-demo-data-v2.mjs
  */
 
-import { initializeApp, cert } from 'firebase-admin/app';
+import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { readFileSync } from 'fs';
 
 const sa = JSON.parse(readFileSync('./fleetpro-app-service-account.json', 'utf8'));
-initializeApp({ credential: cert(sa) });
+
+if (getApps().length === 0) {
+    initializeApp({ credential: cert(sa) });
+}
 const db = getFirestore();
 
 const TENANTS = ['internal-tenant-1', 'internal-tenant-phuan'];
 
-// ===== Vietnamese Company Names =====
+const COUNTER_CONFIGS = {
+    vehicles: { prefix: 'XE', idField: 'vehicle_code' },
+    drivers: { prefix: 'TX', idField: 'driver_code' },
+    customers: { prefix: 'KH', idField: 'customer_code' },
+    trips: { prefix: 'CD', idField: 'trip_code' },
+    routes: { prefix: 'TD', idField: 'route_code' },
+    transportOrders: { prefix: 'DH', idField: 'order_code' },
+    expenses: { prefix: 'PC', idField: 'expense_code' },
+    maintenance: { prefix: 'BD', idField: 'maintenance_code' },
+};
+
 const VN_COMPANIES = [
     { company_name: 'TNHH Thực Phẩm Sài Gòn', contact_person: 'Nguyễn Thị Hương', contact_phone: '0283 9876 543' },
     { company_name: 'CTCP Vật Liệu Xây Dựng Hòa Phát', contact_person: 'Trần Văn Minh', contact_phone: '0283 6543 210' },
     { company_name: 'Công Ty TNHH Logistics Phương Nam', contact_person: 'Lê Thị Mai', contact_phone: '0903 456 789' },
     { company_name: 'CTCP Thương Mại Đại Việt', contact_person: 'Phạm Quang Huy', contact_phone: '0912 345 678' },
     { company_name: 'Công Ty TNHH Điện Tử Samsung HCMC', contact_person: 'Kim Soo Jin', contact_phone: '0283 8765 432' },
-    { company_name: 'CTCP Dược Phẩm Hậu Giang (DHG)', contact_person: 'Võ Thanh Tùng', contact_phone: '0710 3861 234' },
-    { company_name: 'Công Ty TNHH Nước Giải Khát Tân Hiệp Phát', contact_person: 'Trần Quý Thanh', contact_phone: '0650 3761 567' },
-    { company_name: 'CTCP Sữa Việt Nam (Vinamilk)', contact_person: 'Nguyễn Thị Thanh Hằng', contact_phone: '0283 9155 555' },
-    { company_name: 'Công Ty TNHH Thép Pomina', contact_person: 'Đỗ Duy Thái', contact_phone: '0283 8963 111' },
-    { company_name: 'CTCP Phân Bón Bình Điền', contact_person: 'Huỳnh Văn Lâm', contact_phone: '0283 8560 222' },
 ];
 
-// ===== Vietnamese License Types =====
 const LICENSE_TYPES = ['B2', 'C', 'D', 'E', 'FC'];
-const LICENSE_PREFIXES = ['GP', 'BG', 'GX'];
 
-// ===== Expense Categories =====
 const EXPENSE_CATEGORIES = {
-    'Diesel': 'fuel',
-    'diesel': 'fuel',
-    'xăng': 'fuel',
-    'xang': 'fuel',
-    'nhiên liệu': 'fuel',
-    'Đổ': 'fuel',
-    'lít': 'fuel',
-    'BOT': 'toll',
-    'cao tốc': 'toll',
-    'phí cầu': 'toll',
-    'phí đường': 'toll',
-    'Khoán chuyến': 'driver_allowance',
-    'khoán': 'driver_allowance',
-    'tài xế': 'driver_allowance',
-    'lương': 'salary',
-    'bảo hiểm': 'insurance',
-    'sửa chữa': 'repair',
-    'bảo trì': 'maintenance',
-    'bảo dưỡng': 'maintenance',
-    'lốp': 'tire',
-    'nhớt': 'oil',
-    'dầu nhớt': 'oil',
-    'rửa xe': 'wash',
-    'đậu xe': 'parking',
-    'bốc xếp': 'loading',
-    'phạt': 'fine',
-    'ăn': 'meal',
-    'khác': 'other',
+    'Diesel': 'fuel', 'xăng': 'fuel', 'BOT': 'toll', 'cao tốc': 'toll',
+    'Khoán chuyến': 'driver_allowance', 'lương': 'salary', 'sửa chữa': 'repair',
 };
 
-async function enrichCustomers() {
-    console.log('\n📋 ENRICHING CUSTOMERS...');
+// Map to track [OldDocID] -> [NewDocID]
+const oldToNewIdMap = new Map();
+
+/**
+ * Generate a new-format ID: PREFIX + YYMM + -NN
+ */
+function generateNewId(prefix, index, timestamp) {
+    const date = timestamp ? new Date(timestamp) : new Date();
+    const yymm = date.toISOString().slice(2, 4) + date.toISOString().slice(5, 7);
+    return `${prefix}${yymm}-${String(index).padStart(2, '0')}`;
+}
+
+/**
+ * Step 1: Analyze existing data and build ID migration map
+ */
+async function buildMigrationMap() {
+    console.log('🔍 BUILDING MIGRATION MAP...');
     for (const tid of TENANTS) {
-        const snap = await db.collection('customers').where('tenant_id', '==', tid).get();
-        let batch = db.batch();
-        let count = 0;
-        let batchCount = 0;
-        
-        for (const doc of snap.docs) {
-            const data = doc.data();
-            const idx = count % VN_COMPANIES.length;
-            const company = VN_COMPANIES[idx];
+        for (const [coll, config] of Object.entries(COUNTER_CONFIGS)) {
+            const snap = await db.collection(coll).where('tenant_id', '==', tid).get();
+            let index = 1;
             
-            const updates = {};
-            if (!data.company_name) updates.company_name = company.company_name;
-            if (!data.customer_name) updates.customer_name = company.company_name;
-            if (!data.contact_person) updates.contact_person = company.contact_person;
-            if (!data.contact_phone) updates.contact_phone = company.contact_phone;
-            if (!data.email) updates.email = `info@${company.company_name.toLowerCase().replace(/[^a-z0-9]/g, '')}.vn`;
-            if (!data.tax_code) updates.tax_code = `0${300000000 + count * 7}`;
-            
-            if (Object.keys(updates).length > 0) {
-                batch.update(doc.ref, updates);
-                batchCount++;
+            // Sort by created_at to maintain chronological sequence if possible
+            const docs = snap.docs.sort((a, b) => {
+                const ta = a.data().created_at || '';
+                const tb = b.data().created_at || '';
+                return ta.localeCompare(tb);
+            });
+
+            for (const doc of docs) {
+                const data = doc.data();
+                const oldId = doc.id;
+                
+                // If already in new format, skip or re-index
+                const newId = generateNewId(config.prefix, index, data.created_at);
+                
+                if (oldId !== newId) {
+                    oldToNewIdMap.set(`${coll}:${oldId}`, newId);
+                }
+                index++;
             }
-            count++;
-            
-            if (batchCount >= 400) {
-                await batch.commit();
-                batch = db.batch();
-                batchCount = 0;
-            }
+            console.log(`  ${tid} - ${coll}: ${docs.length} IDs mapped`);
         }
-        if (batchCount > 0) await batch.commit();
-        console.log(`  ${tid}: ${count} customers enriched`);
     }
 }
 
-async function enrichDrivers() {
-    console.log('\n🚛 ENRICHING DRIVERS...');
-    for (const tid of TENANTS) {
-        const snap = await db.collection('drivers').where('tenant_id', '==', tid).get();
+/**
+ * Step 2: Migrate Documents (Create new + Delete old) using EXTREMELY conservative batches
+ */
+async function migrateDocuments() {
+    console.log('\n🚀 MIGRATING DOCUMENTS TO NEW IDs...');
+    let totalMigrated = 0;
+
+    for (const [coll, config] of Object.entries(COUNTER_CONFIGS)) {
+        const snap = await db.collection(coll).get();
+        let batchSize = 0;
         let batch = db.batch();
-        let count = 0;
-        let batchCount = 0;
-        
+
+        for (const doc of snap.docs) {
+            const oldId = doc.id;
+            const key = `${coll}:${oldId}`;
+            if (!oldToNewIdMap.has(key)) continue;
+
+            const newShortId = oldToNewIdMap.get(key);
+            const data = doc.data();
+            
+            if (config.idField) data[config.idField] = newShortId;
+
+            // Enrichment
+            if (coll === 'customers' && !data.company_name) {
+                const company = VN_COMPANIES[totalMigrated % VN_COMPANIES.length];
+                data.company_name = company.company_name;
+                data.contact_person = company.contact_person;
+            }
+
+            const newRef = db.collection(coll).doc(newShortId);
+            batch.set(newRef, data);
+            batch.delete(doc.ref);
+            
+            batchSize += 2;
+            totalMigrated++;
+
+            // Extremely small batch to avoid quota peaks
+            if (batchSize >= 100) {
+                await batch.commit();
+                console.log(`    ${coll}: Committed ${totalMigrated} migrations...`);
+                batch = db.batch();
+                batchSize = 0;
+                await new Promise(r => setTimeout(r, 1000)); // 1 second delay
+            }
+        }
+        if (batchSize > 0) {
+            await batch.commit();
+            await new Promise(r => setTimeout(r, 1000));
+        }
+    }
+    console.log(`  Done: Migrated ${totalMigrated} documents.`);
+}
+
+
+/**
+ * Step 3: Fix Foreign Keys with optimized batching
+ */
+async function fixForeignKeys() {
+    console.log('\n🔗 FIXING FOREIGN KEY REFERENCES...');
+    const collectionsToFix = ['trips', 'expenses', 'maintenance', 'transportOrders'];
+    
+    for (const coll of collectionsToFix) {
+        const snap = await db.collection(coll).get();
+        let fixCount = 0;
+        let batch = db.batch();
+        let batchSize = 0;
+
         for (const doc of snap.docs) {
             const data = doc.data();
             const updates = {};
             
-            if (!data.license_type) {
-                updates.license_type = LICENSE_TYPES[count % LICENSE_TYPES.length];
-            }
-            if (!data.license_number) {
-                const prefix = LICENSE_PREFIXES[count % LICENSE_PREFIXES.length];
-                updates.license_number = `${prefix}-${String(100000 + count * 31).slice(-6)}`;
-            }
-            if (!data.date_of_birth) {
-                const year = 1975 + (count % 20);
-                const month = String((count % 12) + 1).padStart(2, '0');
-                const day = String((count % 28) + 1).padStart(2, '0');
-                updates.date_of_birth = `${year}-${month}-${day}`;
-            }
-            if (!data.address) {
-                const addresses = [
-                    'Quận 1, TP.HCM', 'Quận Bình Thạnh, TP.HCM', 'TP. Thủ Đức, TP.HCM',
-                    'Quận Tân Bình, TP.HCM', 'Quận 7, TP.HCM', 'Quận Gò Vấp, TP.HCM',
-                    'Quận 9, TP.HCM', 'Huyện Bình Chánh, TP.HCM', 'Quận 12, TP.HCM',
-                    'TP. Biên Hòa, Đồng Nai', 'TP. Dĩ An, Bình Dương', 'TP. Thuận An, Bình Dương',
-                ];
-                updates.address = addresses[count % addresses.length];
-            }
-            if (data.status === undefined) updates.status = 'active';
-            
-            if (Object.keys(updates).length > 0) {
-                batch.update(doc.ref, updates);
-                batchCount++;
-            }
-            count++;
-            
-            if (batchCount >= 400) {
-                await batch.commit();
-                batch = db.batch();
-                batchCount = 0;
-            }
-        }
-        if (batchCount > 0) await batch.commit();
-        console.log(`  ${tid}: ${count} drivers enriched`);
-    }
-}
+            const fieldsToCheck = [
+                { field: 'vehicle_id', target: 'vehicles' },
+                { field: 'driver_id', target: 'drivers' },
+                { field: 'customer_id', target: 'customers' },
+                { field: 'route_id', target: 'routes' },
+                { field: 'trip_id', target: 'trips' },
+            ];
 
-async function enrichExpenses() {
-    console.log('\n💰 ENRICHING EXPENSES...');
-    for (const tid of TENANTS) {
-        const snap = await db.collection('expenses').where('tenant_id', '==', tid).get();
-        let batch = db.batch();
-        let count = 0;
-        let batchCount = 0;
-        let enriched = 0;
-        
-        for (const doc of snap.docs) {
-            const data = doc.data();
-            count++;
-            
-            if (data.category) continue; // Already has category
-            
-            const desc = (data.description || data.notes || '').toLowerCase();
-            let category = 'other';
-            for (const [keyword, cat] of Object.entries(EXPENSE_CATEGORIES)) {
-                if (desc.includes(keyword.toLowerCase())) {
-                    category = cat;
-                    break;
+            for (const { field, target } of fieldsToCheck) {
+                const oldVal = data[field];
+                if (oldVal && oldToNewIdMap.has(`${target}:${oldVal}`)) {
+                    updates[field] = oldToNewIdMap.get(`${target}:${oldVal}`);
                 }
             }
-            
-            batch.update(doc.ref, { category });
-            batchCount++;
-            enriched++;
-            
-            if (batchCount >= 400) {
+
+            if (Object.keys(updates).length > 0) {
+                batch.update(doc.ref, updates);
+                fixCount++;
+                batchSize++;
+            }
+
+            if (batchSize >= 450) {
                 await batch.commit();
-                console.log(`    Committed ${enriched} expenses...`);
                 batch = db.batch();
-                batchCount = 0;
+                batchSize = 0;
+                await new Promise(r => setTimeout(r, 100));
             }
         }
-        if (batchCount > 0) await batch.commit();
-        console.log(`  ${tid}: ${enriched}/${count} expenses categorized`);
+        if (batchSize > 0) await batch.commit();
+        console.log(`  ${coll}: Fixed ${fixCount} references`);
     }
 }
 
-async function enrichPublicTracking() {
-    console.log('\n📦 ENRICHING PUBLIC TRACKING...');
-    
-    // Build route lookup across all tenants
-    const routeMap = new Map();
+
+/**
+ * Step 4: Synchronize counters collection
+ */
+async function syncCounters() {
+    console.log('\n🔢 SYNCHRONIZING COUNTERS...');
+    const now = new Date();
+    const yymm = now.toISOString().slice(2, 4) + now.toISOString().slice(5, 7);
+
     for (const tid of TENANTS) {
-        const rSnap = await db.collection('routes').where('tenant_id', '==', tid).get();
-        rSnap.docs.forEach(d => routeMap.set(d.id, d.data()));
+        for (const [coll, config] of Object.entries(COUNTER_CONFIGS)) {
+            const snap = await db.collection(coll).where('tenant_id', '==', tid).get();
+            
+            // Find max index for this month
+            let maxIndex = 0;
+            snap.docs.forEach(doc => {
+                const id = doc.id;
+                if (id.includes(yymm)) {
+                    const parts = id.split('-');
+                    const idx = parseInt(parts[parts.length - 1]);
+                    if (!isNaN(idx) && idx > maxIndex) maxIndex = idx;
+                }
+            });
+
+            const counterDocId = `${tid}_${coll}_${yymm}`;
+            await db.collection('counters').doc(counterDocId).set({
+                tenant_id: tid,
+                month_period: yymm,
+                last_value: maxIndex,
+                updated_at: new Date().toISOString()
+            }, { merge: true });
+            
+            console.log(`  ${tid} - ${coll}: Counter set to ${maxIndex} for period ${yymm}`);
+        }
     }
-    
-    // Build vehicle lookup
-    const vehicleMap = new Map();
-    for (const tid of TENANTS) {
-        const vSnap = await db.collection('vehicles').where('tenant_id', '==', tid).get();
-        vSnap.docs.forEach(d => vehicleMap.set(d.id, d.data()));
-    }
-    
-    // Build driver lookup
-    const driverMap = new Map();
-    for (const tid of TENANTS) {
-        const dSnap = await db.collection('drivers').where('tenant_id', '==', tid).get();
-        dSnap.docs.forEach(d => driverMap.set(d.id, d.data()));
-    }
-    
-    // Enrich trips + sync to public_tracking
+}
+
+/**
+ * Step 5: Final Enrichment (Public Tracking sync)
+ */
+async function syncPublicTracking() {
+    console.log('\n📦 RE-SYNCING PUBLIC TRACKING...');
     for (const tid of TENANTS) {
         const tSnap = await db.collection('trips').where('tenant_id', '==', tid).get();
         let batch = db.batch();
         let count = 0;
-        let batchCount = 0;
         
         for (const doc of tSnap.docs) {
             const t = doc.data();
-            const route = t.route_id ? routeMap.get(t.route_id) : null;
-            const vehicle = t.vehicle_id ? vehicleMap.get(t.vehicle_id) : null;
-            const driver = t.driver_id ? driverMap.get(t.driver_id) : null;
-            
-            const origin = route?.origin || t.origin || '';
-            const destination = route?.destination || t.destination || '';
-            const route_name = route?.route_name || t.route_name || '';
-            const distance_km = route?.distance_km || t.distance_km || t.actual_distance_km || 0;
-            const vehicle_plate = vehicle?.license_plate || t.vehicle_plate || '';
-            
-            // Update public_tracking doc
             const publicData = {
                 trip_code: t.trip_code || '',
                 status: t.status || 'draft',
-                origin: origin,
-                destination: destination,
+                origin: t.origin || '',
+                destination: t.destination || '',
                 departure_date: t.departure_date || t.created_at || '',
-                arrival_date: t.arrival_date || t.completed_at || null,
-                vehicle_plate: vehicle_plate || null,
-                route_name: route_name || null,
-                distance_km: distance_km || null,
-                updated_at: t.updated_at || t.created_at || '',
+                vehicle_plate: t.vehicle_plate || '',
+                route_name: t.route_name || '',
                 tenant_id: tid,
+                updated_at: new Date().toISOString(),
             };
-            
             batch.set(db.collection('public_tracking').doc(doc.id), publicData, { merge: true });
-            batchCount++;
             count++;
-            
-            if (batchCount >= 400) {
-                await batch.commit();
-                console.log(`    Committed ${count} docs...`);
-                batch = db.batch();
-                batchCount = 0;
-            }
         }
-        if (batchCount > 0) await batch.commit();
-        console.log(`  ${tid}: ${count} public_tracking docs enriched`);
+        await batch.commit();
+        console.log(`  ${tid}: ${count} tracking records updated`);
     }
 }
 
 async function main() {
-    console.log('🔧 COMPREHENSIVE DATA ENRICHMENT v2');
+    console.log('🔧 ENRICH-DEMO-DATA-V2: STARTING FULL MIGRATION');
     console.log('=' .repeat(50));
     
-    await enrichCustomers();
-    await enrichDrivers();
-    await enrichExpenses();
-    await enrichPublicTracking();
+    await buildMigrationMap();
+    await migrateDocuments();
+    await fixForeignKeys();
+    await syncCounters();
+    await syncPublicTracking();
     
-    console.log('\n✅ ALL DONE!');
+    console.log('\n✅ MIGRATION & ENRICHMENT COMPLETE!');
 }
 
-main().catch(console.error);
+main().catch(err => {
+    console.error('❌ MIGRATION FAILED:', err);
+    process.exit(1);
+});

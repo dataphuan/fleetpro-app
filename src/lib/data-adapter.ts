@@ -751,6 +751,17 @@ const createFirestoreAdapter = (collectionName: string) => ({
 
         const payload = { ...validatedData, tenant_id: tenantId, created_at: new Date().toISOString() };
         
+        // --- SYNC ID FIELDS ---
+        if (collectionName === 'vehicles') payload.vehicle_code = payload.vehicle_code || finalId;
+        if (collectionName === 'drivers') payload.driver_code = payload.driver_code || finalId;
+        if (collectionName === 'customers') payload.customer_code = payload.customer_code || finalId;
+        if (collectionName === 'trips') payload.trip_code = payload.trip_code || finalId;
+        if (collectionName === 'routes') payload.route_code = payload.route_code || finalId;
+        if (collectionName === 'transportOrders') payload.order_code = payload.order_code || finalId;
+        if (collectionName === 'expenses') payload.expense_code = payload.expense_code || finalId;
+        if (collectionName === 'maintenance') payload.maintenance_code = payload.maintenance_code || finalId;
+
+        
         // --- ATOMIC BATCH WRITE (Data + Log) ---
         const batch = writeBatch(db);
         const targetDocRef = doc(db, collectionName, finalId);
