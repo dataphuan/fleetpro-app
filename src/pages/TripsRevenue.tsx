@@ -94,6 +94,7 @@ import { BulkDeleteDialog } from "@/components/shared/BulkDeleteDialog";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCompanySettings } from "@/hooks/useCompanySettings";
 import { usePermissions } from "@/hooks/usePermissions";
+import { getNextCodeByPrefix, getMonthlyPrefix } from "@/lib/code-generator";
 // Type definitions
 interface Trip {
     id: string;
@@ -167,7 +168,7 @@ const getValidNextStatuses = (currentStatus: string, isNewTrip: boolean): typeof
 
 // Form Schema Validation
 const tripSchema = z.object({
-    trip_code: z.string().refine(val => /^(TRP-\d{4}-\d+|CD\d{4}|LĐX-[\w\d-]+)$/.test(val), "Mã chuyến sai chuẩn (VD: TRP-2604-01)"),
+    trip_code: z.string().refine(val => !val || /^(TRP-(\d{4}-)+\d+|TRP\d{4}|CD\d{4}|CD\d{4}-\d+|CD-(\d{4}-)+\d+|LĐX-[\w\d-]+)$/.test(val), "Mã chuyến sai chuẩn (VD: CD-2604-01)"),
     departure_date: z.string().min(1, "Ngày đi là bắt buộc"),
     vehicle_id: z.string().min(1, "Xe là bắt buộc"),
     driver_id: z.string().min(1, "Tài xế là bắt buộc"),
@@ -522,8 +523,13 @@ export default function TripsRevenue() {
         // ----------------------------
 
         setSelectedTrip(null);
+        const nextCode = getNextCodeByPrefix(
+            (trips || []).map(t => t.trip_code),
+            getMonthlyPrefix('CD'),
+            2
+        );
         form.reset({
-            trip_code: generateTripCode(),
+            trip_code: nextCode,
             departure_date: format(new Date(), 'yyyy-MM-dd'),
             vehicle_id: "",
             driver_id: "",

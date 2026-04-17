@@ -136,6 +136,7 @@ export default function Drivers() {
     { key: 'license_number', header: 'Số GPLX' },
     { key: 'license_class', header: 'Hạng GPLX' },
     { key: 'license_expiry', header: 'Hết hạn GPLX', type: 'date' },
+    { key: 'health_check_expiry', header: 'Khám sức khỏe', type: 'date' },
     { key: 'hire_date', header: 'Ngày vào làm', type: 'date' },
     { key: 'contract_type', header: 'Loại HĐ' },
     { key: 'base_salary', header: 'Lương cơ bản', type: 'number' },
@@ -154,7 +155,7 @@ export default function Drivers() {
   // Column visibility state (16 columns + action)
   const allColumnKeys = [
     'driver_code', 'full_name', 'phone', 'date_of_birth', 'tax_code', 'id_card',
-    'id_issue_date', 'address', 'license_class', 'license_expiry', 'hire_date',
+    'id_issue_date', 'address', 'license_class', 'license_number', 'license_expiry', 'health_check_expiry', 'hire_date',
     'contract_type', 'base_salary', 'assigned_vehicle_id', 'status', 'notes', 'id'
   ];
   const [visibleColumns, setVisibleColumns] = useState<string[]>(allColumnKeys);
@@ -481,6 +482,7 @@ export default function Drivers() {
           license_number: row.license_number ? String(row.license_number) : null,
           license_class: row.license_class ? String(row.license_class) : null,
           license_expiry: row.license_expiry ? String(row.license_expiry) : null,
+          health_check_expiry: row.health_check_expiry ? String(row.health_check_expiry) : null,
           hire_date: row.hire_date ? String(row.hire_date) : null,
           contract_type: row.contract_type ? String(row.contract_type) : null,
           base_salary: row.base_salary ? Number(row.base_salary) : 0,
@@ -870,7 +872,7 @@ export default function Drivers() {
                   <span className="text-xs text-slate-400">Xe gán cố định</span>
                   <span className="font-medium text-blue-600 truncate">{
                     driver.assigned_vehicle_id 
-                      ? activeVehicles.find(v => v.id === driver.assigned_vehicle_id)?.license_plate || "Có xe"
+                      ? activeVehicles?.find(v => v.id === driver.assigned_vehicle_id)?.license_plate || "Có xe"
                       : "Chưa gán"
                   }</span>
                 </div>

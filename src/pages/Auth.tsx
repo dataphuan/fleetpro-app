@@ -126,9 +126,7 @@ export default function Auth() {
         return '/';
     };
     
-    // 📋 State
     const [loading, setLoading] = useState(false);
-    const [showDemo, setShowDemo] = useState(true);
     const [tabValue, setTabValue] = useState("login");
     
     // 🔑 Login States
@@ -708,75 +706,6 @@ export default function Auth() {
                     </CardContent>
 
                     <CardFooter className="flex flex-col border-t bg-slate-50/50 pt-4 px-6 pb-6 space-y-3">
-                        <button 
-                            type="button"
-                            onClick={() => setShowDemo(!showDemo)}
-                            className="flex items-center gap-2 text-[10px] font-bold text-slate-400 hover:text-primary transition-colors w-full justify-center"
-                        >
-                            {showDemo ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                            🎁 TÀI KHOẢN DÙNG THỬ (1,300+ BẢN GHI DEMO) - CLICK ĐỂ TRẢI NGHIỆM
-                        </button>
-                        
-                        {showDemo && (
-                            <div className="bg-gradient-to-br from-blue-50 to-primary/5 border-2 border-primary/30 rounded-lg p-4 animate-in fade-in slide-in-from-top-1 duration-300 space-y-3">
-                                {/* Demo Data Summary */}
-                                <div className="bg-white rounded-lg p-3 border border-primary/20">
-                                    <div className="flex items-start gap-3">
-                                        <div className="text-xl">✨</div>
-                                        <div className="flex-1">
-                                            <div className="text-xs font-bold text-slate-900 mb-2">
-                                                DEMO DATA READY - TOÀN BỘ TÍNH NĂNG ĐƯỢC MỞ KHÓA
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-600">
-                                                <div>✅ 20 xe + 25 tài xế</div>
-                                                <div>✅ 50 chuyến + 15 tuyến</div>
-                                                <div>✅ 967 chi phí</div>
-                                                <div>✅ 10 khách hàng</div>
-                                                <div>✅ Bảo trì & lốp xe</div>
-                                                <div>✅ Kế toán & báo cáo</div>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Information */}
-                                <div className="bg-primary/5 rounded-lg p-3 border border-primary/20">
-                                    <p className="text-[10px] text-primary font-medium leading-relaxed">
-                                        💡 <b>Lưu ý:</b> Các tài khoản trên dùng chung dữ liệu mẫu. Để sử dụng <b>Dữ liệu thật</b> riêng biệt cho doanh nghiệp (FREE Pro Plan), vui lòng chọn tab <b>"Tạo tài khoản mới"</b>.
-                                    </p>
-                                </div>
-
-                                {/* Password Info */}
-                                <div className="flex items-center justify-between bg-white rounded border border-slate-100 p-2.5">
-                                    <div className="text-[9px] text-slate-600">
-                                        🔐 Mật khẩu: <span className="font-mono font-bold text-slate-900">Demo@1234</span>
-                                    </div>
-                                    <Button
-                                        type="button"
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() => {
-                                            navigator.clipboard.writeText("Demo@1234");
-                                            toast({ title: "Đã copy mật khẩu", description: "Demo@1234" });
-                                        }}
-                                        className="h-6 px-2 text-[10px]"
-                                    >
-                                        <Copy className="w-3 h-3" />
-                                    </Button>
-                                </div>
-
-                                {/* Tips */}
-                                <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 text-[9px] text-amber-900">
-                                    <div className="font-bold mb-1">💡 Bắt đầu từ đây:</div>
-                                    <ul className="space-y-1 ml-4 list-disc">
-                                        <li>Login với Admin để xem toàn bộ hệ thống</li>
-                                        <li>Kéo xuống "Xe" để thấy 20 chiếc xe ví dụ</li>
-                                        <li>Thu thập dữ liệu (20 xe, 25 tài xế, 50 chuyến...)</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        )}
-                        
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 w-full">
                                 <a
                                     href="https://zalo.me/0989890022"

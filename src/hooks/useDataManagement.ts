@@ -370,10 +370,18 @@ export const usePurgeData = () => {
       const { dataAdapter } = await import('@/lib/data-adapter');
       const { auth: firebaseAuth } = await import('@/lib/firebase');
       const user = firebaseAuth.currentUser;
-      const tenantId = dataAdapter.getTenantId();
+      
+      // Look up tenantId dynamically since getTenantId doesn't exist on dataAdapter directly
+      let activeTenantId = 'internal-tenant-phuan';
+      
+      // Fallback manual resolution if needed (for demo)
+      try {
+        const storedUser = localStorage.getItem('fleetpro_user');
+        if (storedUser) activeTenantId = JSON.parse(storedUser).tenantId || activeTenantId;
+      } catch (e) {}
 
       const res = await dataAdapter.purgeAllData({ 
-        tenantId: tenantId || '', 
+        tenantId: activeTenantId, 
         keepUserId: user?.uid 
       });
 

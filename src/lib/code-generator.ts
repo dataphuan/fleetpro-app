@@ -1,5 +1,11 @@
 const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
+export const getMonthlyPrefix = (prefix: string, date: Date = new Date()): string => {
+  const yy = String(date.getFullYear()).slice(-2);
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  return `${prefix}-${yy}${mm}-`;
+};
+
 export const getNextCodeByPrefix = (
   existingCodes: Array<string | null | undefined>,
   prefix: string,

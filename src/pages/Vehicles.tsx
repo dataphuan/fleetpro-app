@@ -88,40 +88,41 @@ interface Vehicle {
   status: 'active' | 'maintenance' | 'inactive' | 'on_trip';
   default_driver_id?: string | null;
   current_odometer?: number | null;
+  fuel_consumption_per_100km?: number | null;
+  purchase_date?: string | null;
+  purchase_price?: number | null;
+  assignment_type?: 'fixed' | 'pool';
   is_deleted?: boolean;
-  created_at?: string;
-  updated_at?: string;
 }
 
-// Form Schema Validation - đầy đủ 18 trường theo Excel
+// Form Schema Validation - đầy đủ 26 trường theo Excel
 const vehicleSchema = z.object({
   vehicle_code: z.string().refine(val => !val || /^(VEH-\d{4}-\d+|VEH\d{4}|XE\d{4})$/.test(val), "Mã xe sai chuẩn (VD: VEH-2604-01)").optional(), // Auto-generated if empty
   license_plate: z.string().min(1, "Biển số là bắt buộc"),
   vehicle_type: z.string().min(1, "Loại xe là bắt buộc"),
-  brand: z.string().min(1, "Nhãn hiệu xe là bắt buộc"),
-  capacity_tons: z.coerce.number().min(0.1, "Tải trọng tối thiểu 0.1"),
-  fuel_type: z.string().min(1, "Loại nhiên liệu là bắt buộc"),
+  brand: z.string().optional(),
+  capacity_tons: z.coerce.number().min(0.1, "Tải trọng tối thiểu 0.1").optional(),
+  fuel_type: z.string().optional(),
+  fuel_consumption_per_100km: z.coerce.number().min(0).optional(),
   usage_limit_years: z.string().optional(),
   engine_number: z.string().min(1, "Số máy là bắt buộc"),
   chassis_number: z.string().min(1, "Số khung là bắt buộc"),
   insurance_purchase_date: z.string().optional(),
   insurance_expiry_date: z.string().optional(),
   insurance_civil_expiry: z.string().min(1, "Hạn BH Dân sự là bắt buộc"),
-  insurance_body_expiry: z.string().min(1, "Hạn BH Thân vỏ là bắt buộc"),
-  insurance_cost: z.coerce.number().min(1, "Tiền BH bắt buộc > 0"),
+  insurance_body_expiry: z.string().optional(),
+  insurance_cost: z.coerce.number().optional(),
   registration_cycle: z.string().optional(),
   registration_date: z.string().optional(),
   registration_expiry_date: z.string().min(1, "Hạn đăng kiểm là bắt buộc"),
-  registration_cost: z.coerce.number().min(1, "Phí ĐK bắt buộc > 0"),
+  registration_cost: z.coerce.number().optional(),
   current_location: z.string().optional(),
-  // AUDIT FIX A2: ODO mandatory for fuel tracking
   current_odometer: z.coerce.number().min(0, "Số Km hiện tại phải >= 0").optional(),
-  // New strict fields
-  fuel_consumption_per_100km: z.coerce.number().min(0.1, "Bắt buộc định mức > 0"),
-  purchase_price: z.coerce.number().min(1, "Giá mua xe bắt buộc > 0"),
-  notes: z.string().optional(),
-  status: z.enum(['active', 'maintenance', 'inactive', 'on_trip'] as const),
+  purchase_date: z.string().optional(),
+  purchase_price: z.coerce.number().optional(),
   assignment_type: z.enum(['fixed', 'pool'] as const).default('fixed'),
+  status: z.enum(['active', 'maintenance', 'inactive', 'on_trip'] as const).default('active'),
+  notes: z.string().optional(),
 });
 
 type VehicleFormValues = z.infer<typeof vehicleSchema>;
@@ -149,10 +150,10 @@ export default function Vehicles() {
   // Column visibility state
   const allColumnKeys = [
     'vehicle_code', 'license_plate', 'vehicle_type', 'brand', 'capacity_tons',
-    'fuel_type', 'usage_limit_years', 'engine_number', 'chassis_number',
-    'insurance_purchase_date', 'insurance_civil_expiry', 'insurance_body_expiry', 'insurance_cost',
+    'fuel_type', 'fuel_consumption_per_100km', 'usage_limit_years', 'engine_number', 'chassis_number',
+    'insurance_purchase_date', 'insurance_expiry_date', 'insurance_civil_expiry', 'insurance_body_expiry', 'insurance_cost',
     'registration_cycle', 'registration_date', 'registration_expiry_date', 'registration_cost',
-    'current_location', 'status', 'assignment_type', 'notes', 'id'
+    'current_location', 'current_odometer', 'purchase_date', 'purchase_price', 'assignment_type', 'status', 'notes', 'id'
   ];
   const [visibleColumns, setVisibleColumns] = useState<string[]>(allColumnKeys);
 
@@ -170,6 +171,7 @@ export default function Vehicles() {
     brand: 'Nhãn hiệu xe',
     capacity_tons: 'Tải trọng',
     fuel_type: 'Nhiên liệu',
+    fuel_consumption_per_100km: 'Định mức dầu',
     usage_limit_years: 'Niên hạn sử dụng',
     engine_number: 'Số máy',
     chassis_number: 'Số Khung',
@@ -177,7 +179,7 @@ export default function Vehicles() {
     insurance_expiry_date: 'Ngày hết hạn bảo hiểm',
     insurance_civil_expiry: 'Hạn BH Dân sự',
     insurance_body_expiry: 'Hạn BH Thân vỏ',
-    insurance_cost: 'Số tiền mua bảo hiểm',
+    insurance_cost: 'Số tiền bảo hiểm',
     registration_cycle: 'Chu kỳ đăng kiểm',
     registration_date: 'Ngày đăng kiểm',
     registration_expiry_date: 'Ngày hết hạn đăng kiểm',
@@ -186,6 +188,7 @@ export default function Vehicles() {
     current_odometer: 'Số Km hiện tại',
     purchase_date: 'Ngày mua xe',
     purchase_price: 'Giá mua xe',
+    assignment_type: 'Loại cam kết',
     status: 'Trạng thái xe',
     notes: 'Ghi chú',
   };
@@ -523,11 +526,14 @@ export default function Vehicles() {
           brand: row.brand ? String(row.brand) : null,
           capacity_tons: row.capacity_tons ? Number(row.capacity_tons) : null,
           fuel_type: row.fuel_type ? String(row.fuel_type) : null,
+          fuel_consumption_per_100km: row.fuel_consumption_per_100km ? Number(row.fuel_consumption_per_100km) : null,
           usage_limit_years: row.usage_limit_years ? String(row.usage_limit_years) : null,
           engine_number: row.engine_number ? String(row.engine_number) : null,
           chassis_number: row.chassis_number ? String(row.chassis_number) : null,
           insurance_purchase_date: row.insurance_purchase_date ? String(row.insurance_purchase_date) : null,
           insurance_expiry_date: row.insurance_expiry_date ? String(row.insurance_expiry_date) : null,
+          insurance_civil_expiry: row.insurance_civil_expiry ? String(row.insurance_civil_expiry) : null,
+          insurance_body_expiry: row.insurance_body_expiry ? String(row.insurance_body_expiry) : null,
           insurance_cost: row.insurance_cost ? Number(row.insurance_cost) : null,
           registration_cycle: row.registration_cycle ? String(row.registration_cycle) : null,
           registration_date: row.registration_date ? String(row.registration_date) : null,
@@ -538,6 +544,7 @@ export default function Vehicles() {
           current_odometer: row.current_odometer ? Number(row.current_odometer) : 0,
           purchase_date: row.purchase_date ? String(row.purchase_date) : null,
           purchase_price: row.purchase_price ? Number(row.purchase_price) : null,
+          assignment_type: row.assignment_type && String(row.assignment_type).toLowerCase().includes('pool') ? 'pool' : 'fixed',
           notes: row.notes ? String(row.notes) : null,
           status: ((val) => {
             const v = String(val).toLowerCase();

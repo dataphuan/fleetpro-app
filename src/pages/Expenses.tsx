@@ -62,7 +62,7 @@ import { useTrips } from "@/hooks/useTrips";
 import { useClosedPeriods, isDateInClosedPeriod } from '@/hooks/useAccountingPeriods';
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { usePermissions } from "@/hooks/usePermissions";
-import { getNextCodeByPrefix } from "@/lib/code-generator";
+import { getNextCodeByPrefix, getMonthlyPrefix } from "@/lib/code-generator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SmartExpenseAudit } from "@/components/finance/SmartExpenseAudit";
 import { InvoiceOCRDialog } from "@/components/expenses/InvoiceOCRDialog";
@@ -91,7 +91,7 @@ interface Expense {
 
 // Form Schema
 const expenseSchema = z.object({
-  expense_code: z.string().refine(val => !val || /^(EXP-\d{4}-\d+|PC\d{4})$/.test(val), "Mã phiếu sai chuẩn (VD: EXP-2604-01)").optional(),
+  expense_code: z.string().refine(val => !val || /^(EXP-(\d{4}-)+[\w\d-]+|EXP\d{4}|PC\d{4}|PC\d{4}-\d+|PC-(\d{4}-)+\d+)$/.test(val), "Mã phiếu chi sai chuẩn (VD: PC-2604-01)").optional(),
   expense_date: z.string().min(1, "Ngày chi là bắt buộc"),
   category_id: z.string().min(1, "Loại chi phí là bắt buộc"),
   amount: z.coerce.number().min(0, "Số tiền phải lớn hơn hoặc bằng 0"),
@@ -257,8 +257,8 @@ export default function Expenses() {
     setSelectedExpense(null);
     const nextCode = getNextCodeByPrefix(
       (expenses || []).map(e => e.expense_code),
-      'EXP',
-      4
+      getMonthlyPrefix('PC'),
+      2
     );
 
     form.reset({
@@ -902,6 +902,12 @@ export default function Expenses() {
                 });
               }}
             >
+              <FileText className="w-4 h-4 lg:mr-2" />
+              <span className="hidden lg:inline">Báo cáo Thuế (B01-DN)</span>
+            </Button>
+          )}
+
+          {canCreate && (
             <Button size="sm" onClick={handleAdd} className="h-8 gap-1 ml-1">
               <Plus className="w-4 h-4" />
               Thêm phiếu chi
@@ -1370,8 +1376,8 @@ export default function Expenses() {
 
           const nextCode = getNextCodeByPrefix(
             (expenses || []).map(e => e.expense_code),
-            'EXP',
-            4
+            getMonthlyPrefix('PC'),
+            2
           );
 
           setSelectedExpense(null);

@@ -53,7 +53,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { usePermissions } from "@/hooks/usePermissions";
 import { useAuth } from "@/hooks/use-auth";
 import { Label } from "@/components/ui/label";
-import { getNextCodeByPrefix } from "@/lib/code-generator";
+import { getNextCodeByPrefix, getMonthlyPrefix } from "@/lib/code-generator";
 
 // Type definitions
 interface MaintenanceOrder {
@@ -90,7 +90,7 @@ interface MaintenanceOrder {
 
 // Form Schema
 const maintenanceSchema = z.object({
-  order_code: z.string().refine(val => !val || /^(MNT-\d{4}-\d+|BD\d{4})$/.test(val), "Mã lệnh sai chuẩn (VD: MNT-2604-01)").optional(),
+  order_code: z.string().refine(val => !val || /^(MNT-(\d{4}-)+\d+|MNT\d{4}|BD\d{4}|BD\d{4}-\d+|BD-(\d{4}-)+\d+)$/.test(val), "Mã bảo dưỡng sai chuẩn (VD: BD-2604-01)").optional(),
   vehicle_id: z.string().min(1, "Xe là bắt buộc"),
   maintenance_type: z.enum(['routine', 'repair', 'inspection', 'tire', 'other'] as const),
   description: z.string().min(1, "Mô tả công việc là bắt buộc"),
@@ -194,8 +194,8 @@ export default function Maintenance() {
     setSelectedOrder(null);
     const nextCode = getNextCodeByPrefix(
       (orders || []).map(o => o.order_code),
-      'MNT',
-      4
+      getMonthlyPrefix('BD'),
+      2
     );
 
     form.reset({

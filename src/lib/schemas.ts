@@ -2,15 +2,15 @@ import { z } from 'zod';
 
 // ID formats
 // ID formats (Hỗ trợ định dạng mới YYMM-NN và định dạng cũ XXXX)
-// ID formats (Global Standard: PREFIX-YYMM-NN)
-export const vehicleIdSchema = z.string().regex(/^(VEH-(\d{4}-)+\d+|VEH\d{4}|XE\d{4}|XE\d{4}-\d+)$/, { message: 'Mã xe sai chuẩn (VD: VEH-2604-01 hoặc XE0001)' });
-export const driverIdSchema = z.string().regex(/^(DRV-(\d{4}-)+\d+|DRV\d{4}|TX\d{4}|TX\d{4}-\d+)$/, { message: 'Mã tài xế sai chuẩn (VD: DRV-2604-01 hoặc TX0001)' });
-export const tripIdSchema = z.string().regex(/^(TRP-(\d{4}-)+\d+|TRP\d{4}|CD\d{4}|CD\d{4}-\d+|LĐX-[\w-]+)$/, { message: 'Mã chuyến sai chuẩn (VD: TRP-2604-01 hoặc CD0001)' });
-export const routeIdSchema = z.string().regex(/^(RT-(\d{4}-)+\d+|RT\d{4}|TD\d{4}|TD\d{4}-\d+)$/, { message: 'Mã tuyến sai chuẩn (VD: RT-2604-01 hoặc TD0001)' });
-export const customerIdSchema = z.string().regex(/^(CUS-(\d{4}-)+\d+|CUS\d{4}|KH\d{4}|KH\d{4}-\d+)$/, { message: 'Mã khách hàng sai chuẩn (VD: CUS-2604-01 hoặc KH0001)' });
-export const orderIdSchema = z.string().regex(/^(ORD-(\d{4}-)+\d+|ORD\d{4}|DH\d{4}|DH\d{4}-\d+)$/, { message: 'Mã đơn hàng sai chuẩn (VD: ORD-2604-01 hoặc DH0001)' });
-export const expenseIdSchema = z.string().regex(/^(EXP-(\d{4}-)+[\w\d-]+|EXP\d{4}|PC\d{4}|PC\d{4}-\d+)$/, { message: 'Mã phiếu chi sai chuẩn (VD: EXP-2604-01 hoặc PC0001)' });
-export const maintenanceIdSchema = z.string().regex(/^(MNT-(\d{4}-)+\d+|MNT\d{4}|BD\d{4}|BD\d{4}-\d+)$/, { message: 'Mã bảo dưỡng sai chuẩn (VD: MNT-2604-01 hoặc BD0001)' });
+// ID formats (Hỗ trợ định dạng mới YYMM-NN và định dạng tĩnh XXXX)
+export const vehicleIdSchema = z.string().regex(/^(VEH-(\d{4}-)+\d+|VEH\d{4}|XE\d{4}|XE\d{4}-\d+)$/, { message: 'Mã xe sai chuẩn (VD: XE0001)' });
+export const driverIdSchema = z.string().regex(/^(DRV-(\d{4}-)+\d+|DRV\d{4}|TX\d{4}|TX\d{4}-\d+)$/, { message: 'Mã tài xế sai chuẩn (VD: TX0001)' });
+export const tripIdSchema = z.string().regex(/^(TRP-(\d{4}-)+\d+|TRP\d{4}|CD\d{4}|CD\d{4}-\d+|CD-(\d{4}-)+\d+|LĐX-[\w-]+)$/, { message: 'Mã chuyến sai chuẩn (VD: CD-2604-01)' });
+export const routeIdSchema = z.string().regex(/^(RT-(\d{4}-)+\d+|RT\d{4}|TD\d{4}|TD\d{4}-\d+)$/, { message: 'Mã tuyến sai chuẩn (VD: TD0001)' });
+export const customerIdSchema = z.string().regex(/^(CUS-(\d{4}-)+\d+|CUS\d{4}|KH\d{4}|KH\d{4}-\d+)$/, { message: 'Mã khách hàng sai chuẩn (VD: KH0001)' });
+export const orderIdSchema = z.string().regex(/^(ORD-(\d{4}-)+\d+|ORD\d{4}|DH\d{4}|DH\d{4}-\d+|DH-(\d{4}-)+\d+)$/, { message: 'Mã đơn hàng sai chuẩn (VD: DH-2604-01)' });
+export const expenseIdSchema = z.string().regex(/^(EXP-(\d{4}-)+[\w\d-]+|EXP\d{4}|PC\d{4}|PC\d{4}-\d+|PC-(\d{4}-)+\d+)$/, { message: 'Mã phiếu chi sai chuẩn (VD: PC-2604-01)' });
+export const maintenanceIdSchema = z.string().regex(/^(MNT-(\d{4}-)+\d+|MNT\d{4}|BD\d{4}|BD\d{4}-\d+|BD-(\d{4}-)+\d+)$/, { message: 'Mã bảo dưỡng sai chuẩn (VD: BD-2604-01)' });
 
 
 // Absolute Financial Sanity
@@ -20,23 +20,39 @@ export const amountSchema = z.number().min(0, { message: 'Số tiền/Chi phí p
 export const VehicleSchema = z.object({
   id: vehicleIdSchema.optional(),
   'Mã xe': vehicleIdSchema.optional(),
-  vehicle_type: z.string().min(1, { message: 'Bắt buộc nhập loại xe (VD: Đầu kéo, Tải 15 tấn)' }),
+  vehicle_code: vehicleIdSchema.optional(),
   license_plate: z.string().regex(/^[0-9]{2}[A-Z]-[0-9]{3,5}(\.[0-9]{2})?$/, { message: 'Biển số sai chuẩn (VD: 51C-123.45 hoặc 79H-1234)' }),
-  brand: z.string().min(1, { message: 'Bắt buộc nhập nhãn hiệu xe (Hino, Isuzu...)' }),
-  payload_capacity: z.number().min(0.1, { message: 'Tải trọng phải > 0' }),
+  vehicle_type: z.string().min(1, { message: 'Bắt buộc nhập loại xe (VD: Đầu kéo, Tải 15 tấn)' }),
+  brand: z.string().optional().nullable(),
+  capacity_tons: z.number().min(0.1, { message: 'Tải trọng phải > 0' }).optional().nullable(),
+  fuel_type: z.string().optional().nullable(),
+  fuel_consumption_per_100km: z.number().min(0, { message: 'Định mức nhiên liệu (L/100km) phải >= 0' }).optional().nullable(),
+  usage_limit_years: z.string().optional().nullable(),
   engine_number: z.string().min(5, { message: 'Bắt buộc nhập số máy' }),
   chassis_number: z.string().min(5, { message: 'Bắt buộc nhập số khung' }),
-  insurance_expiry: z.string().min(1, { message: 'Bắt buộc nhập hạn bảo hiểm' }),
-  registration_expiry: z.string().min(1, { message: 'Bắt buộc nhập hạn đăng kiểm' }),
-  fuel_consumption_rate: z.number().min(0, { message: 'Định mức dầu (L/100km) phải >= 0' }).optional().default(0),
+  insurance_purchase_date: z.string().optional().nullable(),
+  insurance_expiry_date: z.string().optional().nullable(),
+  insurance_civil_expiry: z.string().min(1, { message: 'Bắt buộc nhập hạn bảo hiểm dân sự' }),
+  insurance_body_expiry: z.string().optional().nullable(),
+  insurance_cost: z.number().optional().nullable(),
+  registration_cycle: z.string().optional().nullable(),
+  registration_date: z.string().optional().nullable(),
+  registration_expiry_date: z.string().min(1, { message: 'Bắt buộc nhập hạn đăng kiểm' }),
+  registration_cost: z.number().optional().nullable(),
+  current_location: z.string().optional().nullable(),
+  current_odometer: z.number().optional().nullable(),
+  purchase_date: z.string().optional().nullable(),
+  purchase_price: z.number().optional().nullable(),
   assignment_type: z.enum(['fixed', 'pool']).default('fixed'),
+  status: z.enum(['active', 'maintenance', 'inactive', 'on_trip']).default('active'),
+  notes: z.string().optional().nullable(),
 }).passthrough().refine(data => {
-  const idValue = data.id || data['Mã xe'];
+  const idValue = data.id || data['Mã xe'] || data.vehicle_code;
   if (idValue && typeof idValue === 'string') {
     return /^(VEH-\d{4}-\d+|VEH\d{4}|XE\d{4}|XE\d{4}-\d+)$/.test(idValue);
   }
   return true;
-}, { message: 'Mã xe sai định dạng chuẩn (VD: VEH-2604-01 hoặc XE0001)', path: ['id'] });
+}, { message: 'Mã xe sai định dạng chuẩn (VD: VEH-2604-01 hoặc XE0001)', path: ['vehicle_code'] });
 
 
 export const DriverSchema = z.object({
@@ -45,12 +61,20 @@ export const DriverSchema = z.object({
   driver_code: driverIdSchema.optional(),
   full_name: z.string().min(1, { message: 'Bắt buộc nhập họ tên' }),
   phone: z.string().regex(/^(0|\+84)[3|5|7|8|9][0-9]{8}$/, { message: 'Số điện thoại VN không hợp lệ' }),
-  id_card_number: z.string().regex(/^[0-9]{9,12}$/, { message: 'Số CCCD/CMND phải là 9 hoặc 12 chữ số' }),
+  date_of_birth: z.string().optional().nullable(),
+  tax_code: z.string().optional().nullable(),
+  id_card: z.string().regex(/^[0-9]{9,12}$/, { message: 'Số CCCD/CMND phải là 9 hoặc 12 chữ số' }),
+  id_issue_date: z.string().optional().nullable(),
+  address: z.string().min(5, { message: 'Địa chỉ thường trú là bắt buộc' }),
+  license_number: z.string().optional().nullable(),
   license_class: z.enum(['B2', 'C', 'D', 'E', 'FC', 'FE'], { required_error: 'Bắt buộc chọn hạng bằng lái' }),
   license_expiry: z.string().min(1, { message: 'Bắt buộc nhập hạn bằng lái' }),
   health_check_expiry: z.string().optional().nullable(),
-  date_of_birth: z.string().optional().nullable(),
-  address: z.string().min(5, { message: 'Địa chỉ thường trú là bắt buộc' }),
+  hire_date: z.string().optional().nullable(),
+  contract_type: z.string().optional().nullable(),
+  base_salary: z.number().optional().nullable(),
+  status: z.string().default('active'),
+  notes: z.string().optional().nullable(),
 }).passthrough().refine(data => {
   const idValue = data.id || data['Mã tài xế'] || data.driver_code;
   if (idValue && typeof idValue === 'string') {
@@ -132,15 +156,21 @@ export const TripSchema = z.object({
 
 export const ExpenseSchema = z.object({
   expense_code: expenseIdSchema.optional(),
+  expense_date: z.string().optional().nullable(),
+  category_id: z.string().optional().nullable(),
   amount: amountSchema,
+  description: z.string().optional().nullable(),
   trip_id: z.string().optional().nullable(),
   vehicle_id: z.string().optional().nullable(),
   driver_id: z.string().optional().nullable(),
+  document_number: z.string().optional().nullable(),
+  vendor_name: z.string().optional().nullable(),
+  rejection_reason: z.string().optional().nullable(),
   status: z.enum(['draft', 'confirmed', 'cancelled', 'rejected']).default('draft'),
 }).passthrough()
 .refine(data => {
-  return !!(data.trip_id || data.vehicle_id || data.driver_id);
-}, { message: 'Phiếu chi không được mồ côi (Gắn ít nhất 1 Đối tượng)', path: ['amount'] });
+  return !!(data.trip_id || data.vehicle_id || data.driver_id || data.expense_date); // Relaxed for general expenses
+}, { message: 'Phiếu chi phải hợp lệ', path: ['amount'] });
 
 export const InventoryTransactionSchema = z.object({
     quantity: z.number().min(0, { message: 'Số lượng phải >= 0' }),
@@ -150,9 +180,22 @@ export const InventoryTransactionSchema = z.object({
 // QA AUDIT FIX 3.1: Additional schemas for previously unvalidated collections
 export const MaintenanceSchema = z.object({
   maintenance_code: maintenanceIdSchema.optional(),
-  vehicle_id: z.string().min(1, { message: 'Phải chọn xe' }),
-  cost: z.number().min(0, { message: 'Chi phí bảo trì phải >= 0' }),
-  odometer: z.number().min(0, { message: 'Chỉ số ODO phải >= 0' }).optional(),
+  order_code: z.string().optional(),
+  vehicle_id: z.string().min(1, { message: 'Phải chọn xe' }).optional(),
+  maintenance_type: z.string().optional(),
+  scheduled_date: z.string().optional(),
+  description: z.string().optional(),
+  status: z.string().optional(),
+  labor_cost: z.number().optional().nullable(),
+  parts_cost: z.number().optional().nullable(),
+  total_cost: z.number().optional().nullable(),
+  vendor_name: z.string().optional().nullable(),
+  odometer_at_service: z.number().min(0).optional().nullable(),
+  next_service_date: z.string().optional().nullable(),
+  next_service_km: z.number().min(0).optional().nullable(),
+  completed_at: z.string().optional().nullable(),
+  cost: z.number().min(0).optional().nullable(),
+  odometer: z.number().min(0).optional().nullable(),
 }).passthrough();
 
 export const RouteSchema = z.object({
@@ -161,16 +204,39 @@ export const RouteSchema = z.object({
   origin: z.string().min(1, { message: 'Bắt buộc nhập điểm đi' }).optional(),
   destination: z.string().min(1, { message: 'Bắt buộc nhập điểm đến' }).optional(),
   distance_km: z.number().min(0.1, { message: 'Khoảng cách phải > 0 km' }).optional(),
-  standard_freight_rate: z.number().min(1, { message: 'Cước chuẩn phải > 0 VND' }).optional(),
+  estimated_duration_hours: z.number().optional().nullable(),
+  cargo_type: z.string().optional().nullable(),
+  cargo_weight_standard: z.number().optional().nullable(),
+  base_price: z.number().min(0).optional().nullable(),
+  transport_revenue_standard: z.number().optional().nullable(),
+  driver_allowance_standard: z.number().optional().nullable(),
+  support_fee_standard: z.number().optional().nullable(),
+  police_fee_standard: z.number().optional().nullable(),
+  fuel_liters_standard: z.number().optional().nullable(),
+  fuel_cost_standard: z.number().optional().nullable(),
+  tire_service_fee_standard: z.number().optional().nullable(),
+  toll_cost: z.number().optional().nullable(),
+  default_extra_fee: z.number().optional().nullable(),
+  total_cost_standard: z.number().optional().nullable(),
+  profit_standard: z.number().optional().nullable(),
+  status: z.string().default('active'),
+  notes: z.string().optional().nullable(),
 }).passthrough();
 
 export const CustomerSchema = z.object({
   customer_code: customerIdSchema.optional(),
   customer_name: z.string().min(1, { message: 'Phải nhập tên doanh nghiệp/khách hàng' }),
-  contact_phone: z.string().min(8, { message: 'Bắt buộc nhập SĐT liên hệ' }),
+  customer_type: z.enum(['Doanh nghiệp', 'Cá nhân']).default('Doanh nghiệp'),
+  tax_code: z.string().regex(/^[0-9]{10,13}$/, { message: 'Mã số thuế phải từ 10-13 chữ số' }).optional().nullable(),
+  contact_person: z.string().optional().nullable(),
+  phone: z.string().min(8, { message: 'Bắt buộc nhập SĐT liên hệ' }),
+  email: z.string().email().optional().or(z.literal('')),
   address: z.string().min(5, { message: 'Bắt buộc nhập địa chỉ trụ sở' }),
-  tax_code: z.string().regex(/^[0-9]{10,13}$/, { message: 'Mã số thuế phải từ 10-13 chữ số' }),
   credit_limit: z.number().min(0, { message: 'Hạn mức tín dụng phải >= 0' }).optional(),
+  payment_terms: z.number().optional().nullable(),
+  short_name: z.string().optional().nullable(),
+  status: z.string().default('active'),
+  notes: z.string().optional().nullable(),
 }).passthrough();
 
 export const TransportOrderSchema = z.object({

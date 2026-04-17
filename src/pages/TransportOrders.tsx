@@ -66,11 +66,11 @@ import {
 import { useCustomers } from "@/hooks/useCustomers";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePermissions } from "@/hooks/usePermissions";
-import { getNextCodeByPrefix } from "@/lib/code-generator";
+import { getNextCodeByPrefix, getMonthlyPrefix } from "@/lib/code-generator";
 
 // Form Schema
 const orderSchema = z.object({
-    order_code: z.string().refine(val => !val || /^(ORD-\d{4}-\d+|DH\d{4})$/.test(val), "Mã đơn hàng sai chuẩn (VD: ORD-2604-01)").optional(),
+    order_code: z.string().refine(val => !val || /^(ORD-(\d{4}-)+\d+|ORD\d{4}|DH\d{4}|DH\d{4}-\d+|DH-(\d{4}-)+\d+)$/.test(val), "Mã đơn hàng sai chuẩn (VD: DH-2604-01)").optional(),
     customer_id: z.string().min(1, "Khách hàng là bắt buộc"),
     order_date: z.string().min(1, "Ngày đơn hàng là bắt buộc"),
     expected_delivery_date: z.string().optional().nullable(),
@@ -167,8 +167,8 @@ export default function TransportOrders() {
         setSelectedOrder(null);
         const nextCode = getNextCodeByPrefix(
             (orders || []).map(o => o.order_code),
-            'ORD',
-            4
+            getMonthlyPrefix('DH'),
+            2
         );
 
         form.reset({
