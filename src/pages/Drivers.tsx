@@ -169,11 +169,16 @@ export default function Drivers() {
   const [activeFilters, setActiveFilters] = useState<Record<string, string[] | number | { min: number; max: number } | boolean>>({});
 
   // Hooks
-  const { data: drivers = [] } = useDrivers();
+  const { data: drivers = [], isLoading } = useDrivers();
   const { data: vehicles = [] } = useVehicles();
   const { data: routes = [] } = useRoutes();
   const { data: customers = [] } = useCustomers();
   const { data: trips = [] } = useTrips();
+
+  const activeVehicles = useMemo(() => 
+    (vehicles || []).filter(v => v.status === 'active' && !v.is_deleted),
+    [vehicles]
+  );
   const deleteMutation = useDeleteDriver();
 
   // Bulk Delete Hook
@@ -595,7 +600,7 @@ export default function Drivers() {
       header: 'Xe phân công',
       width: '160px',
       render: (value, row) => {
-        const vehicle = vehicles?.find(v => v.id === value);
+        const vehicle = (activeVehicles || []).find(v => v.id === value);
         return vehicle ? (
           <span className="font-mono text-sm">{vehicle.vehicle_code || ''} – {vehicle.license_plate}</span>
         ) : (
@@ -654,6 +659,15 @@ export default function Drivers() {
       ),
     }] : [])
   ], [handleDeleteClick, vehicles, canDelete]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[500px]">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        <span className="ml-2 text-muted-foreground">Đang tải dữ liệu tài xế...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-2 animate-fade-in">
@@ -797,7 +811,7 @@ export default function Drivers() {
                   <span className="text-xs text-slate-400">Xe gán cố định</span>
                   <span className="font-medium text-blue-600 truncate">{
                     driver.assigned_vehicle_id 
-                      ? vehicles?.find(v => v.id === driver.assigned_vehicle_id)?.license_plate || "Có xe"
+                      ? (activeVehicles || []).find(v => v.id === driver.assigned_vehicle_id)?.license_plate || "Có xe"
                       : "Chưa gán"
                   }</span>
                 </div>
