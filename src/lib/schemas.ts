@@ -20,11 +20,14 @@ export const amountSchema = z.number().min(0, { message: 'Số tiền/Chi phí p
 export const VehicleSchema = z.object({
   id: vehicleIdSchema.optional(),
   'Mã xe': vehicleIdSchema.optional(),
-  vehicle_type: z.string().min(1, { message: 'Bắt buộc nhập loại xe' }),
-  license_plate: z.string().min(1, { message: 'Bắt buộc nhập biển số' }),
-  payload_capacity: z.number().min(0, { message: 'Tải trọng phải >= 0' }).optional(),
-  insurance_expiry: z.string().optional().nullable(),
-  registration_expiry: z.string().optional().nullable(),
+  vehicle_type: z.string().min(1, { message: 'Bắt buộc nhập loại xe (VD: Đầu kéo, Tải 15 tấn)' }),
+  license_plate: z.string().regex(/^[0-9]{2}[A-Z]-[0-9]{3,5}(\.[0-9]{2})?$/, { message: 'Biển số sai chuẩn (VD: 51C-123.45 hoặc 79H-1234)' }),
+  brand: z.string().min(1, { message: 'Bắt buộc nhập nhãn hiệu xe (Hino, Isuzu...)' }),
+  payload_capacity: z.number().min(0.1, { message: 'Tải trọng phải > 0' }),
+  engine_number: z.string().min(5, { message: 'Bắt buộc nhập số máy' }),
+  chassis_number: z.string().min(5, { message: 'Bắt buộc nhập số khung' }),
+  insurance_expiry: z.string().min(1, { message: 'Bắt buộc nhập hạn bảo hiểm' }),
+  registration_expiry: z.string().min(1, { message: 'Bắt buộc nhập hạn đăng kiểm' }),
   fuel_consumption_rate: z.number().min(0, { message: 'Định mức dầu (L/100km) phải >= 0' }).optional().default(0),
   assignment_type: z.enum(['fixed', 'pool']).default('fixed'),
 }).passthrough().refine(data => {
@@ -41,13 +44,13 @@ export const DriverSchema = z.object({
   'Mã tài xế': driverIdSchema.optional(),
   driver_code: driverIdSchema.optional(),
   full_name: z.string().min(1, { message: 'Bắt buộc nhập họ tên' }),
-  phone: z.string().min(8, { message: 'Bắt buộc nhập số điện thoại hợp lệ' }),
-  id_card_number: z.string().min(9, { message: 'Bắt buộc nhập số CCCD/CMND (9-12 số)' }).optional(),
-  license_class: z.string().min(1, { message: 'Bắt buộc nhập hạng bằng lái (B2/C/D/E/FC)' }).optional(),
-  license_expiry: z.string().min(1, { message: 'Bắt buộc nhập hạn bằng lái' }).optional(),
+  phone: z.string().regex(/^(0|\+84)[3|5|7|8|9][0-9]{8}$/, { message: 'Số điện thoại VN không hợp lệ' }),
+  id_card_number: z.string().regex(/^[0-9]{9,12}$/, { message: 'Số CCCD/CMND phải là 9 hoặc 12 chữ số' }),
+  license_class: z.enum(['B2', 'C', 'D', 'E', 'FC', 'FE'], { required_error: 'Bắt buộc chọn hạng bằng lái' }),
+  license_expiry: z.string().min(1, { message: 'Bắt buộc nhập hạn bằng lái' }),
   health_check_expiry: z.string().optional().nullable(),
   date_of_birth: z.string().optional().nullable(),
-  address: z.string().optional().nullable(),
+  address: z.string().min(5, { message: 'Địa chỉ thường trú là bắt buộc' }),
 }).passthrough().refine(data => {
   const idValue = data.id || data['Mã tài xế'] || data.driver_code;
   if (idValue && typeof idValue === 'string') {
@@ -163,10 +166,10 @@ export const RouteSchema = z.object({
 
 export const CustomerSchema = z.object({
   customer_code: customerIdSchema.optional(),
-  customer_name: z.string().min(1, { message: 'Phải nhập tên khách hàng' }),
-  contact_phone: z.string().min(8, { message: 'Bắt buộc nhập SĐT liên hệ' }).optional(),
-  address: z.string().min(1, { message: 'Bắt buộc nhập địa chỉ' }).optional(),
-  tax_code: z.string().optional().nullable(),
+  customer_name: z.string().min(1, { message: 'Phải nhập tên doanh nghiệp/khách hàng' }),
+  contact_phone: z.string().min(8, { message: 'Bắt buộc nhập SĐT liên hệ' }),
+  address: z.string().min(5, { message: 'Bắt buộc nhập địa chỉ trụ sở' }),
+  tax_code: z.string().regex(/^[0-9]{10,13}$/, { message: 'Mã số thuế phải từ 10-13 chữ số' }),
   credit_limit: z.number().min(0, { message: 'Hạn mức tín dụng phải >= 0' }).optional(),
 }).passthrough();
 

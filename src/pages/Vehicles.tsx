@@ -835,7 +835,7 @@ export default function Vehicles() {
           <div className="relative w-full sm:w-64 shrink-0">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Tìm mã xe, biển số..."
+              placeholder="Tìm mã xe, biển số (79H...)"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-8 h-9 bg-background"
@@ -1023,7 +1023,7 @@ export default function Vehicles() {
                       <FormItem>
                         <FormLabel>Mã xe *</FormLabel>
                         <FormControl>
-                          <Input placeholder="VD: XE0001" {...field} disabled />
+                          <Input placeholder="VD: VEH-2604-01" {...field} disabled />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1036,7 +1036,7 @@ export default function Vehicles() {
                       <FormItem>
                         <FormLabel>Biển số *</FormLabel>
                         <FormControl>
-                          <Input placeholder="VD: 79C-01468" {...field} />
+                          <Input placeholder="VD: 79H-123.45" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -1476,25 +1476,27 @@ export default function Vehicles() {
         }))}
         sampleData={[
           {
-            vehicle_code: 'XE0001',
-            license_plate: '29C-12345',
-            vehicle_type: 'Xe tải 5 tấn',
-            brand: 'Hino',
-            capacity_tons: 5,
-            fuel_type: 'Dầu',
-            usage_limit_years: '2030',
-            engine_number: 'ENGINE123',
-            chassis_number: 'CHASSIS123',
-            insurance_purchase_date: '2025-01-01',
-            insurance_expiry_date: '2026-01-01',
-            insurance_cost: 12000000,
-            registration_cycle: '12 tháng',
-            registration_date: '2025-01-01',
-            registration_expiry_date: '2026-01-01',
-            registration_cost: 2000000,
-            current_location: 'Hà Nội',
-            status: 'Đang hoạt động',
-            notes: 'Xe mới'
+            vehicle_code: 'VEH-2604-01',
+            license_plate: '79H-012.34',
+            vehicle_type: 'Xe đầu kéo',
+            brand: 'Hino 700 Series',
+            capacity_tons: 32,
+            fuel_type: 'Dầu/Diesel',
+            usage_limit_years: '2046',
+            engine_number: 'E13C-WG-12345',
+            chassis_number: '700P-GRL-00123',
+            insurance_purchase_date: '2026-01-15',
+            insurance_expiry_date: '2027-01-15',
+            insurance_civil_expiry: '2027-01-15', 
+            insurance_body_expiry: '2027-01-15',
+            insurance_cost: 15500000,
+            registration_cycle: '6 tháng',
+            registration_date: '2026-03-10',
+            registration_expiry_date: '2026-09-10',
+            registration_cost: 340000,
+            current_location: 'Cảng Ba Ngòi, Cam Ranh',
+            status: 'Hoạt động',
+            notes: 'Xe đầu kéo chuyên tuyến Cam Ranh - Nha Trang'
           }
         ]}
       />

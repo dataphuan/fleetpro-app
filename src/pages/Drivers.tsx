@@ -738,7 +738,7 @@ export default function Drivers() {
           <div className="relative w-full sm:w-64 shrink-0">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Tìm mã TX, họ tên, SĐT..."
+              placeholder="Tìm mã TX, họ tên, SĐT (09x...)"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-8 h-9 bg-background"
@@ -925,11 +925,19 @@ export default function Drivers() {
         columns={importColumns}
         sampleData={[
           {
-            driver_code: 'TX0001',
-            full_name: 'Nguyễn Văn A',
-            phone: '09xxxx',
-            date_of_birth: '1990-01-01',
-            base_salary: 8000000
+            driver_code: 'DRV-2604-01',
+            full_name: 'Nguyễn Diệp Ninh',
+            phone: '0905123456',
+            date_of_birth: '1985-05-20',
+            tax_code: '8012345678',
+            id_card: '056085001234',
+            address: 'Trần Quý Cáp, Ninh Hòa, Khánh Hòa',
+            license_number: '790123456789',
+            license_class: 'FC',
+            license_expiry: '2030-12-31',
+            hire_date: '2023-01-10',
+            base_salary: 12500000,
+            status: 'Hoạt động'
           }
         ]}
         existingCodes={drivers?.map(d => d.driver_code) || []}
@@ -961,7 +969,7 @@ export default function Drivers() {
                     <FormItem>
                       <FormLabel>Mã tài xế *</FormLabel>
                       <FormControl>
-                        <Input placeholder="VD: TX0001" {...field} disabled />
+                        <Input placeholder="VD: DRV-2604-01" {...field} disabled />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -975,7 +983,7 @@ export default function Drivers() {
                     <FormItem>
                       <FormLabel>Họ tên *</FormLabel>
                       <FormControl>
-                        <Input placeholder="Nguyễn Văn X" {...field} />
+                        <Input placeholder="VD: Nguyễn Diệp Ninh" {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1006,7 +1014,7 @@ export default function Drivers() {
                     <FormItem>
                       <FormLabel>Số điện thoại *</FormLabel>
                       <FormControl>
-                        <Input placeholder="0912345678" {...field} value={field.value || ''} />
+                        <Input placeholder="VD: 0905123456" {...field} value={field.value || ''} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -1020,7 +1028,7 @@ export default function Drivers() {
                     <FormItem>
                       <FormLabel>Số CCCD *</FormLabel>
                       <FormControl>
-                        <Input placeholder="CCCD/CMND" {...field} value={field.value || ''} />
+                        <Input placeholder="VD: 056085001234" {...field} value={field.value || ''} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>

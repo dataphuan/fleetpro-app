@@ -799,7 +799,7 @@ export default function TransportOrders() {
                                         <FormItem>
                                             <FormLabel>Địa chỉ lấy hàng</FormLabel>
                                             <FormControl>
-                                                <Input placeholder="Nơi lấy hàng..." {...field} value={field.value || ''} />
+                                                <Input placeholder="VD: Cảng Cát Lái, TP.HCM" {...field} value={field.value || ''} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -811,7 +811,7 @@ export default function TransportOrders() {
                                         <FormItem>
                                             <FormLabel>Địa chỉ giao hàng</FormLabel>
                                             <FormControl>
-                                                <Input placeholder="Nơi giao hàng..." {...field} value={field.value || ''} />
+                                                <Input placeholder="VD: KCN Sóng Thần, Bình Dương" {...field} value={field.value || ''} />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>

@@ -872,14 +872,23 @@ export default function Routes() {
         columns={importColumns}
         sampleData={[
           {
-            route_code: 'TD0001',
-            route_name: 'Hà Nội - Hải Phòng',
-            origin: 'Hà Nội',
-            destination: 'Hải Phòng',
-            distance_km: 120,
-            estimated_duration_hours: 2.5,
-            base_price: 2000000,
-            fuel_liters_standard: 30
+            route_code: 'RT-2604-01',
+            route_name: 'Ninh Hòa - Nha Trang (QL1A)',
+            origin: 'Ninh Hòa',
+            destination: 'Nha Trang',
+            distance_km: 35,
+            estimated_duration_hours: 1,
+            cargo_type: 'Nông sản',
+            cargo_weight_standard: 15,
+            base_price: 150000,
+            transport_revenue_standard: 2250000,
+            driver_allowance_standard: 250000,
+            support_fee_standard: 50000,
+            police_fee_standard: 0,
+            fuel_liters_standard: 12,
+            fuel_cost_standard: 240000,
+            toll_cost: 35000,
+            status: 'Hoạt động'
           }
         ]}
         existingCodes={routes?.map(r => r.route_code) || []}
@@ -921,21 +930,21 @@ export default function Routes() {
                   <FormField control={form.control} name="route_name" render={({ field }) => (
                     <FormItem className="md:col-span-2">
                       <FormLabel className="text-xs">Tên tuyến *</FormLabel>
-                      <FormControl><Input placeholder="Hà Nội - Hải Phòng" className="h-8" {...field} /></FormControl>
+                      <FormControl><Input placeholder="Ninh Hòa - Nha Trang" className="h-8" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="origin" render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-xs">Điểm đi *</FormLabel>
-                      <FormControl><Input placeholder="Hà Nội" className="h-8" {...field} /></FormControl>
+                      <FormControl><Input placeholder="Ninh Hòa" className="h-8" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
                   <FormField control={form.control} name="destination" render={({ field }) => (
                     <FormItem>
                       <FormLabel className="text-xs">Điểm đến *</FormLabel>
-                      <FormControl><Input placeholder="Hải Phòng" className="h-8" {...field} /></FormControl>
+                      <FormControl><Input placeholder="Nha Trang" className="h-8" {...field} /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
