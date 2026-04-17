@@ -48,6 +48,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { getNextCodeByPrefix, getMonthlyPrefix } from "@/lib/code-generator";
 import { useToast } from "@/hooks/use-toast";
 import {
   Wallet, Receipt, Fuel, Wrench, Users, Loader2, Trash2, RefreshCw,

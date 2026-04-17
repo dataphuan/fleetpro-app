@@ -19,11 +19,14 @@ export const getNextCodeByPrefix = (
     if (!code) return;
     const matched = code.match(pattern);
     if (!matched) return;
-    const sequence = Number.parseInt(matched[1], 10);
+    const sequencePart = matched[1];
+    const sequence = Number.parseInt(sequencePart, 10);
     if (!Number.isNaN(sequence) && sequence > maxSequence) {
       maxSequence = sequence;
     }
   });
 
-  return `${prefix}${String(maxSequence + 1).padStart(padding, '0')}`;
+  // Default padding to 2 for monthly prefix (YYMM-NN), otherwise 4
+  const finalPadding = (prefix.includes('-') && prefix.split('-').length >= 2) ? 2 : padding;
+  return `${prefix}${String(maxSequence + 1).padStart(finalPadding, '0')}`;
 };

@@ -12,6 +12,8 @@ import { DriverFilter } from "@/components/drivers/DriverFilter";
 import { ExcelImportDialog, ImportColumn } from "@/components/shared/ExcelImportDialog";
 import { formatCurrency, formatDate } from "@/lib/formatters";
 import { Button } from "@/components/ui/button";
+import { getNextCodeByPrefix, getMonthlyPrefix } from "@/lib/code-generator";
+import { db } from "@/lib/firebase";
 import { cn } from "@/lib/utils";
 import { DatePicker } from "@/components/ui/date-picker";
 import { format, parseISO } from "date-fns";
@@ -50,16 +52,19 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Users, Phone, Loader2, Trash2, RefreshCw, Search, Plus, Upload, Download, Truck, MapPin } from "lucide-react";
 import { useDrivers, useCreateDriver, useUpdateDriver, useDeleteDriver } from "@/hooks/useDrivers";
-import { useVehiclesByStatus } from "@/hooks/useVehicles";
+import { useVehicles } from "@/hooks/useVehicles";
+import { useTrips } from "@/hooks/useTrips";
+import { useRoutes } from "@/hooks/useRoutes";
+import { useCustomers } from "@/hooks/useCustomers";
+import { useAuth } from "@/hooks/use-auth";
+import { usePermissions } from "@/hooks/usePermissions";
 import { useQueryClient } from "@tanstack/react-query";
+import { Users, Phone, Loader2, Trash2, RefreshCw, Search, Plus, Upload, Download, Truck, MapPin } from "lucide-react";
 import { useBulkDelete } from "@/hooks/useBulkDelete";
 import { BulkDeleteDialog } from "@/components/shared/BulkDeleteDialog";
 import { BulkDeleteToolbar } from "@/components/shared/BulkDeleteToolbar";
-import { usePermissions } from "@/hooks/usePermissions";
 import { driverAdapter } from "@/lib/data-adapter";
-import { getNextCodeByPrefix } from "@/lib/code-generator";
 
 // Type definitions
 interface Driver {
@@ -164,14 +169,11 @@ export default function Drivers() {
   const [activeFilters, setActiveFilters] = useState<Record<string, string[] | number | { min: number; max: number } | boolean>>({});
 
   // Hooks
-  const { data: drivers, isLoading } = useDrivers();
-  const { data: activeVehicles } = useVehiclesByStatus('active');
-
-  // Check for navigation from Alerts
-
-
-  const createMutation = useCreateDriver();
-  const updateMutation = useUpdateDriver();
+  const { data: drivers = [] } = useDrivers();
+  const { data: vehicles = [] } = useVehicles();
+  const { data: routes = [] } = useRoutes();
+  const { data: customers = [] } = useCustomers();
+  const { data: trips = [] } = useTrips();
   const deleteMutation = useDeleteDriver();
 
   // Bulk Delete Hook
@@ -212,10 +214,9 @@ export default function Drivers() {
       }
     } catch (err) {
       console.error("[AUDIT] Failed to fetch next driver code - using fallback TX0001", err);
-      // Fallback: generate based on existing drivers
       if (drivers && drivers.length > 0) {
         const yymm = new Date().toISOString().slice(2, 4) + new Date().toISOString().slice(5, 7);
-        nextCode = `DRV-${yymm}-${String(maxCode + 1).padStart(2, '0')}`;
+        nextCode = `DRV-${yymm}-${String(drivers.length + 1).padStart(2, '0')}`;
       }
     }
 
@@ -242,8 +243,6 @@ export default function Drivers() {
     setDialogOpen(true);
   };
 
-  // ... (rest of handlers)
-
   const handleBulkDelete = () => {
     if (selectedRowIds.size > 0) {
       setBulkDeleteDialogOpen(true);
@@ -253,18 +252,6 @@ export default function Drivers() {
   const confirmBulkDelete = () => {
     deleteDrivers(Array.from(selectedRowIds));
   };
-
-  const handleSelectAll = () => {
-    const allIds = filteredDrivers.map(d => d.id);
-    setSelectedRowIds(new Set(allIds));
-  };
-
-  const handleClearSelection = () => {
-    setSelectedRowIds(new Set());
-  };
-
-  // ... (handleRowClick, etc)
-
 
   const handleRowClick = useCallback((driver: Driver) => {
     setSelectedDriver(driver);
@@ -325,12 +312,10 @@ export default function Drivers() {
       setDeleteDialogOpen(false);
       setSelectedDriver(null);
     } catch (error) {
-      // Error handled by hook
     }
   };
 
   const onSubmit = async (data: DriverFormValues) => {
-    // Convert empty strings to null for optional dates
     const formattedData = {
       ...data,
       license_expiry: data.license_expiry === "" ? null : data.license_expiry,
@@ -389,16 +374,13 @@ export default function Drivers() {
         { key: 'driver_code', header: 'Mã TX' },
         { key: 'full_name', header: 'Họ tên' },
         { key: 'phone', header: 'Điện thoại' },
-        { key: 'national_id', header: 'CCCD' },
-        { key: 'birth_date', header: 'Ngày sinh' },
-        { key: 'hometown', header: 'Quê quán' },
+        { key: 'id_card', header: 'CCCD' },
+        { key: 'date_of_birth', header: 'Ngày sinh' },
+        { key: 'address', header: 'Quê quán' },
         { key: 'hire_date', header: 'Ngày vào làm' },
         { key: 'license_number', header: 'Số GPLX' },
         { key: 'license_class', header: 'Hạng' },
         { key: 'license_expiry', header: 'Hạn GPLX' },
-        { key: 'license_issue_date', header: 'Ngày cấp GPLX' },
-        { key: 'license_issue_place', header: 'Nơi cấp' },
-        { key: 'experience_years', header: 'Thâm niên (năm)' },
         { key: 'base_salary', header: 'Lương cơ bản' },
         { key: 'status', header: 'Trạng thái' },
         { key: 'notes', header: 'Ghi chú' },
@@ -406,21 +388,8 @@ export default function Drivers() {
     });
   };
 
-  const handleSearch = (query: string) => {
-    setSearchQuery(query);
-  };
-
-  const handleImport = () => {
-    setImportDialogOpen(true);
-  };
-
-
-
-
-  // Filter data based on search query and activeFilters
   const filteredDrivers = useMemo(() => {
     return (drivers || []).filter(driver => {
-      // Search filter
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
         const matchesSearch =
@@ -431,7 +400,6 @@ export default function Drivers() {
         if (!matchesSearch) return false;
       }
 
-      // Multi-select filters
       for (const key of ['license_class', 'contract_type', 'status']) {
         const filterValues = activeFilters[key];
         if (Array.isArray(filterValues) && filterValues.length > 0) {
@@ -440,7 +408,6 @@ export default function Drivers() {
         }
       }
 
-      // Expiry days filter (GPLX)
       if (typeof activeFilters.license_expiry === 'number') {
         const days = activeFilters.license_expiry;
         if (!driver.license_expiry) return false;
@@ -449,7 +416,6 @@ export default function Drivers() {
         if (daysUntil < 0 || daysUntil > days) return false;
       }
 
-      // Salary range filter
       const salaryRange = activeFilters.base_salary as { min: number; max: number } | undefined;
       if (salaryRange) {
         const salary = driver.base_salary || 0;
@@ -460,7 +426,6 @@ export default function Drivers() {
     });
   }, [drivers, searchQuery, activeFilters]);
 
-  // Handle Excel import
   const handleExcelImport = async (rows: Record<string, unknown>[]) => {
     let successCount = 0;
     let errorCount = 0;
@@ -468,7 +433,7 @@ export default function Drivers() {
 
     for (const row of rows) {
       try {
-        await delay(50); // Pacing for stability
+        await delay(50);
         await createMutation.mutateAsync({
           driver_code: String(row.driver_code || `TX-00`),
           full_name: String(row.full_name || 'Unknown'),
@@ -477,7 +442,6 @@ export default function Drivers() {
           tax_code: row.tax_code ? String(row.tax_code) : null,
           id_card: row.id_card ? String(row.id_card) : null,
           id_issue_date: row.id_issue_date ? String(row.id_issue_date) : null,
-
           address: row.address ? String(row.address) : null,
           license_number: row.license_number ? String(row.license_number) : null,
           license_class: row.license_class ? String(row.license_class) : null,
@@ -509,58 +473,50 @@ export default function Drivers() {
       description: `Đã nhập ${successCount} tài xế${errorCount > 0 ? `, ${errorCount} lỗi` : ''}`,
     });
   };
-  // 16 columns for Drivers table
+
   const columns = useMemo<Column<Driver>[]>(() => [
-    // 1. Mã TX
     {
       key: 'driver_code',
       header: 'Mã TX',
       width: '90px',
       render: (value) => <span className="font-mono font-medium">{value as string}</span>,
     },
-    // 2. Họ tên
     {
       key: 'full_name',
       header: 'Họ tên',
       width: '150px',
       render: (value) => <span className="font-medium">{value as string}</span>,
     },
-    // 3. Điện thoại
     {
       key: 'phone',
       header: 'Điện thoại',
       width: '120px',
       render: (value) => value as string || '-',
     },
-    // 4. Ngày sinh
     {
       key: 'date_of_birth',
       header: 'Ngày sinh',
       width: '110px',
       render: (value) => formatDate(value as string),
     },
-    // 5. Mã số thuế
     {
       key: 'tax_code',
       header: 'Mã số thuế',
       width: '120px',
       render: (value) => value ? <span className="font-mono text-sm">{value as string}</span> : '-',
     },
-    // 6. Số CCCD
     {
       key: 'id_card',
       header: 'Số CCCD',
       width: '130px',
       render: (value) => value ? <span className="font-mono text-sm">{value as string}</span> : '-',
     },
-    // 7. Cấp ngày
     {
       key: 'id_issue_date',
       header: 'Cấp ngày',
       width: '110px',
       render: (value) => formatDate(value as string),
     },
-    // 8. Hộ khẩu TT
     {
       key: 'address',
       header: 'Hộ khẩu TT',
@@ -571,14 +527,12 @@ export default function Drivers() {
         </span>
       ),
     },
-    // 9. Hạng GPLX
     {
       key: 'license_class',
       header: 'Hạng GPLX',
       width: '100px',
       render: (value) => value ? <span className="font-medium">Hạng {value as string}</span> : '-',
     },
-    // 10. Ngày hết hạn GPLX
     {
       key: 'license_expiry',
       header: 'Hết hạn GPLX',
@@ -598,7 +552,6 @@ export default function Drivers() {
         );
       },
     },
-    // 10.5. Hết hạn khám SK
     {
       key: 'health_check_expiry',
       header: 'Hết hạn khám SK',
@@ -618,21 +571,18 @@ export default function Drivers() {
         );
       },
     },
-    // 11. Ngày vào làm
     {
       key: 'hire_date',
       header: 'Ngày vào làm',
       width: '120px',
       render: (value) => formatDate(value as string),
     },
-    // 12. Loại hợp đồng
     {
       key: 'contract_type',
       header: 'Loại HĐ',
       width: '120px',
       render: (value) => value ? <span className="text-sm">{value as string}</span> : '-',
     },
-    // 13. Lương cơ bản
     {
       key: 'base_salary',
       header: 'Lương cơ bản',
@@ -640,22 +590,12 @@ export default function Drivers() {
       align: 'right',
       render: (value) => formatCurrency(value as number),
     },
-    // 14. Xe phân công
     {
       key: 'assigned_vehicle_id',
       header: 'Xe phân công',
       width: '160px',
       render: (value, row) => {
-        const joined = (row as any).assigned_vehicle;
-        if (joined && joined.license_plate) {
-          const code = joined.vehicle_code ? `${joined.vehicle_code} – ` : "";
-          return <span className="font-mono text-sm">{code}{joined.license_plate}</span>;
-        }
-        
-        const vehicleId = typeof value === 'string' ? value : null;
-        if (!vehicleId) return <span className="text-muted-foreground">-</span>;
-
-        const vehicle = activeVehicles?.find(v => v.id === vehicleId);
+        const vehicle = vehicles?.find(v => v.id === value);
         return vehicle ? (
           <span className="font-mono text-sm">{vehicle.vehicle_code || ''} – {vehicle.license_plate}</span>
         ) : (
@@ -663,7 +603,6 @@ export default function Drivers() {
         );
       },
     },
-    // 15. Trạng thái
     {
       key: 'status',
       header: 'Trạng thái',
@@ -689,7 +628,6 @@ export default function Drivers() {
         );
       },
     },
-    // 16. Ghi chú
     {
       key: 'notes',
       header: 'Ghi chú',
@@ -715,19 +653,10 @@ export default function Drivers() {
         </Button>
       ),
     }] : [])
-  ], [handleDeleteClick, activeVehicles, canDelete]);
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[500px]">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
-    );
-  }
+  ], [handleDeleteClick, vehicles, canDelete]);
 
   return (
     <div className="space-y-2 animate-fade-in">
-      {/* 1. Compact Header Row */}
       <div className="flex items-center justify-between pb-2 border-b">
         <div>
           <h1 className="text-xl font-bold tracking-tight">Danh Mục Tài Xế</h1>
@@ -735,9 +664,7 @@ export default function Drivers() {
         </div>
       </div>
 
-      {/* 2. Unified Toolbar Row */}
       <div className="flex flex-col xl:flex-row gap-2 items-start xl:items-center justify-between bg-muted/10 p-2 rounded-lg border">
-        {/* Left Side: Search + Filters */}
         <div className="flex flex-col sm:flex-row flex-1 w-full xl:w-auto gap-2">
           <div className="relative w-full sm:w-64 shrink-0">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -749,7 +676,6 @@ export default function Drivers() {
             />
           </div>
 
-          {/* Filters Wrapper */}
           <div className="flex-1 overflow-x-auto pb-1 sm:pb-0">
             <DriverFilter
               data={drivers || []}
@@ -766,7 +692,6 @@ export default function Drivers() {
           </div>
         </div>
 
-        {/* Right Side: Actions (Compact) */}
         <div className="flex items-center gap-1 shrink-0 overflow-x-auto max-w-full pt-1 xl:pt-0 w-full xl:w-auto justify-end">
           {canDelete && selectedRowIds.size > 0 && (
             <Button
@@ -831,7 +756,6 @@ export default function Drivers() {
         />
       </div>
 
-      {/* Mobile Card View */}
       <div className="md:hidden grid grid-cols-1 gap-3 pt-2">
         {filteredDrivers.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground border rounded-lg bg-slate-50">Không tìm thấy tài xế phù hợp</div>
@@ -845,7 +769,6 @@ export default function Drivers() {
               <div className="flex justify-between items-start mb-3">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 overflow-hidden">
-                    {/* Placeholder Avatar */}
                     <Users className="w-5 h-5" />
                   </div>
                   <div>
@@ -874,7 +797,7 @@ export default function Drivers() {
                   <span className="text-xs text-slate-400">Xe gán cố định</span>
                   <span className="font-medium text-blue-600 truncate">{
                     driver.assigned_vehicle_id 
-                      ? activeVehicles?.find(v => v.id === driver.assigned_vehicle_id)?.license_plate || "Có xe"
+                      ? vehicles?.find(v => v.id === driver.assigned_vehicle_id)?.license_plate || "Có xe"
                       : "Chưa gán"
                   }</span>
                 </div>
@@ -920,7 +843,6 @@ export default function Drivers() {
         isDeleting={isBulkDeleting}
       />
 
-      {/* Driver Import Dialog */}
       <ExcelImportDialog
         isOpen={importDialogOpen}
         onClose={() => setImportDialogOpen(false)}
@@ -948,7 +870,6 @@ export default function Drivers() {
         codeField="driver_code"
       />
 
-      {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -1219,7 +1140,7 @@ export default function Drivers() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {activeVehicles?.filter(v => v && ((!v.assigned_driver_id || v.assigned_driver_id === selectedDriver?.id) || v.assignment_type === 'pool')).map((vehicle) => (
+                          {vehicles?.filter(v => v && ((!v.assigned_driver_id || v.assigned_driver_id === selectedDriver?.id) || v.assignment_type === 'pool')).map((vehicle) => (
                             <SelectItem key={vehicle?.id} value={vehicle?.id}>
                               {vehicle?.license_plate || vehicle?.vehicle_code} ({vehicle?.brand || 'N/A'})
                             </SelectItem>
