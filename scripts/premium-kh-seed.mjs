@@ -267,7 +267,7 @@ async function seedV15(tenantId) {
             const orderDocId = `${tenantId}_transportOrders_${orderCode}`;
             await db.collection('transportOrders').doc(orderDocId).set({
                 id: orderCode, order_code: orderCode, 
-                customer_id: custIds[day % custIds.length],
+                customer_id: `${tenantId}_customers_${custIds[day % custIds.length]}`,
                 requested_by_driver_email: `${drvIds[t % drvIds.length]}@phuan.vn`,
                 order_date: currentDay.toISOString().slice(0, 10),
                 expected_delivery_date: currentDay.toISOString().slice(0, 10),
@@ -282,10 +282,10 @@ async function seedV15(tenantId) {
             const tripDocId = `${tenantId}_trips_${tripCode}`;
             await db.collection('trips').doc(tripDocId).set({
                 id: tripCode, trip_code: tripCode, tenant_id: tenantId,
-                vehicle_id: vehIds[(day + t) % vehIds.length],
-                driver_id: drvIds[(day + t) % drvIds.length],
-                customer_id: custIds[day % custIds.length],
-                route_id: rtIds[routeIdx],
+                vehicle_id: `${tenantId}_vehicles_${vehIds[(day + t) % vehIds.length]}`,
+                driver_id: `${tenantId}_drivers_${drvIds[(day + t) % drvIds.length]}`,
+                customer_id: `${tenantId}_customers_${custIds[day % custIds.length]}`,
+                route_id: `${tenantId}_routes_${rtIds[routeIdx]}`,
                 departure_date: currentDay.toISOString().slice(0, 10),
                 arrival_date: currentDay.toISOString().slice(0, 10),
                 status: isClosed ? 'completed' : 'in_progress',
@@ -307,7 +307,7 @@ async function seedV15(tenantId) {
                     id: pcCode, expense_code: pcCode, expense_date: currentDay.toISOString().slice(0, 10),
                     category_id: CAT.FUEL, amount: route.fuel_l * FUEL_PRICE,
                     description: `Chi phí dầu cho chuyến ${tripCode}`,
-                    trip_id: tripCode, vehicle_id: vehIds[(day+t)%vehIds.length],
+                    trip_id: tripCode, vehicle_id: `${tenantId}_vehicles_${vehIds[(day+t)%vehIds.length]}`,
                     status: 'confirmed', tenant_id: tenantId, created_at: currentDay.toISOString()
                 });
             }

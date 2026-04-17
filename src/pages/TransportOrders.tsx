@@ -170,6 +170,7 @@ export default function TransportOrders() {
             getMonthlyPrefix('DH'),
             2
         );
+        const placeholder = nextCode || `${getMonthlyPrefix('DH')}01`;
 
         form.reset({
             order_code: nextCode,
@@ -461,8 +462,16 @@ export default function TransportOrders() {
             key: 'customer_id',
             header: 'Khách hàng',
             render: (value) => {
-                const customerData = customers?.find(c => c.id === value);
-                return <span className="font-medium text-emerald-800">{customerData?.customer_name || '—'}</span>;
+                const customerData = Array.isArray(customers) 
+                    ? customers.find(c => c.id === value || c.id.endsWith(value as string)) 
+                    : null;
+                return customerData ? (
+                    <span className="font-semibold text-emerald-800">{customerData.customer_name}</span>
+                ) : (
+                    <Badge variant="outline" className="text-red-500 border-red-200 bg-red-50 font-bold text-[10px] animate-pulse">
+                        ⚠️ MẤT LIÊN KẾT KH
+                    </Badge>
+                );
             },
         },
         {
@@ -734,7 +743,7 @@ export default function TransportOrders() {
                                         <FormItem>
                                             <FormLabel>Mã đơn *</FormLabel>
                                             <FormControl>
-                                                <Input placeholder="Tự động tạo" {...field} disabled />
+                                                <Input placeholder={getMonthlyPrefix('DH') + "01"} {...field} disabled className="bg-slate-50 font-bold text-primary" />
                                             </FormControl>
                                             <FormMessage />
                                         </FormItem>

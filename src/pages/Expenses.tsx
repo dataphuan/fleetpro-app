@@ -644,21 +644,29 @@ export default function Expenses() {
       key: 'vehicle_id',
       header: 'Xe',
       width: '120px',
-      render: (_, row) => row.vehicle ? (
-        <span className="font-mono text-sm">{row.vehicle.license_plate}</span>
-      ) : (
-        <span className="text-muted-foreground">-</span>
-      ),
+      render: (value, row) => {
+        const vehicle = row.vehicle || (Array.isArray(vehicles) ? vehicles.find(v => v.id === value || v.id.endsWith(value as string)) : null);
+        return vehicle ? (
+          <span className="font-mono text-sm font-semibold text-slate-700">{vehicle.license_plate}</span>
+        ) : (
+          <Badge variant="outline" className="text-red-500 border-red-200 bg-red-50 font-bold text-[10px] animate-pulse">
+            ⚠️ MẤT LIÊN KẾT XE
+          </Badge>
+        );
+      },
     },
     {
       key: 'trip_id',
       header: 'Chuyến',
       width: '100px',
-      render: (value, row) => row.trip ? (
-        <span className="font-mono text-sm">{row.trip.trip_code}</span>
-      ) : (
-        <span className="text-muted-foreground">-</span>
-      ),
+      render: (value, row) => {
+        const trip = row.trip || (Array.isArray(trips) ? trips.find(t => t.id === value || t.id.endsWith(value as string)) : null);
+        return trip ? (
+          <span className="font-mono text-sm font-medium text-blue-700">{trip.trip_code}</span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        );
+      },
     },
     {
       key: 'amount',
