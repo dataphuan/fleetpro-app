@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useDashboardStats, useMonthlyTrend, useExpenseBreakdown, useDriverPerformance, useVehiclePerformance, useRecentTrips } from '@/hooks/useDashboard';
-import { useVehicles } from '@/hooks/useVehicles';
+import { useVehicles, useVehicleCount } from '@/hooks/useVehicles';
 import {
   AreaChart,
   Area,
@@ -43,6 +43,7 @@ export function DashboardProfessional() {
   const { data: topDrivers, isLoading: driversLoading } = useDriverPerformance(5);
   const { data: topRoutes, isLoading: routesLoading } = useVehiclePerformance(20);
   const { data: vehicles } = useVehicles();
+  const { data: totalVehiclesCount = vehicles?.length || 1 } = useVehicleCount();
   
   const isLoading = statsLoading || trendLoading || driversLoading || routesLoading;
   const [selectedMetric, setSelectedMetric] = useState('revenue');
@@ -58,7 +59,6 @@ export function DashboardProfessional() {
   
   // Fleet Utilization: % of vehicles having at least 1 trip in period
   const activeVehiclesCount = topRoutes?.filter(v => v.trip_count > 0).length || 0;
-  const totalVehiclesCount = vehicles?.length || 1;
   const utilization = (activeVehiclesCount / totalVehiclesCount) * 100;
 
   if (isLoading) {

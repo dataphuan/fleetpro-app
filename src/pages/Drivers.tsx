@@ -86,7 +86,7 @@ interface Driver {
 
 // Form Schema Validation
 const driverSchema = z.object({
-  driver_code: z.string().refine(val => !val || /^TX\d{4}$/.test(val), "Mã tài xế sai chuẩn định dạng (Bắt buộc TX + 4 số, VD: TX0001)").optional(), // Auto-generated if empty
+  driver_code: z.string().refine(val => !val || /^(DRV-\d{4}-\d+|DRV\d{4}|TX\d{4})$/.test(val), "Mã tài xế sai chuẩn (VD: DRV-2604-01)").optional(), // Auto-generated if empty
   full_name: z.string().min(1, "Họ tên là bắt buộc"),
   phone: z.string().min(1, "Số điện thoại là bắt buộc").refine(
     (val) => /^(0[3-9])\d{8,9}$/.test(val.replace(/[\s.-]/g, '')),
@@ -203,7 +203,7 @@ export default function Drivers() {
   // Handlers
   const handleAdd = async () => {
     setSelectedDriver(null);
-    let nextCode = `TX0001`;
+    let nextCode = `DRV-2604-01`;
     try {
       const res = await driverAdapter.getNextCode();
       if (res && typeof res === 'string') {
@@ -213,11 +213,8 @@ export default function Drivers() {
       console.error("[AUDIT] Failed to fetch next driver code - using fallback TX0001", err);
       // Fallback: generate based on existing drivers
       if (drivers && drivers.length > 0) {
-        const maxCode = drivers.reduce((max, d) => {
-          const num = parseInt(d.driver_code?.replace(/[^0-9]/g, '') || '0');
-          return Math.max(max, num);
-        }, 0);
-        nextCode = `TX${String(maxCode + 1).padStart(4, '0')}`;
+        const yymm = new Date().toISOString().slice(2, 4) + new Date().toISOString().slice(5, 7);
+        nextCode = `DRV-${yymm}-${String(maxCode + 1).padStart(2, '0')}`;
       }
     }
 

@@ -40,8 +40,9 @@ export const useTrips = () => {
             
             return allTrips;
         },
-        // PIPELINE FIX P5: Near real-time sync between driver/manager/accountant
-        refetchInterval: 10000,
+        // SaaS OPTIMIZATION: 10s is too aggressive for 5$/mo budget. 60s is standard.
+        staleTime: 60 * 1000, 
+        refetchInterval: 60000,
         refetchOnWindowFocus: true,
     });
 };
@@ -55,6 +56,27 @@ export const useTripsByStatus = (status: string) => {
         queryFn: async () => {
             return await tripAdapter.listByStatus(status);
         },
+    });
+};
+
+/**
+ * Hook to fetch trips with server-side pagination
+ */
+export const useTripsPaginated = (page: number, limitCount: number) => {
+    return useQuery({
+        queryKey: ['trips', 'paginated', page, limitCount],
+        queryFn: async () => {
+            const data = await tripAdapter.list(limitCount);
+            const total = await tripAdapter.count();
+            return {
+                data,
+                total,
+                page,
+                limitCount,
+                totalPages: Math.ceil(total / limitCount)
+            };
+        },
+        staleTime: 60 * 1000, 
     });
 };
 

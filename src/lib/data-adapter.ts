@@ -4,7 +4,10 @@
  */
 
 import { app, db, auth, firebaseConfig, functions } from './firebase';
-import { collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, query, where, addDoc, writeBatch, getCountFromServer } from 'firebase/firestore';
+import { 
+    collection, doc, getDocs, getDoc, setDoc, updateDoc, deleteDoc, 
+    query, where, addDoc, writeBatch, getCountFromServer, limit, orderBy, documentId 
+} from 'firebase/firestore';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { initializeApp, deleteApp } from 'firebase/app';
@@ -455,13 +458,37 @@ const pickRefId = (row: any, keys: string[]) => {
     return null;
 };
 
-const getTenantRows = async (collectionName: string) => {
+const getTenantRows = async (collectionName: string, limitCount: number = 200) => {
     const tenantId = getTenantId();
-    const q = query(collection(db, collectionName), where('tenant_id', '==', tenantId));
+    // SaaS Optimization: Always limit master data fetches to avoid runaway reads
+    const q = query(
+        collection(db, collectionName), 
+        where('tenant_id', '==', tenantId),
+        limit(limitCount)
+    );
     const snap = await getDocs(q);
     return snap.docs
         .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
         .filter((row: any) => row.is_deleted !== 1);
+};
+
+/**
+ * Optimized Batch Fetcher: Only fetch documents specifically referenced in the current view
+ */
+const getDocsByIds = async (collectionName: string, ids: string[]) => {
+    if (!ids.length) return [];
+    
+    // Firestore 'in' query limit is 30. We chunk it if needed.
+    const uniqueIds = [...new Set(ids.filter(Boolean))];
+    const results: any[] = [];
+    
+    for (let i = 0; i < uniqueIds.length; i += 30) {
+        const chunk = uniqueIds.slice(i, i + 30);
+        const q = query(collection(db, collectionName), where(documentId(), 'in', chunk));
+        const snap = await getDocs(q);
+        snap.docs.forEach(d => results.push({ id: d.id, ...d.data() }));
+    }
+    return results;
 };
 
 const buildIdMap = (rows: any[]) => {
@@ -556,11 +583,15 @@ const enrichTripsWithRelations = async (rows: any[]) => {
 const enrichExpensesWithRelations = async (rows: any[]) => {
     if (!rows?.length) return rows;
 
+    // SaaS OPTIMIZATION: Instead of full collection fetch (expensive),
+    // we only fetch the specific Trips referenced by these expense rows.
+    const tripIds = rows.map(r => pickRefId(r, ['trip_id', 'tripId'])).filter(Boolean);
+    
     const [vehicles, drivers, trips, categories] = await Promise.all([
-        getTenantRows('vehicles'),
-        getTenantRows('drivers'),
-        getTenantRows('trips'),
-        getTenantRows('expenseCategories'),
+        getTenantRows('vehicles', 100), // Vehicles are few, caching them is fine
+        getTenantRows('drivers', 100),
+        getDocsByIds('trips', tripIds),  // Optimized: Only fetch relevant trips
+        getTenantRows('expenseCategories', 50),
     ]);
 
     const vehicleMap = buildIdMap(vehicles);
@@ -614,7 +645,16 @@ const enrichExpensesWithRelations = async (rows: any[]) => {
 const createFirestoreAdapter = (collectionName: string) => ({
     list: async (limitCount?: number, offsetCount?: number) => {
         const tenantId = getTenantId();
-        const q = query(collection(db, collectionName), where("tenant_id", "==", tenantId));
+        
+        // --- SaaS OPTIMIZATION: Server-side Limit & Order ---
+        // Before: Fetch all documents (Slow & Expensive)
+        // After: Fetch only required chunk, ordered by creation (Fast & Cheap)
+        const q = query(
+            collection(db, collectionName), 
+            where("tenant_id", "==", tenantId),
+            orderBy("created_at", "desc"),
+            limit(limitCount || 100)
+        );
         const snapshot = await getDocs(q);
         let rows = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
@@ -929,8 +969,15 @@ const createFirestoreAdapter = (collectionName: string) => ({
     count: async () => {
         const tenantId = getTenantId();
         const q = query(collection(db, collectionName), where("tenant_id", "==", tenantId));
-        const snapshot = await getDocs(q);
-        return snapshot.docs.filter((d: any) => d.data()?.is_deleted !== 1).length;
+        const snapshot = await getCountFromServer(q);
+        return snapshot.data().count;
+    },
+    countByQuery: async (filters: Array<{ field: string, op: any, value: any }>) => {
+        const tenantId = getTenantId();
+        const constraints = filters.map(f => where(f.field, f.op, f.value));
+        const q = query(collection(db, collectionName), where("tenant_id", "==", tenantId), ...constraints);
+        const snapshot = await getCountFromServer(q);
+        return snapshot.data().count;
     }
 });
 

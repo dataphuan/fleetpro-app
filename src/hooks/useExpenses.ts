@@ -16,9 +16,27 @@ export const useExpenses = () => {
         queryFn: async () => {
             return await expenseAdapter.list();
         },
-        // PIPELINE FIX P5: Near real-time sync for accountant review
-        refetchInterval: 15000,
-        refetchOnWindowFocus: true,
+    });
+};
+
+/**
+ * Hook to fetch expenses with server-side pagination
+ */
+export const useExpensesPaginated = (page: number, limitCount: number) => {
+    return useQuery({
+        queryKey: ['expenses', 'paginated', page, limitCount],
+        queryFn: async () => {
+            const data = await expenseAdapter.list(limitCount);
+            const total = await expenseAdapter.count();
+            return {
+                data,
+                total,
+                page,
+                limitCount,
+                totalPages: Math.ceil(total / limitCount)
+            };
+        },
+        staleTime: 60 * 1000, 
     });
 };
 
@@ -313,5 +331,19 @@ export const useSearchExpenses = (searchTerm: string) => {
             }
             return await expenseAdapter.search(searchTerm);
         },
+    });
+};
+
+/**
+ * Hook to fetch expenses by date range
+ */
+export const useExpensesByDateRange = (startDate: string, endDate: string) => {
+    return useQuery({
+        queryKey: ['expenses', 'dateRange', startDate, endDate],
+        queryFn: async () => {
+            return await expenseAdapter.listByDateRange(startDate, endDate);
+        },
+        enabled: !!startDate && !!endDate,
+        staleTime: 5 * 60 * 1000, // 5 mins
     });
 };

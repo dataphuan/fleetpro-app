@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { useVehicles } from '@/hooks/useVehicles';
-import { useTrips } from '@/hooks/useTrips';
-import { useExpenses } from '@/hooks/useExpenses';
+import { useVehicles, useVehicleCount, useActiveVehicleCount } from '@/hooks/useVehicles';
+import { useTrips, useTripsByDateRange } from '@/hooks/useTrips';
+import { useExpenses, useExpensesByDateRange } from '@/hooks/useExpenses';
 import { useDrivers } from '@/hooks/useDrivers';
 import { useAlertsSummary } from '@/hooks/useAlerts';
 import { AlertTriangle, Circle, Truck, Wallet, Sparkles, TrendingUp, Info } from 'lucide-react';
@@ -60,25 +60,24 @@ function AnimatedValue({ value }: { value: number }) {
 }
 
 export function DashboardOwnerRealtime() {
-  const { data: vehicles = [], refetch: refetchVehicles } = useVehicles();
-  const { data: trips = [], refetch: refetchTrips } = useTrips();
-  const { data: expenses = [], refetch: refetchExpenses } = useExpenses();
-  const { data: alertsSummary, refetch: refetchAlerts } = useAlertsSummary();
-  const [lastUpdatedAt, setLastUpdatedAt] = useState(new Date());
+  const now = new Date();
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+  const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+
+  // SaaS Optimization: Instead of full collection fetch, only get current month's operational data
+  const { data: vehicles = [] } = useVehicles();
+  const { data: totalVehiclesCount = vehicles.length } = useVehicleCount();
+  const { data: activeVehiclesCount = vehicles.filter((v: any) => v.status !== 'inactive').length } = useActiveVehicleCount();
+  
+  const { data: trips = [] } = useTripsByDateRange(startOfMonth, endOfMonth);
+  const { data: expenses = [] } = useExpensesByDateRange(startOfMonth, endOfMonth);
+  const { data: alertsSummary } = useAlertsSummary();
+  const [lastUpdatedAt] = useState(new Date());
 
   // Also fetch drivers to map names correctly for vehicles that are ready
   const { data: drivers = [] } = useDrivers();
 
-  useEffect(() => {
-    const timer = setInterval(async () => {
-      await Promise.all([refetchVehicles(), refetchTrips(), refetchExpenses(), refetchAlerts()]);
-      setLastUpdatedAt(new Date());
-    }, 60000);
-
-    return () => clearInterval(timer);
-  }, [refetchVehicles, refetchTrips, refetchExpenses, refetchAlerts]);
-
-  const activeVehicles = vehicles.filter((v: any) => v.status !== 'inactive').length;
+  const activeVehicles = activeVehiclesCount;
   const runningTrips = trips.filter((t: any) => t.status === 'in_progress' && isToday(t.departure_date || t.created_at)).length;
   const revenueToday = trips
     .filter((t: any) => isToday(t.departure_date || t.created_at))
@@ -175,7 +174,7 @@ export function DashboardOwnerRealtime() {
         insights.push({
             icon: Sparkles,
             title: 'Hiệu suất vận hành',
-            message: `Hệ thống đang điều phối ${runningTrips} chuyến đi đồng thời. Tỉ lệ xe trống lệnh hiện tại là ${Math.round(((vehicles.length - runningTrips) / vehicles.length) * 100)}%.`,
+            message: `Hệ thống đang điều phối ${runningTrips} chuyến đi đồng thời. Tỉ lệ xe trống lệnh hiện tại là ${Math.round(((totalVehiclesCount - runningTrips) / (totalVehiclesCount || 1)) * 100)}%.`,
             colorClass: 'border-blue-200 text-blue-700 bg-blue-50'
         });
     }
@@ -232,7 +231,7 @@ export function DashboardOwnerRealtime() {
             <p className="text-[10px] uppercase font-bold text-muted-foreground opacity-70 mb-1">Đội xe hoạt động</p>
             <div className="flex items-baseline gap-1">
               <span className="text-xl font-black text-primary"><AnimatedValue value={activeVehicles} /></span>
-              <span className="text-[10px] text-muted-foreground font-medium">/{vehicles.length} xe</span>
+              <span className="text-[10px] text-muted-foreground font-medium">/{totalVehiclesCount} xe</span>
             </div>
           </CardContent>
         </Card>

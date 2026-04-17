@@ -17,6 +17,36 @@ export const useVehicles = () => {
         queryFn: async () => {
             return await vehicleAdapter.list();
         },
+        staleTime: 30 * 60 * 1000, // 30 mins
+        gcTime: 60 * 60 * 1000,    // 1 hour
+    });
+};
+
+/**
+ * Hook to get total count of vehicles (server-side)
+ */
+export const useVehicleCount = () => {
+    return useQuery({
+        queryKey: ['vehicles', 'count'],
+        queryFn: async () => {
+            return await vehicleAdapter.count();
+        },
+        staleTime: 30 * 60 * 1000,
+    });
+};
+
+/**
+ * Hook to get active count of vehicles (server-side)
+ */
+export const useActiveVehicleCount = () => {
+    return useQuery({
+        queryKey: ['vehicles', 'count', 'active'],
+        queryFn: async () => {
+            return await (vehicleAdapter as any).countByQuery([
+                { field: 'status', op: '!=', value: 'inactive' }
+            ]);
+        },
+        staleTime: 30 * 60 * 1000,
     });
 };
 
@@ -52,6 +82,7 @@ export const useVehicle = (id: string | undefined) => {
             return await vehicleAdapter.getById(id);
         },
         enabled: !!id,
+        staleTime: 5 * 60 * 1000, // 5 mins for single view
     });
 };
 

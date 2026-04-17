@@ -61,6 +61,8 @@ export const useDrivers = () => {
 
             return allDrivers;
         },
+        staleTime: 30 * 60 * 1000, 
+        gcTime: 60 * 60 * 1000,
     });
 };
 
@@ -75,6 +77,7 @@ export const useDriver = (id: string | undefined) => {
             return await driverAdapter.getById(id);
         },
         enabled: !!id,
+        staleTime: 5 * 60 * 1000,
     });
 };
 

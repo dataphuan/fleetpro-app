@@ -90,7 +90,7 @@ interface MaintenanceOrder {
 
 // Form Schema
 const maintenanceSchema = z.object({
-  order_code: z.string().refine(val => !val || /^BD\d{4}$/.test(val), "Mã lệnh sai định dạng (Bắt buộc BD + 4 số, VD: BD0001)").optional(),
+  order_code: z.string().refine(val => !val || /^(MNT-\d{4}-\d+|BD\d{4})$/.test(val), "Mã lệnh sai chuẩn (VD: MNT-2604-01)").optional(),
   vehicle_id: z.string().min(1, "Xe là bắt buộc"),
   maintenance_type: z.enum(['routine', 'repair', 'inspection', 'tire', 'other'] as const),
   description: z.string().min(1, "Mô tả công việc là bắt buộc"),
@@ -194,7 +194,7 @@ export default function Maintenance() {
     setSelectedOrder(null);
     const nextCode = getNextCodeByPrefix(
       (orders || []).map(o => o.order_code),
-      'BD',
+      'MNT',
       4
     );
 

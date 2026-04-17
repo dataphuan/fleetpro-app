@@ -70,7 +70,7 @@ import { getNextCodeByPrefix } from "@/lib/code-generator";
 
 // Form Schema
 const orderSchema = z.object({
-    order_code: z.string().refine(val => !val || /^DH\d{4}$/.test(val), "Mã đơn hàng sai định dạng (Bắt buộc DH + 4 số, VD: DH0001)").optional(),
+    order_code: z.string().refine(val => !val || /^(ORD-\d{4}-\d+|DH\d{4})$/.test(val), "Mã đơn hàng sai chuẩn (VD: ORD-2604-01)").optional(),
     customer_id: z.string().min(1, "Khách hàng là bắt buộc"),
     order_date: z.string().min(1, "Ngày đơn hàng là bắt buộc"),
     expected_delivery_date: z.string().optional().nullable(),
@@ -167,7 +167,7 @@ export default function TransportOrders() {
         setSelectedOrder(null);
         const nextCode = getNextCodeByPrefix(
             (orders || []).map(o => o.order_code),
-            'DH',
+            'ORD',
             4
         );
 

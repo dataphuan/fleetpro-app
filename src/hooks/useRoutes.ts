@@ -15,6 +15,8 @@ export const useRoutes = () => {
         queryFn: async () => {
             return await routeAdapter.list();
         },
+        staleTime: 30 * 60 * 1000, 
+        gcTime: 60 * 60 * 1000,
     });
 };
 

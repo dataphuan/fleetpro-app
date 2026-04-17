@@ -68,6 +68,12 @@ interface DataTableProps<T extends { id: string }> {
   selectedRowIds?: Set<string>;
   onSelectionChange?: (ids: Set<string>) => void;
   hideToolbar?: boolean;
+  // Server-side pagination support
+  serverSide?: boolean;
+  totalRows?: number;
+  page?: number;
+  onPageChange?: (page: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
 }
 
 export function DataTable<T extends { id: string }>({
@@ -90,6 +96,11 @@ export function DataTable<T extends { id: string }>({
   selectedRowIds,
   onSelectionChange,
   hideToolbar = false,
+  serverSide = false,
+  totalRows: externalTotalRows,
+  page: externalPage,
+  onPageChange,
+  onPageSizeChange,
 }: DataTableProps<T>) {
   const [internalSelectedRows, setInternalSelectedRows] = useState<Set<string>>(new Set());
   const selectedRows = selectedRowIds || internalSelectedRows;
@@ -103,8 +114,27 @@ export function DataTable<T extends { id: string }>({
   };
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(defaultPageSize);
+  const [internalPage, setInternalPage] = useState(1);
+  const [internalPageSize, setInternalPageSize] = useState(defaultPageSize);
+
+  const currentPage = externalPage || internalPage;
+  const pageSize = internalPageSize;
+
+  const setCurrentPage = (page: number) => {
+    if (onPageChange) {
+      onPageChange(page);
+    } else {
+      setInternalPage(page);
+    }
+  };
+
+  const setPageSize = (size: number) => {
+    if (onPageSizeChange) {
+      onPageSizeChange(size);
+    } else {
+      setInternalPageSize(size);
+    }
+  };
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
 
   // Reset selection when data changes (optional, but safer for consistency)
@@ -167,10 +197,15 @@ export function DataTable<T extends { id: string }>({
     });
   }, [data, sortConfig]);
 
-  const totalPages = Math.ceil(sortedData.length / pageSize);
-  const startIndex = (currentPage - 1) * pageSize;
-  const endIndex = Math.min(startIndex + pageSize, sortedData.length);
-  const currentData = sortedData.slice(startIndex, endIndex);
+  const totalRows = serverSide ? (externalTotalRows || 0) : sortedData.length;
+  const totalPages = Math.ceil(totalRows / pageSize);
+
+  const currentData = useMemo(() => {
+    if (serverSide) return sortedData; // Data is already paginated from server
+    const startIndex = (currentPage - 1) * pageSize;
+    const endIndex = Math.min(startIndex + pageSize, sortedData.length);
+    return sortedData.slice(startIndex, endIndex);
+  }, [serverSide, sortedData, currentPage, pageSize]);
 
   // Handle "Select All" in header (Current Page)
   const handleSelectPage = (checked: boolean) => {
@@ -471,7 +506,7 @@ export function DataTable<T extends { id: string }>({
             </SelectContent>
           </Select>
           <span>
-            trong tổng số {data.length} bản ghi
+            trong tổng số {totalRows} bản ghi
           </span>
         </div>
 

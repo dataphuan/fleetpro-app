@@ -55,7 +55,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { useExpenses, useCreateExpense, useUpdateExpense, useDeleteExpense, useBulkDeleteExpenses, useRejectExpense } from "@/hooks/useExpenses";
+import { useExpenses, useExpensesPaginated, useCreateExpense, useUpdateExpense, useDeleteExpense, useBulkDeleteExpenses, useRejectExpense } from "@/hooks/useExpenses";
 import { useVehiclesByStatus } from "@/hooks/useVehicles";
 import { useDrivers } from "@/hooks/useDrivers";
 import { useTrips } from "@/hooks/useTrips";
@@ -91,7 +91,7 @@ interface Expense {
 
 // Form Schema
 const expenseSchema = z.object({
-  expense_code: z.string().refine(val => !val || /^PC\d{4}$/.test(val), "Mã phiếu sai định dạng (Bắt buộc PC + 4 số, VD: PC0001)").optional(),
+  expense_code: z.string().refine(val => !val || /^(EXP-\d{4}-\d+|PC\d{4})$/.test(val), "Mã phiếu sai chuẩn (VD: EXP-2604-01)").optional(),
   expense_date: z.string().min(1, "Ngày chi là bắt buộc"),
   category_id: z.string().min(1, "Loại chi phí là bắt buộc"),
   amount: z.coerce.number().min(0, "Số tiền phải lớn hơn hoặc bằng 0"),
@@ -150,6 +150,10 @@ export default function Expenses() {
     to: null,
   });
 
+  // SaaS Optimization: Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 50;
+
   // Rejection State
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
@@ -176,7 +180,14 @@ export default function Expenses() {
   ];
 
   // Data Hooks
-  const { data: expenses, isLoading } = useExpenses();
+  const isFiltered = !!searchQuery || categoryFilter.length > 0 || !!dateRange.from;
+
+  const { data: paginatedExpenses, isLoading: loadingPaged } = useExpensesPaginated(currentPage, pageSize);
+  const { data: allExpensesData = [], isLoading: loadingAll } = useExpenses();
+
+  const expenses = isFiltered ? allExpensesData : (paginatedExpenses?.data || []);
+  const totalExpensesCount = isFiltered ? expenses.length : (paginatedExpenses?.total || 0);
+  const isLoading = isFiltered ? loadingAll : loadingPaged;
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin' || user?.role === 'manager';
   const isAccountant = user?.role === 'accountant' || isAdmin;
@@ -246,7 +257,7 @@ export default function Expenses() {
     setSelectedExpense(null);
     const nextCode = getNextCodeByPrefix(
       (expenses || []).map(e => e.expense_code),
-      'PC',
+      'EXP',
       4
     );
 
@@ -891,18 +902,6 @@ export default function Expenses() {
                 });
               }}
             >
-              <FileText className="w-4 h-4 lg:mr-2" />
-              <span className="hidden lg:inline">B01-DN</span>
-            </Button>
-          )}
-
-          {canCreate && (
-            <Button size="sm" variant="outline" onClick={() => setOcrDialogOpen(true)} className="h-8 gap-1 ml-1 border-blue-200 text-blue-700 hover:bg-blue-50">
-              <Camera className="w-4 h-4" />
-              <span className="hidden lg:inline">Scan AI</span>
-            </Button>
-          )}
-          {canCreate && (
             <Button size="sm" onClick={handleAdd} className="h-8 gap-1 ml-1">
               <Plus className="w-4 h-4" />
               Thêm phiếu chi
@@ -1371,7 +1370,7 @@ export default function Expenses() {
 
           const nextCode = getNextCodeByPrefix(
             (expenses || []).map(e => e.expense_code),
-            'PC',
+            'EXP',
             4
           );
 

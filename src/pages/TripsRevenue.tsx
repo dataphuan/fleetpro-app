@@ -80,6 +80,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { useClosedPeriods, isDateInClosedPeriod } from "@/hooks/useAccountingPeriods";
 import {
     useTrips,
+    useTripsPaginated,
     useCreateTrip,
     useUpdateTrip,
     useDeleteTrip
@@ -131,11 +132,11 @@ interface Trip {
 
 // Status options with Vietnamese labels
 const STATUS_OPTIONS = [
-    { value: 'draft', label: 'Nháp', color: 'bg-gray-100 text-gray-700 border-gray-200' },
-    { value: 'confirmed', label: 'Đã xác nhận', color: 'bg-blue-100 text-blue-700 border-blue-200' },
-    { value: 'dispatched', label: 'Đã điều xe', color: 'bg-purple-100 text-purple-700 border-purple-200' },
+    { value: 'draft', label: 'Nháp (Tài xế tạo)', color: 'bg-gray-100 text-gray-700 border-gray-200' },
+    { value: 'confirmed', label: 'Đã điều xe (Duyệt)', color: 'bg-blue-100 text-blue-700 border-blue-200' },
+    { value: 'dispatched', label: 'Đang đi nhận hàng', color: 'bg-purple-100 text-purple-700 border-purple-200' },
     { value: 'in_progress', label: 'Đang thực hiện', color: 'bg-amber-100 text-amber-700 border-amber-200' },
-    { value: 'completed', label: 'Hoàn thành', color: 'bg-green-100 text-green-700 border-green-200' },
+    { value: 'completed', label: 'Đã hoàn thành (Chờ KT)', color: 'bg-green-100 text-green-700 border-green-200' },
     { value: 'closed', label: 'Đã đóng sổ', color: 'bg-slate-100 text-slate-700 border-slate-200' },
     { value: 'cancelled', label: 'Đã hủy', color: 'bg-red-100 text-red-700 border-red-200' },
 ];
@@ -166,7 +167,7 @@ const getValidNextStatuses = (currentStatus: string, isNewTrip: boolean): typeof
 
 // Form Schema Validation
 const tripSchema = z.object({
-    trip_code: z.string().refine(val => /^(CD\d{4}-\d{1,3}|CD\d{4,6}|LĐX-[\w\d-]+)$/.test(val), "Mã chuyến sai định dạng (VD: CD2604-01)"),
+    trip_code: z.string().refine(val => /^(TRP-\d{4}-\d+|CD\d{4}|LĐX-[\w\d-]+)$/.test(val), "Mã chuyến sai chuẩn (VD: TRP-2604-01)"),
     departure_date: z.string().min(1, "Ngày đi là bắt buộc"),
     vehicle_id: z.string().min(1, "Xe là bắt buộc"),
     driver_id: z.string().min(1, "Tài xế là bắt buộc"),
@@ -262,6 +263,10 @@ export default function TripsRevenue() {
     // Tab state (must be before any early returns to comply with React hooks rules)
     const [activeTab, setActiveTab] = useState("info");
 
+    // SaaS Optimization: Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize] = useState(50);
+
     // Column visibility
     const allColumnKeys = [
         'trip_code', 'departure_date', 'vehicle', 'driver', 'customer', 'route',
@@ -271,7 +276,22 @@ export default function TripsRevenue() {
     const [visibleColumns, setVisibleColumns] = useState<string[]>(allColumnKeys);
 
     // Data Hooks
-    const { data: trips, isLoading, error, refetch } = useTrips();
+    const isFiltered = searchQuery || statusFilter.length > 0 || vehicleFilter || driverFilter || customerFilter || routeFilter || (dateRange.from && dateRange.to);
+
+    const { data: paginatedTrips, isLoading: loadingPaged, refetch: refetchPaged } = useTripsPaginated(currentPage, pageSize);
+    const { data: allTripsData = [], isLoading: loadingAll, refetch: refetchAll } = useTrips();
+    
+    // SaaS Strategic Logic:
+    // 1. If searching/filtering -> use the 'all' set (limited to 100-200 most recent) for client-side filtering.
+    // 2. If viewing raw history -> use the 'paged' set (server-side efficient).
+    const trips = isFiltered ? allTripsData : (paginatedTrips?.data || []);
+    const totalTrips = isFiltered ? trips.length : (paginatedTrips?.total || 0);
+    const isLoading = isFiltered ? loadingAll : loadingPaged;
+    
+    const refetch = () => {
+        refetchPaged();
+        refetchAll();
+    };
     const { data: vehicles } = useVehiclesByStatus('active');
     const { data: drivers } = useActiveDrivers();
     const { data: routes } = useRoutes();
@@ -315,17 +335,19 @@ export default function TripsRevenue() {
             driver_advance: 0,
             actual_revenue: null,
             adjustment_notes: "",
-            estimated_fuel: 0,
-            estimated_toll: 0,
-            estimated_allowance: 0,
+            estimated_fuel_cost: 0,
+            estimated_driver_pay: 0,
         },
     });
 
-    // Auto-calculate freight_revenue when route or weight changes
     const selectedRouteId = form.watch('route_id');
     const cargoWeight = form.watch('cargo_weight_tons');
+    const vehicleId = form.watch('vehicle_id');
+    const actualDistance = form.watch('actual_distance_km');
 
+    // AUTO-CALCULATION LOGIC (Vận tải Việt Nam)
     useEffect(() => {
+        // 1. Calculate Revenue from Route & Weight
         if (selectedRouteId && cargoWeight && routes) {
             const selectedRoute = routes.find(r => r.id === selectedRouteId);
             if (selectedRoute && selectedRoute.base_price) {
@@ -342,14 +364,24 @@ export default function TripsRevenue() {
                     form.setValue('actual_distance_km', selectedRoute.distance_km);
                 }
             }
-            // DEEP AUDIT: Auto-fill estimated costs from route standards
-            if (selectedRoute) {
-                form.setValue('estimated_fuel', selectedRoute.fuel_cost_standard || 0);
-                form.setValue('estimated_toll', selectedRoute.toll_cost || selectedRoute.toll_cost_standard || 0);
-                form.setValue('estimated_allowance', selectedRoute.driver_allowance_standard || 0);
+        }
+
+        // 2. Calculate Fuel Cost & Driver Pay from Distance
+        if (actualDistance && actualDistance > 0) {
+            // Driver Pay: 500k per 100km
+            const driverPay = (actualDistance / 100) * 500000;
+            form.setValue('estimated_driver_pay', Math.round(driverPay));
+
+            // Fuel Cost: (Dist / 100) * ConsumptionRate * FuelPrice
+            if (vehicleId && vehicles) {
+                const selectedVehicle = (vehicles as any[]).find(v => v.id === vehicleId);
+                const consumptionRate = selectedVehicle?.fuel_consumption_rate || 20; // Default 20L/100km if not set
+                const fuelPrice = 22000; // Standard VN Diesel Price
+                const fuelCost = (actualDistance / 100) * consumptionRate * fuelPrice;
+                form.setValue('estimated_fuel_cost', Math.round(fuelCost));
             }
         }
-    }, [selectedRouteId, cargoWeight, routes, form]);
+    }, [selectedRouteId, cargoWeight, routes, vehicleId, actualDistance, form, vehicles]);
 
     // Handle trip selection from Reports page (via sessionStorage)
     useEffect(() => {
@@ -401,9 +433,11 @@ export default function TripsRevenue() {
         }
     }, [trips, form, toast]);
 
-    // Filter data
+    // Final filtered trips for display (if filtered mode, appy client-side filters to the 'allTrips' set)
     const filteredTrips = useMemo(() => {
-        return (trips || []).filter(trip => {
+        if (!isFiltered) return trips;
+        
+        return trips.filter((trip: any) => {
             // Search filter
             if (searchQuery) {
                 const query = searchQuery.toLowerCase();
@@ -453,7 +487,10 @@ export default function TripsRevenue() {
             .filter(t => t.status === 'confirmed' || t.status === 'completed' || t.status === 'closed')
             .reduce((sum, t) => sum + (t.total_revenue || t.freight_revenue || 0), 0);
             
-        const totalExpenses = filtered.reduce((sum, t) => sum + (t.total_expenses || 0), 0);
+        const totalExpenses = filtered.reduce((sum, t) => {
+            // Priority: actual total_expenses > (estimated_fuel_cost + estimated_driver_pay)
+            return sum + (t.total_expenses || ((t.estimated_fuel_cost || 0) + (t.estimated_driver_pay || 0)));
+        }, 0);
         const grossProfit = totalRevenue - totalExpenses;
         
         const pendingTrips = filtered.filter(t => t.status === 'draft' || t.status === 'in_progress').length;
@@ -627,6 +664,18 @@ export default function TripsRevenue() {
         // Calculate total_revenue
         const totalRevenue = (data.freight_revenue || 0) + (data.additional_charges || 0);
 
+        // VALIDATION: Cargo Weight vs Vehicle Capacity
+        if (data.cargo_weight_tons && data.vehicle_id) {
+            const vehicle = (vehicles as any[])?.find(v => v.id === data.vehicle_id);
+            if (vehicle && vehicle.payload_capacity && data.cargo_weight_tons > vehicle.payload_capacity) {
+                toast({
+                    title: "Cảnh báo quá tải",
+                    description: `Khối lượng hàng (${data.cargo_weight_tons}T) vượt quá tải trọng xe (${vehicle.payload_capacity}T).`,
+                    variant: "destructive"
+                });
+            }
+        }
+
         const processedData = {
             ...data,
             route_id: data.route_id || null,
@@ -643,13 +692,11 @@ export default function TripsRevenue() {
             actual_departure_time: data.actual_departure_time || null,
             actual_arrival_time: data.actual_arrival_time || null,
             planned_arrival_date: data.planned_arrival_date || null,
-            // DEEP AUDIT: Pass manual cost overrides to backend
-            estimated_fuel: data.estimated_fuel || 0,
-            estimated_toll: data.estimated_toll || 0,
-            estimated_allowance: data.estimated_allowance || 0,
             // KHÓA CỨNG: Map estimated costs → actual cost fields for workflow validation
-            fuel_cost: data.estimated_fuel || 0,
-            total_expenses: (data.estimated_fuel || 0) + (data.estimated_toll || 0) + (data.estimated_allowance || 0),
+            fuel_cost: data.estimated_fuel_cost || 0,
+            estimated_fuel_cost: data.estimated_fuel_cost || 0,
+            estimated_driver_pay: data.estimated_driver_pay || 0,
+            total_expenses: (data.estimated_fuel_cost || 0) + (data.estimated_driver_pay || 0),
         };
 
         try {
@@ -952,7 +999,8 @@ export default function TripsRevenue() {
                 align: 'right',
                 render: (_: any, row: any) => {
                     const tr = (row.total_revenue || 0) + (!row.total_revenue && ((row.freight_revenue || 0) + (row.additional_charges || 0)));
-                    const ex = (row.total_expenses || 0);
+                    // Priority: actual expenses > (estimated fuel + driver pay)
+                    const ex = (row.total_expenses || ((row.estimated_fuel_cost || 0) + (row.estimated_driver_pay || 0)));
                     const pr = tr - ex;
                     const margin = tr > 0 ? (pr / tr) * 100 : 0;
                     
@@ -1423,7 +1471,7 @@ export default function TripsRevenue() {
             {/* Desktop Data Table */}
             <div className="hidden md:block">
             <DataTable
-                data={filteredTrips}
+                data={trips}
                 columns={columns.filter(c => visibleColumns.includes(String(c.key)))}
                 selectable
                 searchPlaceholder="Tìm theo mã chuyến, biển số, tài xế, khách hàng..."
@@ -1435,7 +1483,11 @@ export default function TripsRevenue() {
                 onSearch={handleSearch}
                 onSync={handleSyncAll}
                 isSyncing={isSyncing}
-                pageSize={50}
+                pageSize={pageSize}
+                serverSide={!isFiltered}
+                totalRows={totalTrips}
+                page={currentPage}
+                onPageChange={setCurrentPage}
                 selectedRowIds={selectedRowIds}
                 onSelectionChange={setSelectedRowIds}
                 onDeleteSelected={canDelete ? handleBulkDelete : undefined}
@@ -1915,13 +1967,74 @@ export default function TripsRevenue() {
                                         />
                                     </div>
 
-                                    {/* Revenue Summary */}
-                                    <div className="bg-muted/50 rounded-lg p-4 border">
-                                        <div className="flex justify-between items-center">
-                                            <span className="font-medium">Tổng doanh thu:</span>
-                                            <span className="text-xl font-bold text-green-600">
-                                                {formatCurrency((form.watch('freight_revenue') || 0) + (form.watch('additional_charges') || 0))}
-                                            </span>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                                        <FormField
+                                            control={form.control}
+                                            name="estimated_fuel_cost"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel className="text-blue-600 font-semibold">Tiền dầu định mức (VND)</FormLabel>
+                                                    <FormControl>
+                                                        <Input
+                                                            type="number"
+                                                            {...field}
+                                                            className="bg-blue-50/50"
+                                                            value={field.value || 0}
+                                                            onChange={e => field.onChange(Number(e.target.value))}
+                                                        />
+                                                    </FormControl>
+                                                    <p className="text-[10px] text-muted-foreground mt-1 italic">
+                                                        Tự động tính: (Km/100) * Định mức xe * 22k
+                                                    </p>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        <FormField
+                                            control={form.control}
+                                            name="estimated_driver_pay"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel className="text-purple-600 font-semibold">Lương tài dự tính (VND)</FormLabel>
+                                                    <FormControl>
+                                                        <Input
+                                                            type="number"
+                                                            {...field}
+                                                            className="bg-purple-50/50"
+                                                            value={field.value || 0}
+                                                            onChange={e => field.onChange(Number(e.target.value))}
+                                                        />
+                                                    </FormControl>
+                                                    <p className="text-[10px] text-muted-foreground mt-1 italic">
+                                                        Ưu tiên 1: 500.000đ / 100km
+                                                    </p>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    </div>
+
+                                    {/* Profit Summary */}
+                                    <div className="bg-emerald-50 rounded-lg p-4 border border-emerald-200 mt-4">
+                                        <div className="flex flex-col gap-2">
+                                            <div className="flex justify-between items-center text-sm text-emerald-800">
+                                                <span>Doanh thu:</span>
+                                                <span className="font-semibold">{formatCurrency((form.watch('freight_revenue') || 0) + (form.watch('additional_charges') || 0))}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center text-sm text-red-600">
+                                                <span>Chi phí định mức:</span>
+                                                <span className="font-semibold">-{formatCurrency((form.watch('estimated_fuel_cost') || 0) + (form.watch('estimated_driver_pay') || 0))}</span>
+                                            </div>
+                                            <div className="h-px bg-emerald-200 my-1" />
+                                            <div className="flex justify-between items-center">
+                                                <span className="font-bold text-emerald-900">Lợi nhuận dự kiến:</span>
+                                                <span className="text-xl font-bold text-emerald-700">
+                                                    {formatCurrency(
+                                                        ((form.watch('freight_revenue') || 0) + (form.watch('additional_charges') || 0)) - 
+                                                        ((form.watch('estimated_fuel_cost') || 0) + (form.watch('estimated_driver_pay') || 0))
+                                                    )}
+                                                </span>
+                                            </div>
                                         </div>
                                     </div>
                                 </TabsContent>

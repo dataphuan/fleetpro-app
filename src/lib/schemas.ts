@@ -2,14 +2,15 @@ import { z } from 'zod';
 
 // ID formats
 // ID formats (Hỗ trợ định dạng mới YYMM-NN và định dạng cũ XXXX)
-export const vehicleIdSchema = z.string().regex(/^(XE\d{4}|XE\d{4}-\d+)$/, { message: 'Mã xe không hợp lệ (VD: XE2604-01 hoặc XE0001)' });
-export const driverIdSchema = z.string().regex(/^(TX\d{4}|TX\d{4}-\d+)$/, { message: 'Mã tài xế không hợp lệ (VD: TX2604-01 hoặc TX0001)' });
-export const tripIdSchema = z.string().regex(/^(CD\d{4}|CD\d{4}-\d+|LĐX-[\w-]+)$/, { message: 'Mã chuyến đi không hợp lệ (VD: CD2604-01 hoặc CD0001)' });
-export const routeIdSchema = z.string().regex(/^(TD\d{4}|TD\d{4}-\d+)$/, { message: 'Mã tuyến đường không hợp lệ (VD: TD2604-01 hoặc TD0001)' });
-export const customerIdSchema = z.string().regex(/^(KH\d{4}|KH\d{4}-\d+)$/, { message: 'Mã khách hàng không hợp lệ (VD: KH2604-01 hoặc KH0001)' });
-export const orderIdSchema = z.string().regex(/^(DH\d{4}|DH\d{4}-\d+)$/, { message: 'Mã đơn hàng không hợp lệ (VD: DH2604-01 hoặc DH0001)' });
-export const expenseIdSchema = z.string().regex(/^(PC\d{4}|PC\d{4}-\d+)$/, { message: 'Mã phiếu chi không hợp lệ (VD: PC2604-01 hoặc PC0001)' });
-export const maintenanceIdSchema = z.string().regex(/^(BD\d{4}|BD\d{4}-\d+)$/, { message: 'Mã bảo dưỡng không hợp lệ (VD: BD2604-01 hoặc BD0001)' });
+// ID formats (Global Standard: PREFIX-YYMM-NN)
+export const vehicleIdSchema = z.string().regex(/^(VEH-\d{4}-\d+|VEH\d{4}|XE\d{4}|XE\d{4}-\d+)$/, { message: 'Mã xe sai chuẩn (VD: VEH-2604-01 hoặc XE0001)' });
+export const driverIdSchema = z.string().regex(/^(DRV-\d{4}-\d+|DRV\d{4}|TX\d{4}|TX\d{4}-\d+)$/, { message: 'Mã tài xế sai chuẩn (VD: DRV-2604-01 hoặc TX0001)' });
+export const tripIdSchema = z.string().regex(/^(TRP-\d{4}-\d+|TRP\d{4}|CD\d{4}|CD\d{4}-\d+|LĐX-[\w-]+)$/, { message: 'Mã chuyến sai chuẩn (VD: TRP-2604-01 hoặc CD0001)' });
+export const routeIdSchema = z.string().regex(/^(RT-\d{4}-\d+|RT\d{4}|TD\d{4}|TD\d{4}-\d+)$/, { message: 'Mã tuyến sai chuẩn (VD: RT-2604-01 hoặc TD0001)' });
+export const customerIdSchema = z.string().regex(/^(CUS-\d{4}-\d+|CUS\d{4}|KH\d{4}|KH\d{4}-\d+)$/, { message: 'Mã khách hàng sai chuẩn (VD: CUS-2604-01 hoặc KH0001)' });
+export const orderIdSchema = z.string().regex(/^(ORD-\d{4}-\d+|ORD\d{4}|DH\d{4}|DH\d{4}-\d+)$/, { message: 'Mã đơn hàng sai chuẩn (VD: ORD-2604-01 hoặc DH0001)' });
+export const expenseIdSchema = z.string().regex(/^(EXP-\d{4}-\d+|EXP\d{4}|PC\d{4}|PC\d{4}-\d+)$/, { message: 'Mã phiếu chi sai chuẩn (VD: EXP-2604-01 hoặc PC0001)' });
+export const maintenanceIdSchema = z.string().regex(/^(MNT-\d{4}-\d+|MNT\d{4}|BD\d{4}|BD\d{4}-\d+)$/, { message: 'Mã bảo dưỡng sai chuẩn (VD: MNT-2604-01 hoặc BD0001)' });
 
 
 // Absolute Financial Sanity
@@ -24,14 +25,15 @@ export const VehicleSchema = z.object({
   payload_capacity: z.number().min(0, { message: 'Tải trọng phải >= 0' }).optional(),
   insurance_expiry: z.string().optional().nullable(),
   registration_expiry: z.string().optional().nullable(),
+  fuel_consumption_rate: z.number().min(0, { message: 'Định mức dầu (L/100km) phải >= 0' }).optional().default(0),
   assignment_type: z.enum(['fixed', 'pool']).default('fixed'),
 }).passthrough().refine(data => {
   const idValue = data.id || data['Mã xe'];
   if (idValue && typeof idValue === 'string') {
-    return /^XE\d{4}$/.test(idValue);
+    return /^(VEH-\d{4}-\d+|VEH\d{4}|XE\d{4}|XE\d{4}-\d+)$/.test(idValue);
   }
   return true;
-}, { message: 'Mã xe sai định dạng chuẩn (VD: XE2604-01 hoặc XE0001)', path: ['id'] });
+}, { message: 'Mã xe sai định dạng chuẩn (VD: VEH-2604-01 hoặc XE0001)', path: ['id'] });
 
 
 export const DriverSchema = z.object({
@@ -49,10 +51,10 @@ export const DriverSchema = z.object({
 }).passthrough().refine(data => {
   const idValue = data.id || data['Mã tài xế'] || data.driver_code;
   if (idValue && typeof idValue === 'string') {
-    return /^TX\d{4}$/.test(idValue);
+    return /^(DRV-\d{4}-\d+|DRV\d{4}|TX\d{4}|TX\d{4}-\d+)$/.test(idValue);
   }
   return true;
-}, { message: 'Mã tài xế sai định dạng chuẩn (Bắt buộc TX + 4 số)', path: ['driver_code'] });
+}, { message: 'Mã tài xế sai định dạng chuẩn (Bắt buộc DRV- hoặc TX + 4 số)', path: ['driver_code'] });
 
 export const TripSchema = z.object({
   id: tripIdSchema.optional(),
@@ -78,16 +80,19 @@ export const TripSchema = z.object({
   pod_url: z.string().optional().nullable(),
   driver_advance: z.number().min(0, { message: 'Tiền tạm ứng phải >= 0' }).optional().default(0),
   actual_revenue: z.number().min(0, { message: 'Doanh thu thực tế phải >= 0' }).optional().nullable(),
+  actual_distance_km: z.number().min(0).optional().nullable(),
+  estimated_fuel_cost: z.number().min(0).optional().nullable(),
+  estimated_driver_pay: z.number().min(0).optional().nullable(),
   adjustment_notes: z.string().optional().nullable(),
 }).passthrough()
 .refine(data => {
   const idValue = data.id || data['Mã chuyến'] || data.trip_code;
   if (idValue && typeof idValue === 'string') {
-    // Accept: CD2604-01 (new monthly), CD00001 (legacy), LĐX- (driver self-draft)
-    return /^(CD\d{4}|CD\d{4}-\d+|LĐX-[\w\d-]+)$/.test(idValue);
+    // Accept: TRP-2604-01 (global standard), CD2604-01 (legacy monthly), CD00001 (legacy), LĐX- (driver self-draft)
+    return /^(TRP-\d{4}-\d+|TRP\d{4}|CD\d{4}|CD\d{4}-\d+|LĐX-[\w\d-]+)$/.test(idValue);
   }
   return true;
-}, { message: 'Mã chuyến không hợp lệ (VD: CD2604-01 hoặc LĐX-xxxxxx)', path: ['trip_code'] })
+}, { message: 'Mã chuyến không hợp lệ (VD: TRP-2604-01 hoặc CD0001)', path: ['trip_code'] })
 
 .refine(data => {
   if (data.status !== 'draft' && data.status !== 'cancelled') {

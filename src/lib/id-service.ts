@@ -19,14 +19,14 @@ interface CounterConfig {
 }
 
 const COUNTER_CONFIGS: Record<string, CounterConfig> = {
-  vehicles: { prefix: 'XE', padding: 4 },
-  drivers: { prefix: 'TX', padding: 4 },
-  customers: { prefix: 'KH', padding: 4 },
-  trips: { prefix: 'CD', padding: 4 },
-  routes: { prefix: 'TD', padding: 4 },
-  transportOrders: { prefix: 'DH', padding: 4 },
-  expenses: { prefix: 'PC', padding: 4 },
-  maintenance: { prefix: 'BD', padding: 4 },
+  vehicles: { prefix: 'VEH', padding: 4 },
+  drivers: { prefix: 'DRV', padding: 4 },
+  customers: { prefix: 'CUS', padding: 4 },
+  trips: { prefix: 'TRP', padding: 4 },
+  routes: { prefix: 'RT', padding: 4 },
+  transportOrders: { prefix: 'ORD', padding: 4 },
+  expenses: { prefix: 'EXP', padding: 4 },
+  maintenance: { prefix: 'MNT', padding: 4 },
 };
 
 export const getNextSequentialId = async (tenantId: string, collectionName: string): Promise<string> => {
@@ -59,8 +59,8 @@ export const getNextSequentialId = async (tenantId: string, collectionName: stri
         updated_at: new Date().toISOString()
       }, { merge: true });
 
-      // Format: PREFIX + YYMM + - + NN (padded to at least 2 digits)
-      return `${config.prefix}${yymm}-${String(nextVal).padStart(2, '0')}`;
+      // Format: PREFIX + - + YYMM + - + NN (padded to at least 2 digits)
+      return `${config.prefix}-${yymm}-${String(nextVal).padStart(2, '0')}`;
     });
 
     return nextId;
@@ -68,7 +68,7 @@ export const getNextSequentialId = async (tenantId: string, collectionName: stri
     console.error(`ID Counter Failure for ${collectionName}:`, error);
     // Fallback logic
     const yymmStr = now.toISOString().slice(2, 4) + now.toISOString().slice(5, 7);
-    return `${config.prefix}${yymmStr}-${Date.now().toString().slice(-4)}`;
+    return `${config.prefix}-${yymmStr}-${Date.now().toString().slice(-4)}`;
   }
 };
 

@@ -82,7 +82,7 @@ type RouteData = Route;
 
 // Form Schema Validation
 const routeSchema = z.object({
-  route_code: z.string().refine(val => /^TD\d{4}$/.test(val), "Mã tuyến sai định dạng (Bắt buộc TD + 4 số, VD: TD0001)"),
+  route_code: z.string().refine(val => !val || /^(RT-\d{4}-\d+|TD\d{4})$/.test(val), "Mã tuyến sai chuẩn (VD: RT-2604-01)"),
   route_name: z.string().min(1, "Tên tuyến là bắt buộc"),
   origin: z.string().min(1, "Điểm đi là bắt buộc"),
   destination: z.string().min(1, "Điểm đến là bắt buộc"),
@@ -268,7 +268,7 @@ export default function Routes() {
       console.error("Failed to fetch next route code", err);
       nextCode = getNextCodeByPrefix(
         (routes || []).map(r => r.route_code),
-        'TD',
+        'RT',
         4
       );
     }
