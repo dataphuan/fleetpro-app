@@ -320,7 +320,7 @@ export default function TrackingCenter() {
       return;
     }
 
-    const activeStep = coordinationSteps.find((step) => step.id === reportStep);
+    const activeStep = (coordinationSteps || []).find((step: any) => step.id === reportStep);
     const tripLabel = selectedTrip?.trip_code || effectiveTripId || 'N/A';
     const payloadText = [
       'FleetPro Tracking Coordination',

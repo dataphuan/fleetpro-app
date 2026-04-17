@@ -140,7 +140,7 @@ export default function SuperAdminDashboard() {
                                 <div className="flex justify-between items-center border-t border-b py-4">
                                     <div>
                                         <div className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1 text-center">Hiện tại</div>
-                                        <Badge className={`px-3 py-1 text-[10px] w-full justify-center ${PLAN_OPTIONS.find(p => p.value === (currentSettings.subscription?.plan || 'trial'))?.color}`}>
+                                        <Badge className={`px-3 py-1 text-[10px] w-full justify-center ${(PLAN_OPTIONS || []).find(p => p.value === (currentSettings.subscription?.plan || 'trial'))?.color}`}>
                                             {(currentSettings.subscription?.plan || 'trial').toUpperCase()}
                                         </Badge>
                                     </div>

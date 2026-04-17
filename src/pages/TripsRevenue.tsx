@@ -1275,7 +1275,7 @@ export default function TripsRevenue() {
                         <span className="text-muted-foreground">Đang lọc:</span>
                         {statusFilter.map(s => (
                             <Badge key={s} variant="secondary" className="gap-1">
-                                {STATUS_OPTIONS.find(opt => opt.value === s)?.label}
+                                {(STATUS_OPTIONS || []).find(opt => opt.value === s)?.label}
                                 <X className="w-3 h-3 cursor-pointer" onClick={() => setStatusFilter(statusFilter.filter(i => i !== s))} />
                             </Badge>
                         ))}
@@ -1373,7 +1373,7 @@ export default function TripsRevenue() {
                     </div>
                 ) : (
                     filteredTrips.slice(0, 50).map((trip) => {
-                        const statusOpt = STATUS_OPTIONS.find(s => s.value === trip.status);
+                        const statusOpt = (STATUS_OPTIONS || []).find(s => s.value === trip.status);
                         const revenue = trip.total_revenue || trip.freight_revenue || 0;
                         const isDriverDraft = (trip as any).source === 'driver-self-draft';
                         return (

@@ -758,7 +758,8 @@ export default function Dispatch() {
             <div className="h-full w-full p-4 bg-slate-100/50">
                <FleetMap 
                 locations={vehicles?.map((v, idx) => {
-                    const activeTrip = trips?.find(t => t.vehicle_id === v.id && ['dispatched', 'in_progress'].includes(t.status));
+                    const activeTrip = (trips || []).find((t: any) => t.vehicle_id === v.id && 
+                        ['dispatched', 'in_progress'].includes(t.status));
                     const hasLiveGps = activeTrip && activeTrip.last_location_lat && activeTrip.last_location_lng;
                     
                     // Kho bãi trung tâm (Đà Nẵng)
