@@ -647,13 +647,15 @@ export default function Drivers() {
       width: '160px',
       render: (value, row) => {
         const joined = (row as any).assigned_vehicle;
-        if (joined && joined.vehicle_code && joined.license_plate) {
-          return <span className="font-mono text-sm">{joined.vehicle_code} – {joined.license_plate}</span>;
-        }
         if (joined && joined.license_plate) {
-          return <span className="font-mono text-sm">{joined.license_plate}</span>;
+          const code = joined.vehicle_code ? `${joined.vehicle_code} – ` : "";
+          return <span className="font-mono text-sm">{code}{joined.license_plate}</span>;
         }
-        const vehicle = activeVehicles?.find(v => v.id === value);
+        
+        const vehicleId = typeof value === 'string' ? value : null;
+        if (!vehicleId) return <span className="text-muted-foreground">-</span>;
+
+        const vehicle = activeVehicles?.find(v => v.id === vehicleId);
         return vehicle ? (
           <span className="font-mono text-sm">{vehicle.vehicle_code || ''} – {vehicle.license_plate}</span>
         ) : (
@@ -1217,9 +1219,9 @@ export default function Drivers() {
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {activeVehicles?.filter(v => (!v.assigned_driver_id || v.assigned_driver_id === selectedDriver?.id) || v.assignment_type === 'pool').map((vehicle) => (
-                            <SelectItem key={vehicle.id} value={vehicle.id}>
-                              {vehicle.license_plate} ({vehicle.brand})
+                          {activeVehicles?.filter(v => v && ((!v.assigned_driver_id || v.assigned_driver_id === selectedDriver?.id) || v.assignment_type === 'pool')).map((vehicle) => (
+                            <SelectItem key={vehicle?.id} value={vehicle?.id}>
+                              {vehicle?.license_plate || vehicle?.vehicle_code} ({vehicle?.brand || 'N/A'})
                             </SelectItem>
                           ))}
                         </SelectContent>

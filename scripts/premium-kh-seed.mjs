@@ -1,12 +1,12 @@
 /**
- * 🚜 PREMIUM KHÁNH HÒA ELITE SEED (v14.0 - Dual-Track ID synchronization)
+ * 🚜 PREMIUM KHÁNH HÒA ELITE SEED (v15.0 - Standardized Doc ID synchronization)
  * 
  * Target: internal-tenant-phuan
  * 
  * Objectives:
  *  1. TOTAL WIPE for phuan tenant.
  *  2. IDs Standard: Registry (KH/XE/TX/TD xxxx) vs Operations (DH/CD/PC yy-mm-nn).
- *  3. Monthly Resets: Operational sequences reset every month.
+ *  3. Doc IDs Standard: {tenantId}_{collectionName}_{id} (Match data-adapter.ts).
  *  4. High Density: 100% data coverage for all UI columns.
  */
 
@@ -119,8 +119,8 @@ async function wipeTenant(tenantId) {
     }
 }
 
-async function seedV14(tenantId) {
-    console.log(`💎 SEED V14 DUAL-TRACK: ${tenantId}`);
+async function seedV15(tenantId) {
+    console.log(`💎 SEED V15 STANDARD: ${tenantId}`);
     const created_at = new Date().toISOString();
 
     // 1. Categories
@@ -132,7 +132,7 @@ async function seedV14(tenantId) {
         { id: CAT.MISC, name: 'Chi phí khác (Luật, Bốc xếp)' }
     ];
     for (const c of catsData) {
-        await db.collection('expenseCategories').doc(`${tenantId}_${c.id}`).set({
+        await db.collection('expenseCategories').doc(`${tenantId}_expenseCategories_${c.id}`).set({
             ...c, category_code: c.id, category_name: c.name, tenant_id: tenantId
         });
     }
@@ -142,7 +142,8 @@ async function seedV14(tenantId) {
     for (let i = 0; i < CUSTOMER_DATAS.length; i++) {
         const id = `KH${String(i+1).padStart(4, '0')}`;
         const c = CUSTOMER_DATAS[i];
-        await db.collection('customers').doc(`${tenantId}_${id}`).set({
+        const docId = `${tenantId}_customers_${id}`;
+        await db.collection('customers').doc(docId).set({
             id, customer_code: id, customer_name: c.name, tax_code: c.mst,
             address: c.addr, tenant_id: tenantId, created_at,
             customer_type: 'Doanh nghiệp', contact_person: 'Nguyễn Văn A',
@@ -159,7 +160,8 @@ async function seedV14(tenantId) {
     for (let i = 0; i < 20; i++) {
         const id = `XE${String(i+1).padStart(4, '0')}`;
         const model = TRUCK_MODELS[i % TRUCK_MODELS.length];
-        await db.collection('vehicles').doc(`${tenantId}_${id}`).set({
+        const docId = `${tenantId}_vehicles_${id}`;
+        await db.collection('vehicles').doc(docId).set({
             id, vehicle_code: id, license_plate: PLATES[i],
             brand: model.name, vehicle_type: model.type, 
             capacity_tons: model.cap,
@@ -193,7 +195,8 @@ async function seedV14(tenantId) {
     for (let i = 0; i < 15; i++) {
         const id = `TX${String(i+1).padStart(4, '0')}`;
         const data = DRIVER_DATAS[i];
-        await db.collection('drivers').doc(`${tenantId}_${id}`).set({
+        const docId = `${tenantId}_drivers_${id}`;
+        await db.collection('drivers').doc(docId).set({
             id, driver_code: id, full_name: data.name,
             phone: `0905${String(100000 + i).slice(-6)}`,
             email: `tai.xe${i}@phuan.com`,
@@ -217,7 +220,8 @@ async function seedV14(tenantId) {
     for (let i = 0; i < ROUTE_DATAS.length; i++) {
         const id = `TD${String(i+1).padStart(4, '0')}`;
         const r = ROUTE_DATAS[i];
-        await db.collection('routes').doc(`${tenantId}_${id}`).set({
+        const docId = `${tenantId}_routes_${id}`;
+        await db.collection('routes').doc(docId).set({
             id, route_code: id, route_name: r.name,
             origin: r.origin, destination: r.dest,
             distance_km: r.dist, cargo_type: r.cargo, weight_tons: r.weight,
@@ -260,7 +264,8 @@ async function seedV14(tenantId) {
             const isClosed = day < 95; 
 
             // Order
-            await db.collection('transportOrders').doc(`${tenantId}_${orderCode}`).set({
+            const orderDocId = `${tenantId}_transportOrders_${orderCode}`;
+            await db.collection('transportOrders').doc(orderDocId).set({
                 id: orderCode, order_code: orderCode, 
                 customer_id: custIds[day % custIds.length],
                 requested_by_driver_email: `${drvIds[t % drvIds.length]}@phuan.vn`,
@@ -274,7 +279,8 @@ async function seedV14(tenantId) {
             });
 
             // Trip
-            await db.collection('trips').doc(`${tenantId}_${tripCode}`).set({
+            const tripDocId = `${tenantId}_trips_${tripCode}`;
+            await db.collection('trips').doc(tripDocId).set({
                 id: tripCode, trip_code: tripCode, tenant_id: tenantId,
                 vehicle_id: vehIds[(day + t) % vehIds.length],
                 driver_id: drvIds[(day + t) % drvIds.length],
@@ -296,7 +302,8 @@ async function seedV14(tenantId) {
             // Expenses
             if (isClosed) {
                 const pcCode = getNextSeq('PC', currentDay);
-                await db.collection('expenses').doc(`${tenantId}_${pcCode}`).set({
+                const pcDocId = `${tenantId}_expenses_${pcCode}`;
+                await db.collection('expenses').doc(pcDocId).set({
                     id: pcCode, expense_code: pcCode, expense_date: currentDay.toISOString().slice(0, 10),
                     category_id: CAT.FUEL, amount: route.fuel_l * FUEL_PRICE,
                     description: `Chi phí dầu cho chuyến ${tripCode}`,
@@ -312,7 +319,7 @@ async function seedV14(tenantId) {
 async function run() {
     await wipeTenant('internal-tenant-1');
     await wipeTenant(TENANT_ID);
-    await seedV14(TENANT_ID);
+    await seedV15(TENANT_ID);
     console.log('\n🚀 ALL DONE. System is synchronized and professional.');
     process.exit(0);
 }
