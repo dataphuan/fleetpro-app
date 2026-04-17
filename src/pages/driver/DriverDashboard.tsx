@@ -194,7 +194,7 @@ export default function DriverDashboard() {
     }, [linkedDriver?.availability_status]);
 
     // Filter trips assigned to this driver using uid/email/driver-id/driver-code matching.
-    const myActiveTrips = trips.filter((t: any) => 
+    const myActiveTrips = (trips || []).filter((t: any) => 
         (!tenantId || !t.tenant_id || t.tenant_id === tenantId) &&
         (
             t.driver_id === user?.email

@@ -77,22 +77,22 @@ export function QuickTripModal({
   const [sendDriverNotify, setSendDriverNotify] = useState(true);
 
   const selectedVehicle = useMemo(
-    () => vehicles.find((v: any) => String(v.id) === vehicleId),
+    () => vehicles?.find((v: any) => String(v.id) === vehicleId),
     [vehicleId, vehicles]
   );
 
   const selectedRoute = useMemo(
-    () => routes.find((r: any) => String(r.id) === routeId),
+    () => routes?.find((r: any) => String(r.id) === routeId),
     [routeId, routes]
   );
 
   const selectedDriver = useMemo(
-    () => drivers.find((d: any) => String(d.id) === driverId),
+    () => drivers?.find((d: any) => String(d.id) === driverId),
     [driverId, drivers],
   );
 
   const selectedCustomer = useMemo(
-    () => customers.find((c: any) => String(c.id) === customerId),
+    () => customers?.find((c: any) => String(c.id) === customerId),
     [customerId, customers],
   );
 
@@ -136,7 +136,7 @@ export function QuickTripModal({
       return;
     }
 
-    const linkedDriver = drivers.find((d: any) => d.assigned_vehicle_id === selectedVehicle.id);
+    const linkedDriver = drivers?.find((d: any) => d.assigned_vehicle_id === selectedVehicle.id);
     if (linkedDriver) {
       setDriverId(String(linkedDriver.id));
     }

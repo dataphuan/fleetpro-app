@@ -142,7 +142,7 @@ export default function TrackingCenter() {
   const summary = useTripPathSummary(filteredLogs);
 
   const selectedTrip = useMemo(() => {
-    return recentTrips.find((trip: any) => trip.id === effectiveTripId) || null;
+    return (recentTrips || []).find((trip: any) => trip.id === effectiveTripId) || null;
   }, [recentTrips, effectiveTripId]);
 
   const maxRiskScore = useMemo(() => {

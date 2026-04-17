@@ -348,8 +348,7 @@ export default function TripsRevenue() {
 
     // AUTO-CALCULATION LOGIC (Vận tải Việt Nam)
     useEffect(() => {
-        // 1. Calculate Revenue from Route & Weight
-        if (selectedRouteId && cargoWeight && routes) {
+        if (selectedRouteId && cargoWeight && Array.isArray(routes)) {
             const selectedRoute = routes.find(r => r.id === selectedRouteId);
             if (selectedRoute && selectedRoute.base_price) {
                 const calculatedRevenue = selectedRoute.base_price * cargoWeight;
@@ -374,7 +373,7 @@ export default function TripsRevenue() {
             form.setValue('estimated_driver_pay', Math.round(driverPay));
 
             // Fuel Cost: (Dist / 100) * ConsumptionRate * FuelPrice
-            if (vehicleId && vehicles) {
+            if (vehicleId && Array.isArray(vehicles)) {
                 const selectedVehicle = (vehicles as any[]).find(v => v.id === vehicleId);
                 const consumptionRate = selectedVehicle?.fuel_consumption_rate || 20; // Default 20L/100km if not set
                 const fuelPrice = 22000; // Standard VN Diesel Price
@@ -387,8 +386,8 @@ export default function TripsRevenue() {
     // Handle trip selection from Reports page (via sessionStorage)
     useEffect(() => {
         const selectedTripId = sessionStorage.getItem('selectedTripId');
-        if (selectedTripId && trips) {
-            const tripToOpen = trips?.find(t => t.id === selectedTripId);
+        if (selectedTripId && Array.isArray(trips)) {
+            const tripToOpen = trips.find(t => t.id === selectedTripId);
             if (tripToOpen) {
                 // Clear sessionStorage
                 sessionStorage.removeItem('selectedTripId');
