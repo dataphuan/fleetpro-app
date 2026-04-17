@@ -3,14 +3,14 @@ import { z } from 'zod';
 // ID formats
 // ID formats (Hỗ trợ định dạng mới YYMM-NN và định dạng cũ XXXX)
 // ID formats (Global Standard: PREFIX-YYMM-NN)
-export const vehicleIdSchema = z.string().regex(/^(VEH-\d{4}-\d+|VEH\d{4}|XE\d{4}|XE\d{4}-\d+)$/, { message: 'Mã xe sai chuẩn (VD: VEH-2604-01 hoặc XE0001)' });
-export const driverIdSchema = z.string().regex(/^(DRV-\d{4}-\d+|DRV\d{4}|TX\d{4}|TX\d{4}-\d+)$/, { message: 'Mã tài xế sai chuẩn (VD: DRV-2604-01 hoặc TX0001)' });
-export const tripIdSchema = z.string().regex(/^(TRP-\d{4}-\d+|TRP\d{4}|CD\d{4}|CD\d{4}-\d+|LĐX-[\w-]+)$/, { message: 'Mã chuyến sai chuẩn (VD: TRP-2604-01 hoặc CD0001)' });
-export const routeIdSchema = z.string().regex(/^(RT-\d{4}-\d+|RT\d{4}|TD\d{4}|TD\d{4}-\d+)$/, { message: 'Mã tuyến sai chuẩn (VD: RT-2604-01 hoặc TD0001)' });
-export const customerIdSchema = z.string().regex(/^(CUS-\d{4}-\d+|CUS\d{4}|KH\d{4}|KH\d{4}-\d+)$/, { message: 'Mã khách hàng sai chuẩn (VD: CUS-2604-01 hoặc KH0001)' });
-export const orderIdSchema = z.string().regex(/^(ORD-\d{4}-\d+|ORD\d{4}|DH\d{4}|DH\d{4}-\d+)$/, { message: 'Mã đơn hàng sai chuẩn (VD: ORD-2604-01 hoặc DH0001)' });
-export const expenseIdSchema = z.string().regex(/^(EXP-\d{4}-\d+|EXP\d{4}|PC\d{4}|PC\d{4}-\d+)$/, { message: 'Mã phiếu chi sai chuẩn (VD: EXP-2604-01 hoặc PC0001)' });
-export const maintenanceIdSchema = z.string().regex(/^(MNT-\d{4}-\d+|MNT\d{4}|BD\d{4}|BD\d{4}-\d+)$/, { message: 'Mã bảo dưỡng sai chuẩn (VD: MNT-2604-01 hoặc BD0001)' });
+export const vehicleIdSchema = z.string().regex(/^(VEH-(\d{4}-)+\d+|VEH\d{4}|XE\d{4}|XE\d{4}-\d+)$/, { message: 'Mã xe sai chuẩn (VD: VEH-2604-01 hoặc XE0001)' });
+export const driverIdSchema = z.string().regex(/^(DRV-(\d{4}-)+\d+|DRV\d{4}|TX\d{4}|TX\d{4}-\d+)$/, { message: 'Mã tài xế sai chuẩn (VD: DRV-2604-01 hoặc TX0001)' });
+export const tripIdSchema = z.string().regex(/^(TRP-(\d{4}-)+\d+|TRP\d{4}|CD\d{4}|CD\d{4}-\d+|LĐX-[\w-]+)$/, { message: 'Mã chuyến sai chuẩn (VD: TRP-2604-01 hoặc CD0001)' });
+export const routeIdSchema = z.string().regex(/^(RT-(\d{4}-)+\d+|RT\d{4}|TD\d{4}|TD\d{4}-\d+)$/, { message: 'Mã tuyến sai chuẩn (VD: RT-2604-01 hoặc TD0001)' });
+export const customerIdSchema = z.string().regex(/^(CUS-(\d{4}-)+\d+|CUS\d{4}|KH\d{4}|KH\d{4}-\d+)$/, { message: 'Mã khách hàng sai chuẩn (VD: CUS-2604-01 hoặc KH0001)' });
+export const orderIdSchema = z.string().regex(/^(ORD-(\d{4}-)+\d+|ORD\d{4}|DH\d{4}|DH\d{4}-\d+)$/, { message: 'Mã đơn hàng sai chuẩn (VD: ORD-2604-01 hoặc DH0001)' });
+export const expenseIdSchema = z.string().regex(/^(EXP-(\d{4}-)+[\w\d-]+|EXP\d{4}|PC\d{4}|PC\d{4}-\d+)$/, { message: 'Mã phiếu chi sai chuẩn (VD: EXP-2604-01 hoặc PC0001)' });
+export const maintenanceIdSchema = z.string().regex(/^(MNT-(\d{4}-)+\d+|MNT\d{4}|BD\d{4}|BD\d{4}-\d+)$/, { message: 'Mã bảo dưỡng sai chuẩn (VD: MNT-2604-01 hoặc BD0001)' });
 
 
 // Absolute Financial Sanity

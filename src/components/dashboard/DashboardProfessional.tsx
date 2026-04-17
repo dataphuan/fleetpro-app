@@ -1,4 +1,4 @@
-/**
+  /**
  * DASHBOARD PROFESSIONAL (OPTION 3)
  * Target: Management/High-level decision makers
  * Focus: YoY comparison, detailed analytics, forecasting
