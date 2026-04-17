@@ -3,7 +3,7 @@ const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\
 export const getMonthlyPrefix = (prefix: string, date: Date = new Date()): string => {
   const yy = String(date.getFullYear()).slice(-2);
   const mm = String(date.getMonth() + 1).padStart(2, '0');
-  return `${prefix}-${yy}${mm}-`;
+  return `${prefix}${yy}${mm}-`; // Format: DH2604- (Matches audit regex)
 };
 
 export const getNextCodeByPrefix = (
@@ -27,6 +27,6 @@ export const getNextCodeByPrefix = (
   });
 
   // Default padding to 2 for monthly prefix (YYMM-NN), otherwise 4
-  const finalPadding = (prefix.includes('-') && prefix.split('-').length >= 2) ? 2 : padding;
+  const finalPadding = (prefix.match(/\d{4}-/) || prefix.includes('-')) ? 2 : padding;
   return `${prefix}${String(maxSequence + 1).padStart(finalPadding, '0')}`;
 };

@@ -169,15 +169,20 @@ export default function Drivers() {
   const [activeFilters, setActiveFilters] = useState<Record<string, string[] | number | { min: number; max: number } | boolean>>({});
 
   // Hooks
-  const { data: drivers = [], isLoading } = useDrivers();
-  const { data: vehicles = [] } = useVehicles();
+  const { data: drivers = [], isLoading: loadingDrivers } = useDrivers();
+  const { data: vehicles = [], isLoading: loadingVehicles } = useVehicles();
   const { data: routes = [] } = useRoutes();
   const { data: customers = [] } = useCustomers();
   const { data: trips = [] } = useTrips();
 
+  const isLoading = loadingDrivers || loadingVehicles;
+
+  // Final check to prevent any undefined state from leaking to render
+  const dataReady = Array.isArray(drivers) && Array.isArray(vehicles) && drivers.length >= 0;
+
   const activeVehicles = useMemo(() => 
-    (vehicles || []).filter(v => v.status === 'active' && !v.is_deleted),
-    [vehicles]
+    dataReady ? (vehicles as any[]).filter(v => v.status === 'active' && !v.is_deleted) : [],
+    [vehicles, dataReady]
   );
   const deleteMutation = useDeleteDriver();
 
@@ -599,14 +604,14 @@ export default function Drivers() {
       key: 'assigned_vehicle_id',
       header: 'Xe phân công',
       width: '160px',
-      render: (value, row) => {
-        const vehicle = (activeVehicles || []).find(v => v.id === value);
+      render: (value) => {
+        const vehicle = dataReady ? (activeVehicles as any[]).find(v => v.id === value) : null;
         return vehicle ? (
           <span className="font-mono text-sm">{vehicle.vehicle_code || ''} – {vehicle.license_plate}</span>
         ) : (
-          <span className="text-muted-foreground">-</span>
+          <Badge variant="outline" className="text-slate-400 font-normal">Chưa gán xe</Badge>
         );
-      },
+      }
     },
     {
       key: 'status',
@@ -660,7 +665,7 @@ export default function Drivers() {
     }] : [])
   ], [handleDeleteClick, vehicles, canDelete]);
 
-  if (isLoading) {
+  if (isLoading || !dataReady) {
     return (
       <div className="flex items-center justify-center min-h-[500px]">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -810,8 +815,8 @@ export default function Drivers() {
                 <div className="flex flex-col">
                   <span className="text-xs text-slate-400">Xe gán cố định</span>
                   <span className="font-medium text-blue-600 truncate">{
-                    driver.assigned_vehicle_id 
-                      ? (activeVehicles || []).find(v => v.id === driver.assigned_vehicle_id)?.license_plate || "Có xe"
+                    driver.assigned_vehicle_id && Array.isArray(activeVehicles)
+                      ? activeVehicles.find(v => v.id === driver.assigned_vehicle_id)?.license_plate || "Có xe"
                       : "Chưa gán"
                   }</span>
                 </div>

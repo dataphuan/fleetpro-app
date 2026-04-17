@@ -450,7 +450,9 @@ export default function Dispatch() {
                           onClick={async (e) => {
                             e.stopPropagation();
                             try {
-                              const newCode = trip.trip_code?.startsWith('LĐX') ? generateTripCode() : trip.trip_code;
+                              const newCode = (trip.trip_code?.startsWith('LĐX') || !trip.trip_code) 
+                                ? generateTripCode((trips || []).map((t: any) => t.trip_code)) 
+                                : trip.trip_code;
                               await updateTrip({ id: trip.id, updates: { 
                                 status: 'confirmed', 
                                 trip_code: newCode,
